@@ -1,27 +1,40 @@
-export type Vode<S> = FullVode<S | any> | JustTagVode | SelfClosingVode<S> | NoPropsVode<S | any>;
-export type ChildVode<S> = Vode<S> | TextVode | NoVode;
-export type FullVode<S> = [tag: Tag, props: Props<S>, ...children: ChildVode<S>[]];
-export type SelfClosingVode<S> = [tag: Tag, props: Props<S> | ChildVode<S>];
-export type NoPropsVode<S> = [tag: Tag, ...children: ChildVode<S>[]];
+export type Vode<S> = FullVode<S> | JustTagVode | NoPropsVode<S>;
+export type ChildVode<S> = Vode<S> | TextVode | NoVode | Component<S>;
+export type FullVode<S> = [tag: Tag, props: Props<S> | ChildVode<S>, ...children: ChildVode<S>[]];
+export type NoPropsVode<S> = [tag: Tag, ...children: ChildVode<S>[]] | string[];
 export type JustTagVode = [tag: Tag];
 export type TextVode = string;
-export type NoVode = undefined | null | false;
-export type AttachedVode<S> = (FullVode<S> | SelfClosingVode<S> | NoPropsVode<S> | JustTagVode) & { node: ChildNode, id: string } | Text & { node?: never, id?: never };
+export type NoVode = undefined | null | false | void;
+export type AttachedVode<S> = (FullVode<S> | NoPropsVode<S> | JustTagVode) & { node: ChildNode, id: string } | Text & { node?: never, id?: never };
 
-export type Patchable<S> = S & { patch: Dispatch<S> };
+export type Patchable<S> = S & { patch: Dispatch<Patch<S>> };
+export type DeepPartial<S> = { [P in keyof S]?: S[P] extends Array<infer I> ? Array<Patch<I>> : Patch<S[P]> };
 
 export type Dispatch<S> = (action: Patch<S>) => void;
-export type Patch<S> = Partial<S> | Effect<S> | AwaitablePatch<S> | undefined | null | false | void;
+
+
+export type Patch<S> =
+    | S
+    | DeepPartial<S>
+    | Effect<S>
+    | AwaitablePatch<S>
+    | undefined | null | false | void;
+
+export type Effect<S, P = any> =
+    | (() => Patch<S>)
+    | EffectFunction<S>
+    | EffectArray<S>
+    | EffectFunctionP<S, P>
+    | EffectArrayP<S, P>;
+
+export type EffectFunction<S> = (state: S, ...payload: any[]) => Patch<S>;
+export type EffectArray<S> = [transformer: EffectFunction<S>, ...payload: any[]];
+export type EffectFunctionP<S, P> = (state: S, payload: P) => Patch<S>;
+export type EffectArrayP<S, P> = [transformer: EffectFunction<S>, payload: P];
 
 export type AwaitablePatch<S> = Promise<Patch<S>> | Generator<Patch<S>, unknown, void> | AsyncGenerator<Patch<S>, unknown, void>;
 
-export type Effect<S, P = any> =
-    | EffectFunction<S, P>
-    | EffectArray<S, P>;
-
-export type EffectFunction<S, P = any> = (state: S, ...payload: P[]) => Patch<S>;
-export type EffectArray<S, P = any> = [transformer: EffectFunction<S, P>, ...payload: P[]];
-
+/** HTML, SVG or MathML tag name */
 export type Tag = keyof (HTMLElementTagNameMap & SVGElementTagNameMap & MathMLElementTagNameMap);
 
 export type Props<S> = Partial<
@@ -36,8 +49,17 @@ export type Props<S> = Partial<
     & {
         [_: string]: unknown,
         class?: ClassProp,
-        style?: StyleProp
+        style?: StyleProp,
+        /** called after the element was attached */
+        onMount?: MountFunction<S>,
+        /** called before the element is detached */
+        onUnmount?: MountFunction<S>,
     };
+
+type MountFunction<S> =
+    | ((s: S, node: HTMLElement) => Patch<S>)
+    | ((s: S, node: SVGSVGElement) => Patch<S>)
+    | ((s: S, node: MathMLElement) => Patch<S>)
 
 export type ClassProp =
     | boolean
@@ -45,72 +67,285 @@ export type ClassProp =
     | undefined
     | null
     | Record<string, boolean | undefined | null>
-    | ClassProp[]
+    | string[]
 
 export type StyleProp = Record<number, never> & {
     [K in keyof CSSStyleDeclaration]?: CSSStyleDeclaration[K] | null
 }
 
 export type EventActions<S> = {
-    [K in keyof EventsMap]: Effect<S, EventsMap[K]>
+    [K in keyof EventsMap]: Patch<S> | undefined | null | false
 }
 
 type EventsMap =
     & { [K in keyof HTMLElementEventMap as `on${K}`]: HTMLElementEventMap[K] }
     & { [K in keyof WindowEventMap as `on${K}`]: WindowEventMap[K] }
+    & { [K in keyof SVGElementEventMap as `on${K}`]: SVGElementEventMap[K] }
     & { onsearch: Event }
 
+type PropertyValue<S> = string | boolean | null | undefined | StyleProp | ClassProp | Patch<S> | void;
 
-type PropertyValue = string | boolean | null | undefined | StyleProp | ClassProp | EventListenerOrEventListenerObject;
-
-type RootNode<S> = HTMLElement & Partial<{
+export type ContainerNode<S> = HTMLElement & {
     state: S,
     vode: AttachedVode<S>,
     patch: Dispatch<S>,
     render: () => void,
-    q: Partial<S>[]
+    q: Patch<S>[]
     isRendering: boolean,
     lastRender: DOMHighResTimeStamp,
-}>;
+    stats: { renderTime: number, renderCount: number, queueLengthBeforeRender: number, queueLengthAfterRender: number },
+};
 
-function _props<S>(vode: ChildVode<S> | AttachedVode<S>): Props<S> | undefined {
+type KeyPath<ObjectType extends object> =
+    { [Key in keyof ObjectType & (string | number)]: ObjectType[Key] extends object
+        ? `${Key}` | `${Key}.${KeyPath<ObjectType[Key]>}`
+        : `${Key}`
+    }[keyof ObjectType & (string | number)];
+
+/** create a vode for typed state
+ * 
+ * overloads:
+ * - just a tag: `v("div") // => ["div"]`
+ * - tag and props: `v("div", { class: "foo" }) // => ["div", { class: "foo" }]`
+ * - tag, props and children: `v("div", { class: "foo" }, ["span", "bar"]) // => ["div", { class: "foo" }, ["span", "bar"]]`
+ * - identity: `v(["div", ["span", "bar"]]) // => ["div", ["span", "bar"]]`
+ */
+export function vode<S extends object | unknown>(tag: Tag | Vode<S>, props?: Props<S> | ChildVode<S>, ...children: ChildVode<S>[]): Vode<S> {
+    if (Array.isArray(tag)) {
+        return tag;
+    }
+    if (props) {
+        return [tag, props as Props<S>, ...children];
+    }
+    return [tag, ...children];
+}
+
+/** get properties of a vode, if there are any */
+export function props<S extends object | unknown>(vode: ChildVode<S> | AttachedVode<S>): Props<S> | undefined {
     if (Array.isArray(vode)
         && vode.length > 1
         && vode[1]
-        && typeof vode[1] !== "string"
         && !Array.isArray(vode[1])
-        && (vode[1] as unknown as Node).nodeType !== Node.TEXT_NODE) {
-        return vode[1];
+    ) {
+        if (
+            typeof vode[1] === "object"
+            && (vode[1] as unknown as Node).nodeType !== Node.TEXT_NODE
+        ) {
+            return vode[1];
+        }
     }
 
     return undefined;
 }
+
+export function mergeClass(a: ClassProp, b: ClassProp): ClassProp {
+    if (!a) return b;
+    if (!b) return a;
+
+    if (typeof a === "string" && typeof b === "string") {
+        const aSplit = a.split(" ");
+        const bSplit = b.split(" ");
+        const classSet = new Set([...aSplit, ...bSplit]);
+        return Array.from(classSet).join(" ").trim();
+    }
+    else if (typeof a === "string" && Array.isArray(b)) {
+        const classSet = new Set([...b, ...a.split(" ")]);
+        return Array.from(classSet).join(" ").trim();
+    }
+    else if (Array.isArray(a) && typeof b === "string") {
+        const classSet = new Set([...a, ...b.split(" ")]);
+        return Array.from(classSet).join(" ").trim();
+    }
+    else if (Array.isArray(a) && Array.isArray(b)) {
+        const classSet = new Set([...a, ...b]);
+        return Array.from(classSet).join(" ").trim();
+    }
+    else if (typeof a === "string" && typeof b === "object") {
+        return { [a]: true, ...b };
+    }
+    else if (typeof a === "object" && typeof b === "string") {
+        return { ...a, [b]: true };
+    }
+    else if (typeof a === "object" && typeof b === "object") {
+        return { ...a, ...b };
+    } else if (typeof a === "object" && Array.isArray(b)) {
+        const aa = { ...a };
+        for (const item of b as string[]) {
+            (<Record<string, boolean | null | undefined>>aa)[item] = true;
+        }
+        return aa;
+    } else if (Array.isArray(a) && typeof b === "object") {
+        const aa: Record<string, any> = {};
+        for (const item of a as string[]) {
+            aa[item] = true;
+        }
+        for (const bKey of (<Record<string, any>>b).keys) {
+            aa[bKey] = (<Record<string, boolean | null | undefined>>b)[bKey];
+        }
+        return b;
+    }
+
+    throw new Error(`cannot merge classes of ${a} (${typeof a}) and ${b} (${typeof b})`);
+}
+
+export function patchProps<S extends object | unknown>(vode: Vode<S>, props: Props<S>): void {
+    if (!Array.isArray(vode)) return;
+
+    if (vode.length > 1) {
+        if (!Array.isArray(vode[1]) && typeof vode[1] === "object") {
+            vode[1] = merge(vode[1], props);
+            return;
+        }
+
+        if (childCount(vode) > 0) {
+            (<FullVode<S>>vode).push(null);
+        }
+        for (let i = vode.length - 1; i > 0; i--) {
+            if (i > 1) vode[i] = vode[i - 1];
+        }
+        vode[1] = props;
+    } else {
+        (<FullVode<S>>vode).push(props);
+    }
+}
+
+/** get a slice of all children of a vode, if there are any */
+export function children<S extends object | unknown>(vode: ChildVode<S> | AttachedVode<S>): ChildVode<S>[] | undefined {
+    const start = childrenStart(vode);
+    if (start > 0) {
+        return (<Vode<S>>vode).slice(start) as Vode<S>[];
+    }
+
+    return undefined;
+}
+
+/**  */
+export function childrenStart<S extends object | unknown>(vode: ChildVode<S> | AttachedVode<S>): number {
+    if (props(vode)) {
+        return 2;
+    } else {
+        return 1;
+    }
+}
+
+/** html tag of the vode or #text if it is a text node */
+export function tag<S extends object | unknown>(v: Vode<S> | TextVode | NoVode | AttachedVode<S>): Tag | "#text" | undefined {
+    return !!v ? (Array.isArray(v)
+        ? v[0] : (typeof v === "string" || (<any>v).nodeType === Node.TEXT_NODE)
+            ? "#text" : undefined) as Tag
+        : undefined;
+}
+
+export const childCount = <S>(vode: Vode<S>) => vode.length - childrenStart(vode);
+
+export function child<S>(vode: Vode<S>, index: number): ChildVode<S> | undefined {
+    return vode[index + childrenStart(vode)] as ChildVode<S>;
+}
+
+/** pass an object whose type determines the initial state */
+export const createState = <S>(state: S): Patchable<S> => state as Patchable<S>;
+
 /**
- * merge multiple props into one, applying from left to right
- * @param p props to merge
- * @returns merged props
+ * create a vode app inside a container element
+ * @param container will use this container as root and places the result of the dom function and further renderings in it
+ * @param initialState @see createState
+ * @param dom creates the initial dom from the state and is called on every render
+ * @param initialPatches variadic list of patches that are applied after the first render
  */
-export function props<S>(first: Props<S>, ...p: Props<S>[]): Props<S> {
+export function app<S>(container: HTMLElement, initialState: Omit<S, "patch">, dom: Component<S>, ...initialPatches: Patch<S>[]) {
+    const root = container as ContainerNode<S>;
+    root.stats = { renderTime: 0, renderCount: 0, queueLengthBeforeRender: 0, queueLengthAfterRender: 0 };
+
+    Object.defineProperty(initialState, "patch", {
+        enumerable: false, configurable: true,
+        writable: false, value: async (action: Patch<S>) => {
+            if (!action) return;
+
+            if ((action as AsyncGenerator<Patch<S>, unknown, void>)?.next) {
+                const generator = action as AsyncGenerator<Patch<S>, unknown, void>;
+                for await (const value of generator) {
+                    root.patch!(value);
+                }
+            } else if ((action as Promise<S>).then) {
+                const nextState = await (action as Promise<S>);
+                root.patch!(<Patch<S>>nextState);
+            } else if (Array.isArray(action)) {
+                if (typeof action[0] === "function") {
+                    if (action.length > 1)
+                        root.patch!(action[0](root.state! as Patchable<S>, ...(action as any[]).slice(1)));
+                    else root.patch!(action[0](root.state! as Patchable<S>));
+                } else {
+                    for (const patch of action) {
+                        root.patch!(patch);
+                    }
+                }
+            } else if (typeof action === "function") {
+                root.patch!((<EffectFunction<S>>action)(root.state as Patchable<S>));
+            } else {
+                root.q!.push(<Patch<S>>action);
+                if (!root.isRendering) root.render!();
+            }
+        }
+    });
+
+    Object.defineProperty(root, "render", {
+        enumerable: false, configurable: true,
+        writable: false, value: () => requestAnimationFrame((timestamp) => {
+            if (root.isRendering || root.lastRender === timestamp || root.q!.length === 0) return;
+            root.isRendering = true;
+            const sw = Date.now();
+            try {
+                root.lastRender = timestamp;
+                root.stats.queueLengthBeforeRender = root.q!.length;
+
+                while (root.q!.length > 0) {
+                    const patch = root.q!.shift();
+                    mergeState(root.state, patch);
+                }
+                root.vode = render(root.state, root.patch, container, 0, root.vode, dom(root.state))!;
+            } finally {
+                root.isRendering = false;
+                root.stats.renderCount++;
+                root.stats.renderTime = Date.now() - sw;
+                root.stats.queueLengthAfterRender = root.q!.length;
+                if (root.q!.length > 0) {
+                    root.render!();
+                }
+            }
+        })
+    });
+
+    root.patch = (<Patchable<any>>initialState).patch;
+    root.state = <S>initialState;
+    root.q = [];
+    const initialVode = dom(<S>initialState);
+    root.vode = <AttachedVode<S>>initialVode;
+    root.vode = render(<S>initialState, root.patch!, container, 0, undefined, initialVode)!;
+
+    for (const effect of initialPatches) {
+        root.patch!(effect);
+    }
+
+    return root.patch;
+}
+
+export type Component<S> = ((s: S) => Vode<S>) | ((s: S) => Component<S>);
+
+
+/** for a type safe way to create a deeply partial patch object or effect */
+export function patch<S>(p: DeepPartial<S> | Effect<S> | undefined | null | false | void): typeof p { return p; }
+
+/** merge multiple objects into one, applying from left to right
+ * @param first object to merge
+ * @returns merged object
+ */
+export function merge(first?: any, ...p: any[]): any {
     first = mergeState({}, first);
     for (const pp of p) {
         if (!pp) continue;
         first = mergeState(first, pp);
     }
-
-    return first;
-}
-
-function children<S>(vode: ChildVode<S> | AttachedVode<S>): ChildVode<S>[] | undefined {
-    if (Array.isArray(vode) && vode.length > 1) {
-        if ((typeof vode[1] === "string" || Array.isArray(vode[1]) || (vode[1] as unknown as Text)?.nodeType === Node.TEXT_NODE)) {
-            return vode.slice(1) as Vode<S>[];
-        } else if (vode.length > 2) {
-            return vode.slice(2) as Vode<S>[];
-        }
-    }
-
-
-    return undefined;
+    return first!;
 }
 
 function classString(classProp: ClassProp): string {
@@ -125,15 +360,48 @@ function classString(classProp: ClassProp): string {
     }
 }
 
-function isNaturalVode(x: ChildVode<any>) {
+export function isNaturalVode(x: ChildVode<any>) {
     return Array.isArray(x) && x.length > 0 && typeof x[0] === "string";
 }
 
-function isTextVode(x: ChildVode<any>) {
+export function isTextVode(x: ChildVode<any>) {
     return typeof x === "string" || (<Text><unknown>x)?.nodeType === Node.TEXT_NODE;
 }
 
-function render<S>(patch: Dispatch<S>, oldVode: AttachedVode<S> | undefined, newVode: ChildVode<S>, id: string): AttachedVode<S> | undefined {
+function unwrap<S>(c: Component<S> | Vode<S>, s: S): Vode<S> {
+    if (typeof c === "function") {
+        return unwrap(c(s), s);
+    } else {
+        return c;
+    }
+}
+
+/** memoization of the given component or props (compare array is compared element by element (===) with the previous render) */
+export function memo<S extends object | unknown>(compare: any[], componentOrProps: Component<S> | ((s: S) => Props<S>)): typeof componentOrProps extends ((s: S) => Props<S>) ? ((s: S) => Props<S>) : Component<S> {
+    (<any>componentOrProps).__memo = compare;
+    return componentOrProps as typeof componentOrProps extends ((s: S) => Props<S>) ? ((s: S) => Props<S>) : Component<S>;
+}
+
+function remember<S>(state: S, present: any, past: any): string | NoVode | Vode<S> | AttachedVode<S> {
+    if (typeof present !== "function")
+        return present;
+
+    const presentMemo = present?.__memo;
+    const pastMemo = past?.__memo;
+
+    if (Array.isArray(presentMemo)
+        && Array.isArray(pastMemo)
+        && presentMemo.length === pastMemo.length
+        && presentMemo.every((x, i) => x === pastMemo[i])) {
+        return past;
+    }
+    const newRender = unwrap(present, state);
+    if (typeof newRender === "object") (<any>newRender).__memo = present?.__memo;
+    return newRender;
+}
+
+function render<S>(state: S, patch: Dispatch<S>, parent: ChildNode, childIndex: number, oldVode: AttachedVode<S> | undefined, newVode: ChildVode<S>, svg?: boolean): AttachedVode<S> | undefined {
+    newVode = remember(state, newVode, oldVode) as ChildVode<S>;
     if (newVode === oldVode || (!oldVode && !newVode)) {
         return oldVode;
     }
@@ -156,7 +424,9 @@ function render<S>(patch: Dispatch<S>, oldVode: AttachedVode<S> | undefined, new
     const oldIsText = (oldVode as Text)?.nodeType === Node.TEXT_NODE;
     const oldNode: ChildNode | undefined = oldIsText ? oldVode as Text : oldVode?.node;
 
+    // falsy|text|element(A) -> undefined 
     if (!newVode) {
+        (<any>oldNode)?.onUnmount && patch((<any>oldNode).onUnmount(oldNode));
         oldNode?.remove();
         return undefined;
     }
@@ -167,73 +437,93 @@ function render<S>(patch: Dispatch<S>, oldVode: AttachedVode<S> | undefined, new
             (<Text>oldNode).textContent = <string>newVode;
         return oldVode;
     }
-    // null|element -> text
+    // falsy|element -> text
     if (isText && (!oldNode || !oldIsText)) {
         const text = document.createTextNode(newVode as string)
-        oldNode?.replaceWith(text);
+        if (oldNode) {
+            (<any>oldNode).onUnmount && patch((<any>oldNode).onUnmount(oldNode));
+            oldNode.replaceWith(text);
+        } else {
+            parent.appendChild(text);
+        }
 
         return text as Text;
     }
 
-    // null|text|element(A) -> element(B) 
-    if (isNode && (!oldNode || oldIsText || (<Vode<S>>oldVode)[0] !== newVode[0])) {
-        const newNode: ChildNode = document.createElement(newVode[0]);
-        (<AttachedVode<S>>newVode).id = id;
+    // falsy|text|element(A) -> element(B) 
+    if (isNode && (!oldNode || oldIsText || (<Vode<S>>oldVode)[0] !== (<Vode<S>>newVode)[0])) {
+        svg = svg || (<Vode<S>>newVode)[0] === "svg";
+        const newNode: ChildNode = svg
+            ? document.createElementNS("http://www.w3.org/2000/svg", (<Vode<S>>newVode)[0])
+            : document.createElement((<Vode<S>>newVode)[0]);
         (<AttachedVode<S>>newVode).node = newNode;
 
-        const properties = _props(newVode);
-        patchProperties(patch, newNode, id, undefined, properties);
+        const newvode = <Vode<S>>newVode;
+        if (1 in newvode) {
+            newvode[1] = remember(state, newvode[1], undefined) as Vode<S>;
+        }
+
+        const properties = props(newVode);
+        patchProperties(patch, newNode, undefined, properties, svg);
+
+        if (oldNode) {
+            (<any>oldNode).onUnmount && patch((<any>oldNode).onUnmount(oldNode));
+            oldNode.replaceWith(newNode);
+        } else {
+            if (parent.childNodes[childIndex]) {
+                parent.insertBefore(newNode, parent.childNodes[childIndex]);
+            } else {
+                parent.appendChild(newNode);
+            }
+        }
 
         const newChildren = children(newVode);
         if (newChildren) {
             for (let i = 0; i < newChildren.length; i++) {
                 const child = newChildren[i];
-                const attached = render(patch, undefined, child, id + "-" + i);
-
-                if (attached) {
-                    if (isTextVode(child))
-                        (<AttachedVode<S>>newVode).node!.appendChild(attached as Text);
-                    else
-                        (<AttachedVode<S>>newVode).node!.appendChild(attached.node!);
-                }
+                const attached = render(state, patch, newNode, i, undefined, child, svg);
                 (<Vode<S>>newVode!)[properties ? i + 2 : i + 1] = <Vode<S>>attached;
             }
         }
 
-        oldNode?.replaceWith(newNode);
-
+        (<any>newNode).onMount && patch((<any>newNode).onMount(newNode));
         return <AttachedVode<S>>newVode;
     }
 
     //element(A) -> element(A) 
-    if (!oldIsText && isNode && (<Vode<S>>oldVode)[0] === newVode[0]) {
-        (<AttachedVode<S>>newVode).id = id;
+    if (!oldIsText && isNode && (<Vode<S>>oldVode)[0] === (<Vode<S>>newVode)[0]) {
+        svg = svg || (<Vode<S>>newVode)[0] === "svg";
         (<AttachedVode<S>>newVode).node = oldNode;
-        const properties = _props(newVode);
-        patchProperties(patch, oldNode!, id, oldVode && _props(oldVode), properties);
+
+        const newvode = <Vode<S>>newVode;
+        const oldvode = <Vode<S>>oldVode;
+
+        let hasProps = false;
+        if ((<any>newvode[1])?.__memo) {
+            const prev = newvode[1] as any;
+            newvode[1] = remember(state, newvode[1], oldvode[1]) as Vode<S>;
+            if (prev !== newvode[1]) {
+                const properties = props(newVode);
+                patchProperties(patch, oldNode!, props(oldVode), properties, svg);
+                hasProps = !!properties;
+            }
+        }
+        else {
+            const properties = props(newVode);
+            patchProperties(patch, oldNode!, props(oldVode), properties, svg);
+            hasProps = !!properties;
+        }
 
         const newKids = children(newVode);
         const oldKids = children(oldVode) as AttachedVode<S>[];
         if (newKids) {
-            let before: ChildNode | undefined = undefined;
             for (let i = 0; i < newKids.length; i++) {
                 const child = newKids[i];
                 const oldChild = oldKids && oldKids[i];
 
-                const attached = render(patch, oldChild, child, id + "-" + i);
+                const attached = render(state, patch, oldNode!, i, oldChild, child, svg);
                 if (attached) {
-                    if (!oldChild) {
-                        const node = isTextVode(child) ? <Text>attached : attached.node;
-                        if (before) {
-                            before.after(node!);
-                        } else if (i === 0 && (<AttachedVode<S>>newVode).node?.firstChild) {
-                            (<AttachedVode<S>>newVode).node!.firstChild!.before(node!);
-                        } else {
-                            (<AttachedVode<S>>newVode).node!.appendChild(node!);
-                        }
-                    }
-                    before = attached.node;
-                    (<Vode<S>>newVode)[properties ? i + 2 : i + 1] = <Vode<S>>attached;
+                    (<Vode<S>>newVode)[hasProps ? i + 2 : i + 1] = <Vode<S>>attached;
                 }
             }
             for (let i = newKids.length; oldKids && i < oldKids.length; i++) {
@@ -256,206 +546,126 @@ function render<S>(patch: Dispatch<S>, oldVode: AttachedVode<S> | undefined, new
     return undefined;
 }
 
-function patchProperties<S>(patch: Dispatch<S>, node: ChildNode, id: string, oldProps?: Props<S>, newProps?: Props<S>) {
+function patchProperties<S>(patch: Dispatch<S>, node: ChildNode, oldProps?: Props<S>, newProps?: Props<S>, isSvg?: boolean) {
     if (!newProps && !oldProps) return;
-    if (!oldProps) {
-        for (let key in newProps) {
-            const newValue = newProps[key as keyof Props<S>] as PropertyValue;
-            newProps[key as keyof Props<S>] = patchProperty(patch, <Element>node, key, undefined, newValue)
+    if (!oldProps) {         // set new props
+        for (const key in newProps) {
+            const newValue = newProps[key as keyof Props<S>] as PropertyValue<S>;
+            newProps[key as keyof Props<S>] = patchProperty(patch, <Element>node, key, undefined, newValue, isSvg);
         }
-    }
-    else if (newProps) {
-        for (const key in { ...oldProps, ...newProps }) {
-            const oldValue = oldProps[key as keyof Props<S>] as PropertyValue;
-            const newValue = newProps[key as keyof Props<S>] as PropertyValue;
+    } else if (newProps) {   // clear old props and set new in one loop
+        const combinedKeys = new Set([...Object.keys(oldProps), ...Object.keys(newProps)]);
+        for (const key of combinedKeys) {
+            const oldValue = oldProps[key as keyof Props<S>] as PropertyValue<S>;
+            const newValue = newProps[key as keyof Props<S>] as PropertyValue<S>;
             if (key[0] === "o" && key[1] === "n") {
-                const oldEvent = node["__" + key];
+                const oldEvent = (<any>node)["__" + key];
                 if ((oldEvent && oldEvent !== newValue) || (!oldEvent && oldValue !== newValue)) {
-                    newProps[key as keyof Props<S>] = patchProperty(patch, <Element>node, key, oldValue, newValue);
+                    newProps[key as keyof Props<S>] = patchProperty(patch, <Element>node, key, oldValue, newValue, isSvg);
                 }
-                node["__" + key] = newValue;
+                (<any>node)["__" + key] = newValue;
             }
             else if (oldValue !== newValue) {
-                newProps[key as keyof Props<S>] = patchProperty(patch, <Element>node, key, oldValue, newValue);
+                newProps[key as keyof Props<S>] = patchProperty(patch, <Element>node, key, oldValue, newValue, isSvg);
             }
         }
+    } else {                 //delete all old props, cause there are no new props
+        for (const key in oldProps) {
+            const oldValue = oldProps[key as keyof Props<S>] as PropertyValue<S>;
+            oldProps[key as keyof Props<S>] = patchProperty(patch, <Element>node, key, oldValue, undefined, isSvg);
+        }
     }
-
 }
 
-function patchProperty<S>(patch: Dispatch<S>, node: ChildNode, key: string | keyof ElementEventMap, oldValue?: PropertyValue, newValue?: PropertyValue) {
+function patchProperty<S>(patch: Dispatch<S>, node: ChildNode, key: string | keyof ElementEventMap, oldValue?: PropertyValue<S>, newValue?: PropertyValue<S>, isSvg?: boolean) {
     if (key === "style") {
         if (!newValue) {
             (node as HTMLElement).style.cssText = "";
         } else if (oldValue) {
             for (let k in { ...(oldValue as Props<S>), ...(newValue as Props<S>) }) {
-                if (!oldValue || newValue[k as keyof PropertyValue] !== oldValue[k as keyof PropertyValue]) {
-                    (node as HTMLElement).style[k as keyof PropertyValue] = newValue[k as keyof PropertyValue];
+                if (!oldValue || newValue[k as keyof PropertyValue<S>] !== oldValue[k as keyof PropertyValue<S>]) {
+                    (node as HTMLElement).style[k as keyof PropertyValue<S>] = newValue[k as keyof PropertyValue<S>];
                 }
-                else if (oldValue[k as keyof PropertyValue] && !newValue[k as keyof PropertyValue]) {
-                    (<any>(node as HTMLElement).style)[k as keyof PropertyValue] = undefined;
+                else if (oldValue[k as keyof PropertyValue<S>] && !newValue[k as keyof PropertyValue<S>]) {
+                    (<any>(node as HTMLElement).style)[k as keyof PropertyValue<S>] = undefined;
                 }
             }
         } else {
             for (let k in (newValue as Props<S>)) {
-                (node as HTMLElement).style[k as keyof PropertyValue] = newValue[k as keyof PropertyValue];
+                (node as HTMLElement).style[k as keyof PropertyValue<S>] = newValue[k as keyof PropertyValue<S>];
             }
         }
     } else if (key === "class") {
-        const newClass = classString(newValue as ClassProp);
-        if ((<HTMLElement>node).className !== newClass) {
-            (<HTMLElement>node).className = newClass;
+        if (isSvg) {
+            if (newValue) {
+                const newClass = classString(newValue as ClassProp);
+                (<SVGSVGElement>node).classList.value = newClass;
+            } else {
+                (<SVGSVGElement>node).classList.value = '';
+            }
+        } else {
+            if (newValue) {
+                const newClass = classString(newValue as ClassProp);
+                (<HTMLElement>node).className = newClass;
+            } else {
+                (<HTMLElement>node).className = '';
+            }
         }
     } else if (key[0] === "o" && key[1] === "n") {
         if (newValue) {
+            let eventHandler: Function | null = null;
             if (typeof newValue === "function") {
-                const action = newValue as Function as EffectFunction<S>;
-                newValue = (evt) => patch([action, evt]);
-            } else if (Array.isArray(newValue) && typeof newValue[0] === "function") {
+                const action = newValue as EffectFunction<S>;
+                eventHandler = (evt: Event) => patch([action, evt]);
+            } else if (Array.isArray(newValue)) {
                 const arr = (newValue as Array<any>);
                 const action = newValue[0] as EffectFunction<S>;
                 if (arr.length > 1) {
-                    newValue = () => patch([action, ...arr.slice(1)]);
+                    eventHandler = () => patch([action, ...arr.slice(1)]);
                 }
                 else {
-                    newValue = (evt) => patch([action, evt]);
+                    eventHandler = (evt: Event) => patch([action, evt]);
                 }
             } else if (typeof newValue === "object") {
-                newValue = () => patch(newValue as Patch<S>);
+                eventHandler = () => patch(newValue as Patch<S>);
             }
-            (<any>node)[key] = newValue;
+
+            (<any>node)[key] = eventHandler;
         } else {
             (<any>node)[key] = null;
         }
-    } else if (key !== "list" && key !== "form") {
-        (<any>node)[key] = newValue
+    } else if (newValue !== null && newValue !== undefined && newValue !== false) {
+        (<HTMLElement>node).setAttribute(key, <string>newValue);
+    } else {
+        (<HTMLElement>node).removeAttribute(key);
     }
 
     return newValue;
 }
 
-export const createState = <S>(state: S): Patchable<S> => state as Patchable<S>;
+function mergeState(target: any, source: any) {
+    if (!source) return target;
 
-/** ## create a vode
- * overloads
- * - just a tag: `v("div") // => ["div"]`
- * - tag and props: `v("div", { class: "foo" }) // => ["div", { class: "foo" }]`
- * - tag, props and children: `v("div", { class: "foo" }, ["span", "bar"]) // => ["div", { class: "foo" }, ["span", "bar"]]`
- * - identity: `v(["div", ["span", "bar"]]) // => ["div", ["span", "bar"]]`
- */
-export function vode<S>(tag: Tag | Vode<S>, props?: Props<S> | ChildVode<S>, ...children: ChildVode<S>[]): Vode<S> {
-    if (Array.isArray(tag)) {
-        return tag;
-    }
-    if (props) {
-        return [tag, props as Props<S>, ...children];
-    }
-    return [tag, ...children];
-}
-
-/**
- * ## create a vode app
- * @param container will use this container as root and places the result of the dom function and further renderings in it
- * @param initialState 
- * @param dom creates the initial dom from the state and is called on every render
- * @param initialPatches variadic list of patches that are applied after the first render
- */
-export function app<S>(container: HTMLElement, initialState: Omit<S, "patch">, dom: (state: S, ...payload: any) => Vode<S>, ...initialPatches: Patch<S>[]) {
-    const root = container as RootNode<S>;
-    root.q = [];
-
-    root.vode = ["div"] as AttachedVode<S>;
-    root.vode.node = container.appendChild(document.createElement((<Vode<S>>root.vode)[0]));
-
-    Object.defineProperty(initialState, "patch", {
-        enumerable: false,
-        configurable: false,
-        writable: false,
-        value: async (action: Patch<S>) => {
-            // const sw = Date.now();
-            try {
-                if (!action) return;
-
-                if ((action as AsyncGenerator<Patch<S>, unknown, void>)?.next) {
-                    const generator = action as AsyncGenerator<Patch<S>, unknown, void>;
-                    for await (const value of generator) {
-                        root.patch!(value);
-                    }
-                } else if ((action as Promise<S>).then) {
-                    const nextState = await (action as Promise<S>);
-                    root.patch!(<Patch<S>>nextState);
-                } else if (Array.isArray(action) && typeof action[0] === "function") {
-                    if (action.length > 1)
-                        root.patch!(action[0](root.state!, ...(action as any[]).slice(1)));
-                    else root.patch!(action[0](root.state!));
-                } else if (typeof action === "function") {
-                    root.patch!((<EffectFunction<S>>action)(root.state as S));
-                } else {
-                    if (action !== root.state) {
-                        root.q!.push(<Partial<S>>action);
-                        root.render!();
-                    }
-                }
-            } finally {
-                // console.log("patch took", Date.now() - sw, "ms");
-            }
-        }
-    });
-
-    Object.defineProperty(root, "render", {
-        enumerable: false,
-        configurable: false,
-        writable: false,
-        value: () => requestAnimationFrame((timestamp) => {
-            if (root.isRendering || root.lastRender === timestamp || root.q!.length === 0) return;
-            root.isRendering = true;
-            // const sw = Date.now();
-            try {
-
-                root.lastRender = timestamp;
-                const nextState = Object.assign({}, root.state);
-
-                while (root.q!.length > 0) {
-                    const patch = root.q!.shift();
-                    mergeState(nextState, patch);
-                }
-                Object.assign(root.state!, nextState);
-                root.vode = render(root.patch!, root.vode, dom(root.state!), '');
-            }
-            finally {
-                root.isRendering = false;
-                // console.log("render took", Date.now() - sw, "ms");
-                if (root.q!.length > 0) {
-                    console.log("still patches in queue, continue render");
-                    root.render!();
-                }
-            }
-        })
-    });
-
-    root.state = <S>initialState;
-    root.patch = (<Patchable<S>>initialState).patch;
-    root.patch(Object.assign({}, <S>initialState));
-    for (const effect of initialPatches) {
-        root.patch!(effect);
-    }
-
-    return root.patch;
-}
-
-const mergeState = (target: any, source: any) => {
     for (const key in source) {
         const value = source[key];
         if (value && typeof value === "object") {
-            if (target[key]) {
+            const targetValue = target[key];
+            if (targetValue) {
                 if (Array.isArray(value)) {
-                    target[key] = value;
+                    target[key] = [...value];
+                } else if (value instanceof Date && targetValue !== value) {
+                    target[key] = new Date(value);
                 } else {
-                    if (Array.isArray(target[key])) target[key] = value;
-                    else mergeState(target[key], value);
+                    if (Array.isArray(targetValue)) target[key] = mergeState({}, value);
+                    else if (typeof targetValue === "object") mergeState(target[key], value);
+                    else target[key] = mergeState({}, value);
                 }
+            } else if (Array.isArray(value)) {
+                target[key] = [...value];
+            } else if (value instanceof Date) {
+                target[key] = new Date(value);
             } else {
-                target[key] = value;
+                target[key] = mergeState({}, value);
             }
         }
         else if (value === undefined) {
@@ -468,113 +678,34 @@ const mergeState = (target: any, source: any) => {
     return target;
 };
 
-export const A: Tag = "a";
-export const ABBR: Tag = "abbr";
-export const ADDRESS: Tag = "address";
-export const AREA: Tag = "area";
-export const ARTICLE: Tag = "article";
-export const ASIDE: Tag = "aside";
-export const AUDIO: Tag = "audio";
-export const B: Tag = "b";
-export const BASE: Tag = "base";
-export const BDI: Tag = "bdi";
-export const BDO: Tag = "bdo";
-export const BLOCKQUOTE: Tag = "blockquote";
-export const BODY: Tag = "body";
-export const BR: Tag = "br";
-export const BUTTON: Tag = "button";
-export const CANVAS: Tag = "canvas";
-export const CAPTION: Tag = "caption";
-export const CITE: Tag = "cite";
-export const CODE: Tag = "code";
-export const COL: Tag = "col";
-export const COLGROUP: Tag = "colgroup";
-export const DATA: Tag = "data";
-export const DATALIST: Tag = "datalist";
-export const DD: Tag = "dd";
-export const DEL: Tag = "del";
-export const DETAILS: Tag = "details";
-export const DFN: Tag = "dfn";
-export const DIALOG: Tag = "dialog";
-export const DIV: Tag = "div";
-export const DL: Tag = "dl";
-export const DT: Tag = "dt";
-export const EM: Tag = "em";
-export const EMBED: Tag = "embed";
-export const FIELDSET: Tag = "fieldset";
-export const FIGCAPTION: Tag = "figcaption";
-export const FIGURE: Tag = "figure";
-export const FOOTER: Tag = "footer";
-export const FORM: Tag = "form";
-export const H1: Tag = "h1";
-export const H2: Tag = "h2";
-export const H3: Tag = "h3";
-export const H4: Tag = "h4";
-export const H5: Tag = "h5";
-export const H6: Tag = "h6";
-export const HEAD: Tag = "head";
-export const HEADER: Tag = "header";
-export const HGROUP: Tag = "hgroup";
-export const HR: Tag = "hr";
-export const HTML: Tag = "html";
-export const I: Tag = "i";
-export const IFRAME: Tag = "iframe";
-export const IMG: Tag = "img";
-export const INPUT: Tag = "input";
-export const INS: Tag = "ins";
-export const KBD: Tag = "kbd";
-export const LABEL: Tag = "label";
-export const LEGEND: Tag = "legend";
-export const LI: Tag = "li";
-export const LINK: Tag = "link";
-export const MAIN: Tag = "main";
-export const MAP: Tag = "map";
-export const MARK: Tag = "mark";
-export const MENU: Tag = "menu";
-export const META: Tag = "meta";
-export const METER: Tag = "meter";
-export const NAV: Tag = "nav";
-export const NOSCRIPT: Tag = "noscript";
-export const OBJECT: Tag = "object";
-export const OL: Tag = "ol";
-export const OPTGROUP: Tag = "optgroup";
-export const OPTION: Tag = "option";
-export const OUTPUT: Tag = "output";
-export const P: Tag = "p";
-export const PICTURE: Tag = "picture";
-export const PRE: Tag = "pre";
-export const PROGRESS: Tag = "progress";
-export const Q: Tag = "q";
-export const RP: Tag = "rp";
-export const RT: Tag = "rt";
-export const RUBY: Tag = "ruby";
-export const S: Tag = "s";
-export const SAMP: Tag = "samp";
-export const SCRIPT: Tag = "script";
-export const SECTION: Tag = "section";
-export const SELECT: Tag = "select";
-export const SLOT: Tag = "slot";
-export const SMALL: Tag = "small";
-export const SOURCE: Tag = "source";
-export const SPAN: Tag = "span";
-export const STRONG: Tag = "strong";
-export const STYLE: Tag = "style";
-export const SUB: Tag = "sub";
-export const SUMMARY: Tag = "summary";
-export const SUP: Tag = "sup";
-export const TABLE: Tag = "table";
-export const TBODY: Tag = "tbody";
-export const TD: Tag = "td";
-export const TEMPLATE: Tag = "template";
-export const TEXTAREA: Tag = "textarea";
-export const TFOOT: Tag = "tfoot";
-export const TH: Tag = "th";
-export const THEAD: Tag = "thead";
-export const TIME: Tag = "time";
-export const TITLE: Tag = "title";
-export const TR: Tag = "tr";
-export const TRACK: Tag = "track";
-export const U: Tag = "u";
-export const UL: Tag = "ul";
-export const VIDEO: Tag = "video";
-export const WBR: Tag = "wbr";
+/** put a value deep inside an object addressed by a key path (creating necessary structure on the way). if target is null, a new object is created */
+export function put<O extends object | unknown>(keyPath: O extends object ? KeyPath<O> : string, value: any = undefined, target: DeepPartial<O> | null = null) {
+    if (!target) target = {} as O as any;
+
+    const keys = keyPath.split('.');
+    let i = 0;
+    let raw = (<any>target)[keys[i]];
+    if (raw === undefined) {
+        (<any>target)[keys[i]] = raw = {};
+    }
+    for (i = 1; i < keys.length - 1; i++) {
+        const p = raw;
+        raw = raw[keys[i]];
+        if (raw === undefined) {
+            raw = {};
+            p[keys[i]] = raw;
+        }
+    }
+    raw[keys[i]] = value;
+    return target
+}
+
+/** get a value deep inside an object by its key path */
+export function get<O extends object | unknown>(keyPath: O extends object ? KeyPath<O> : string, source: DeepPartial<O>) {
+    const keys = keyPath.split('.');
+    let raw = source ? (<any>source)[keys[0]] : undefined;
+    for (let i = 1; i < keys.length && !!raw; i++) {
+        raw = raw[keys[i]];
+    }
+    return raw;
+}

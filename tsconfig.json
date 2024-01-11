@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    "target": "ES2019",
+    "module": "ES2022",
+    "moduleResolution": "Classic",
+    "rootDir": ".",
+    "composite": true,
+    "declarationMap": true,
+    "removeComments": true,
+    "declaration": true,
+    "inlineSourceMap": true,
+    "strict": true,
+    "allowSyntheticDefaultImports": true,
+    "strictBindCallApply": true,
+    "strictFunctionTypes": true,
+    "strictPropertyInitialization": true,
+    "strictNullChecks": true,
+    "allowJs": false,
+    "skipLibCheck": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "downlevelIteration": true,
+    "isolatedModules": true
+  },
+  "include": [
+    "./index.ts",
+    "./src/**/*.ts",
+  ]
+}
