@@ -1,18 +1,18 @@
 import { ChildVode, Props, Vode } from "./vode.js";
 
-export const htmlToVode = <S = any>(html: string) => {
+export function htmlToVode<S extends object | unknown>(html: string) : (Vode<S> | string)[] {
     const div = document.createElement('div');
     div.innerHTML = html.trim();
 
-    const vodes = <ChildVode<S>[]>[];
+    const vodes: (Vode<S> | string)[] = [];
     for (const child of div.childNodes) {
-        const v = elementToVode(<Element>child);
+        const v = elementToVode<S>(<Element>child);
         if (v != null) vodes.push(v);
     }
     return vodes;
 }
 
-const elementToVode = <S = any>(element: Element) => {
+function elementToVode<S>(element: Element) : Vode<S> | string | undefined {
     if (element.nodeType === Node.TEXT_NODE) {
         return element.textContent?.trim();
     }
