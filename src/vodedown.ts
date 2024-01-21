@@ -35,13 +35,13 @@ const imageReplacer = function (fullMatch: string, tagTitle: string, tagURL: str
     return '<img src="' + tagURL + '" alt="' + tagTitle + '" title="' + tagTitle + '" />';
 }
 const linkReplacer = function (fullMatch: string, tagTitle: string, tagURL: string) {
-    return '<a href="' + tagURL + '" title="' + tagTitle + '">' + tagTitle + '</a>';
+    return ' <a href="' + tagURL + '" title="' + tagTitle + '"> ' + tagTitle + ' </a> ';
 }
 const headingReplacer = function (fullMatch: string, tagStart: string, tagContents: string) {
     return '\n<h' + tagStart.trim().length + '>' + tagContents + '</h' + tagStart.trim().length + '>';
 }
 const boldItalicsReplacer = function (fullMatch: string, tagStart: string, tagContents: string) {
-    return '<' + ((tagStart.trim().length == 1) ? ('em') : ('strong')) + '>' + tagContents + '</' + ((tagStart.trim().length == 1) ? ('em') : ('strong')) + '>';
+    return ' <' + ((tagStart.trim().length == 1) ? ('em') : ('strong')) + '>' + tagContents + ' </' + ((tagStart.trim().length == 1) ? ('em') : ('strong')) + '> ';
 }
 const strikethroughReplacer = function (fullMatch: string, tagStart: string, tagContents: string) {
     return '<del>' + tagContents + '</del>';

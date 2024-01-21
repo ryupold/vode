@@ -1,6 +1,8 @@
+
+import { DIV } from "./vode-tags.js";
 import { ChildVode, Props, Vode } from "./vode.js";
 
-export function htmlToVode<S extends object | unknown>(html: string) : (Vode<S> | string)[] {
+export function htmlToVode<S extends object | unknown>(html: string): (Vode<S> | string)[] {
     const div = document.createElement('div');
     div.innerHTML = html.trim();
 
@@ -12,11 +14,11 @@ export function htmlToVode<S extends object | unknown>(html: string) : (Vode<S> 
     return vodes;
 }
 
-function elementToVode<S>(element: Element) : Vode<S> | string | undefined {
+function elementToVode<S>(element: Element): Vode<S> | string | undefined {
     if (element.nodeType === Node.TEXT_NODE) {
         return element.textContent?.trim();
     }
-    if(element.nodeType !== Node.ELEMENT_NODE) {
+    if (element.nodeType !== Node.ELEMENT_NODE) {
         return undefined;
     }
     const vode = <Vode<S>>[element.tagName.toLowerCase()];
@@ -34,4 +36,14 @@ function elementToVode<S>(element: Element) : Vode<S> | string | undefined {
         if (v && (typeof v !== "string" || v.length > 0)) (<any[]>vode).push(v);
     }
     return vode;
+}
+
+declare var showdown: any;
+let _remarkable: any;
+export function mdToVode<S = any>(md: string) {
+    if (!_remarkable) {
+        _remarkable = new showdown.Converter();
+    }
+    console.log(_remarkable.makeHtml(md));
+    return htmlToVode<S>(_remarkable.makeHtml(md));
 }
