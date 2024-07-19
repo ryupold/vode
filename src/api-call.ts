@@ -6,7 +6,7 @@ export const aborted = new Error("aborted");
  * Make HTTP Request
  * @param {ApiCallOptions} options 
  * @param {Dispatch?} dispatch 
- * @returns {Promise<any>} promise wrapping the http request resolving in the response, rejecting in an error
+ * @returns {Promise<any>} promise wrapping the http request resolving in the response if status < 400, otherwise rejecting with the response
  */
 export function httpRequest<S extends object | unknown>(options: {
     url: string,
@@ -53,7 +53,7 @@ export function httpRequest<S extends object | unknown>(options: {
         }
 
         xhr.addEventListener("loadend", () => {
-            if (xhr.readyState === 4 && xhr.status == 200) {
+            if (xhr.readyState === 4 && xhr.status < 400) {
                 resolve(xhr.response);
                 dispatch?.action && dispatch.patch(<Effect<S>>[dispatch.action, xhr.response]);
             }
