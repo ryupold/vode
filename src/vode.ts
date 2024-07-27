@@ -329,7 +329,7 @@ export function app<S>(container: HTMLElement, initialState: Omit<S, "patch">, d
     return root.patch;
 }
 
-export type Component<S> = ((s: S) => Vode<S>) | ((s: S) => Component<S>);
+export type Component<S> = ((s: S) => ChildVode<S>) | ((s: S) => Component<S>);
 
 
 /** for a type safe way to create a deeply partial patch object or effect */
@@ -368,7 +368,7 @@ export function isTextVode(x: ChildVode<any>) {
     return typeof x === "string" || (<Text><unknown>x)?.nodeType === Node.TEXT_NODE;
 }
 
-function unwrap<S>(c: Component<S> | Vode<S>, s: S): Vode<S> {
+function unwrap<S>(c: Component<S> | ChildVode<S>, s: S): ChildVode<S> {
     if (typeof c === "function") {
         return unwrap(c(s), s);
     } else {
@@ -382,7 +382,7 @@ export function memo<S extends object | unknown>(compare: any[], componentOrProp
     return componentOrProps as typeof componentOrProps extends ((s: S) => Props<S>) ? ((s: S) => Props<S>) : Component<S>;
 }
 
-function remember<S>(state: S, present: any, past: any): string | NoVode | Vode<S> | AttachedVode<S> {
+function remember<S>(state: S, present: any, past: any): ChildVode<S> | AttachedVode<S> {
     if (typeof present !== "function")
         return present;
 
