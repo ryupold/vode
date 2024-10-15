@@ -683,20 +683,25 @@ export function put<O extends object | unknown>(keyPath: O extends object ? KeyP
     if (!target) target = {} as O as any;
 
     const keys = keyPath.split('.');
-    let i = 0;
-    let raw = (<any>target)[keys[i]];
-    if (raw === undefined) {
-        (<any>target)[keys[i]] = raw = {};
-    }
-    for (i = 1; i < keys.length - 1; i++) {
-        const p = raw;
-        raw = raw[keys[i]];
+    if (keys.length > 1) {
+        let i = 0;
+        let raw = (<any>target)[keys[i]];
         if (raw === undefined) {
-            raw = {};
-            p[keys[i]] = raw;
+            (<any>target)[keys[i]] = raw = {};
         }
+        for (i = 1; i < keys.length - 1; i++) {
+            const p = raw;
+            raw = raw[keys[i]];
+            if (raw === undefined) {
+                raw = {};
+                p[keys[i]] = raw;
+            }
+        }
+        if (keys[i] === undefined) console.log(keyPath);
+        raw[keys[i]] = value;
+    } else {
+        (<any>target)[keys[0]] = value;
     }
-    raw[keys[i]] = value;
     return target
 }
 
