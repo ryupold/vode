@@ -2,6 +2,15 @@ import { Dispatch, Effect } from "./vode.js";
 
 export const aborted = new Error("aborted");
 
+export let defaults = {
+    metrics: {
+        requestCount: 0,
+        download: 0,
+        upload: 0,
+    },
+};
+
+
 /**
  * Make HTTP Request
  * @param {ApiCallOptions} options 
@@ -15,6 +24,11 @@ export function httpRequest<S extends object | unknown>(options: {
     data?: any,
     timeout?: number,
     withCredentials?: boolean,
+    metrics?: {
+        requestCount: number,
+        download: number,
+        upload: number,
+    },
 }, dispatch?: {
     patch: Dispatch<S>,
     action?: Effect<S, any>,
@@ -25,6 +39,9 @@ export function httpRequest<S extends object | unknown>(options: {
 }): Promise<any> & { abort: () => void } {
     const xhr = new XMLHttpRequest();
     const promise = new Promise((resolve, reject) => {
+        if (!options.metrics) options.metrics = defaults.metrics;
+        if (options.metrics) options.metrics.requestCount++;
+
         xhr.withCredentials = options.withCredentials === undefined || options.withCredentials;
         if (options.timeout) xhr.timeout = options.timeout;
 
@@ -38,6 +55,7 @@ export function httpRequest<S extends object | unknown>(options: {
         if (dispatch?.uploadProgressAction) {
             xhr.upload.addEventListener("progress", (event) => {
                 if (event.lengthComputable) {
+                    if (options.metrics && event.loaded) options.metrics.upload += event.loaded;
                     dispatch.patch(<Effect<S>>[dispatch.uploadProgressAction,
                     { loaded: event.loaded, total: event.total }]);
                 }
@@ -46,21 +64,30 @@ export function httpRequest<S extends object | unknown>(options: {
 
         if (dispatch?.progressAction) {
             xhr.addEventListener("progress", (event) => {
+                console.log("progress", event);
                 if (event.lengthComputable) {
+                    if (options.metrics && event.loaded) options.metrics.download += event.loaded;
                     dispatch.patch(<Effect<S, ProgressEvent>>[dispatch.progressAction, event]);
                 }
             });
         }
 
-        xhr.addEventListener("loadend", () => {
-            if (xhr.readyState === 4 && xhr.status < 400) {
-                resolve(xhr.response);
-                dispatch?.action && dispatch.patch(<Effect<S>>[dispatch.action, xhr.response]);
-            }
-            else if (xhr.readyState === 4) {
-                reject({ status: xhr.status, statusText: xhr.statusText, response: xhr.response });
+        xhr.addEventListener("loadend", (e: ProgressEvent<XMLHttpRequestEventTarget>) => {
+            if (xhr.readyState === 4) {
+                if (options.metrics && (e.loaded)) {
+                    options.metrics.download += e.loaded;
+                }
+                if (xhr.status < 400) {
+                    resolve(xhr.response);
+                    dispatch?.action && dispatch.patch(<Effect<S>>[dispatch.action, xhr.response]);
+                }
+                else {
+                    reject({ status: xhr.status, statusText: xhr.statusText, response: xhr.response });
+                }
             }
         });
+
+
 
         xhr.addEventListener("abort", () => {
             reject(aborted);
@@ -75,6 +102,7 @@ export function httpRequest<S extends object | unknown>(options: {
                 dispatch.patch(<Effect<S>>[dispatch.errAction, err]);
             }
         });
+
         xhr.open(options.method, options.url, true);
         if (options.headers) {
             for (const key in options.headers) {

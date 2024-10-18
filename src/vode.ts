@@ -93,7 +93,15 @@ export type ContainerNode<S> = HTMLElement & {
     q: Patch<S>[]
     isRendering: boolean,
     lastRender: DOMHighResTimeStamp,
-    stats: { renderTime: number, renderCount: number, queueLengthBeforeRender: number, queueLengthAfterRender: number },
+    stats: {
+        renderTime: number,
+        renderCount: number,
+        queueLengthBeforeRender: number,
+        queueLengthAfterRender: number,
+        patchCount: 0,
+        renderPatchCount: 0,
+        liveEffectCount: 0,
+    },
 };
 
 type KeyPath<ObjectType extends object> =
@@ -254,21 +262,40 @@ export const createState = <S>(state: S): Patchable<S> => state as Patchable<S>;
  */
 export function app<S>(container: HTMLElement, initialState: Omit<S, "patch">, dom: Component<S>, ...initialPatches: Patch<S>[]) {
     const root = container as ContainerNode<S>;
-    root.stats = { renderTime: 0, renderCount: 0, queueLengthBeforeRender: 0, queueLengthAfterRender: 0 };
+    root.stats = { renderTime: 0, renderCount: 0, queueLengthBeforeRender: 0, queueLengthAfterRender: 0, liveEffectCount: 0, patchCount: 0, renderPatchCount: 0 };
 
     Object.defineProperty(initialState, "patch", {
         enumerable: false, configurable: true,
         writable: false, value: async (action: Patch<S>) => {
             if (!action) return;
+            root.stats.patchCount++;
 
             if ((action as AsyncGenerator<Patch<S>, unknown, void>)?.next) {
                 const generator = action as AsyncGenerator<Patch<S>, unknown, void>;
-                for await (const value of generator) {
-                    root.patch!(value);
+                root.stats.liveEffectCount++;
+                try {
+                    let v = await generator.next();
+                    while (v.done === false) {
+                        root.stats.liveEffectCount++;
+                        try {
+                            root.patch!(v.value);
+                            v = await generator.next();
+                        } finally {
+                            root.stats.liveEffectCount--;
+                        }
+                    }
+                    root.patch!(v.value as Patchable<S>);
+                } finally {
+                    root.stats.liveEffectCount--;
                 }
             } else if ((action as Promise<S>).then) {
-                const nextState = await (action as Promise<S>);
-                root.patch!(<Patch<S>>nextState);
+                root.stats.liveEffectCount++;
+                try {
+                    const nextState = await (action as Promise<S>);
+                    root.patch!(<Patch<S>>nextState);
+                } finally {
+                    root.stats.liveEffectCount--;
+                }
             } else if (Array.isArray(action)) {
                 if (typeof action[0] === "function") {
                     if (action.length > 1)
@@ -282,6 +309,7 @@ export function app<S>(container: HTMLElement, initialState: Omit<S, "patch">, d
             } else if (typeof action === "function") {
                 root.patch!((<EffectFunction<S>>action)(root.state as Patchable<S>));
             } else {
+                root.stats.renderPatchCount++;
                 root.q!.push(<Patch<S>>action);
                 if (!root.isRendering) root.render!();
             }
