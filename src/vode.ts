@@ -12,7 +12,6 @@ export type DeepPartial<S> = { [P in keyof S]?: S[P] extends Array<infer I> ? Ar
 
 export type Dispatch<S> = (action: Patch<S>) => void;
 
-
 export type Patch<S> =
     | S
     | DeepPartial<S>
@@ -92,7 +91,7 @@ export type ContainerNode<S> = HTMLElement & {
     render: () => void,
     q: Patch<S>[]
     isRendering: boolean,
-    lastRender: DOMHighResTimeStamp,
+    lastRender: number,
     stats: {
         renderTime: number,
         renderCount: number,
@@ -227,7 +226,7 @@ export function children<S extends object | unknown>(vode: ChildVode<S> | Attach
     return undefined;
 }
 
-/**  */
+/** index in vode at which child-vodes start */
 export function childrenStart<S extends object | unknown>(vode: ChildVode<S> | AttachedVode<S>): number {
     if (props(vode)) {
         return 2;
@@ -359,7 +358,6 @@ export function app<S>(container: HTMLElement, initialState: Omit<S, "patch">, d
 
 export type Component<S> = ((s: S) => ChildVode<S>) | ((s: S) => Component<S>);
 
-
 /** for a type safe way to create a deeply partial patch object or effect */
 export function patch<S>(p: DeepPartial<S> | Effect<S> | undefined | null | false | void): typeof p { return p; }
 
@@ -410,6 +408,12 @@ export function memo<S extends object | unknown>(compare: any[], componentOrProp
     return componentOrProps as typeof componentOrProps extends ((s: S) => Props<S>) ? ((s: S) => Props<S>) : Component<S>;
 }
 
+/** force complete recreation of node and rerender every time */
+export function neo<S extends object | unknown>(componentOrProps: Component<S>): Component<S> {
+    (<any>componentOrProps).__neo = true;
+    return componentOrProps;
+}
+
 function remember<S>(state: S, present: any, past: any): ChildVode<S> | AttachedVode<S> {
     if (typeof present !== "function")
         return present;
@@ -420,23 +424,35 @@ function remember<S>(state: S, present: any, past: any): ChildVode<S> | Attached
     if (Array.isArray(presentMemo)
         && Array.isArray(pastMemo)
         && presentMemo.length === pastMemo.length
-        && presentMemo.every((x, i) => x === pastMemo[i])) {
-        return past;
+    ) {
+        let same = true;
+        for (let i = 0; i < presentMemo.length; i++) {
+            if (presentMemo[i] !== pastMemo[i]) {
+                same = false;
+                break;
+            }
+        }
+        if (same) return past;
     }
     const newRender = unwrap(present, state);
-    if (typeof newRender === "object") (<any>newRender).__memo = present?.__memo;
+    if (typeof newRender === "object") 
+    {
+        (<any>newRender).__memo = present?.__memo;
+        (<any>newRender).__neo = present?.__neo;
+    }
     return newRender;
 }
 
 function render<S>(state: S, patch: Dispatch<S>, parent: ChildNode, childIndex: number, oldVode: AttachedVode<S> | undefined, newVode: ChildVode<S>, svg?: boolean): AttachedVode<S> | undefined {
+    // unwrap component if it is memoized
     newVode = remember(state, newVode, oldVode) as ChildVode<S>;
     if (newVode === oldVode || (!oldVode && !newVode)) {
         return oldVode;
     }
 
     const isText = isTextVode(newVode);
-    const isNode = newVode && isNaturalVode(newVode);
-    const alreadyAttached = newVode && typeof newVode !== "string" && ((<any>newVode)?.node || (<any>newVode)?.nodeType === Node.TEXT_NODE);
+    const isNode = !!newVode && isNaturalVode(newVode);
+    const alreadyAttached = !!newVode && typeof newVode !== "string" && !!((<any>newVode)?.node || (<any>newVode)?.nodeType === Node.TEXT_NODE);
 
     if (!isText && !isNode && !alreadyAttached && !oldVode) {
         console.error("Invalid vode:", oldVode, newVode);
@@ -479,7 +495,13 @@ function render<S>(state: S, patch: Dispatch<S>, parent: ChildNode, childIndex: 
     }
 
     // falsy|text|element(A) -> element(B) 
-    if (isNode && (!oldNode || oldIsText || (<Vode<S>>oldVode)[0] !== (<Vode<S>>newVode)[0])) {
+    // or
+    // neo -> element(B) 
+    if (
+        (isNode && (!oldNode || oldIsText || (<Vode<S>>oldVode)[0] !== (<Vode<S>>newVode)[0]))
+        ||
+        (<any>newVode).__neo
+    ) {
         svg = svg || (<Vode<S>>newVode)[0] === "svg";
         const newNode: ChildNode = svg
             ? document.createElementNS("http://www.w3.org/2000/svg", (<Vode<S>>newVode)[0])
