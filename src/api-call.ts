@@ -2,13 +2,13 @@ import { Dispatch, Effect } from "./vode.js";
 
 export const aborted = new Error("aborted");
 
-export let metricDefaults = {
+export const metricDefaults = () => ({
     metrics: {
         requestCount: 0,
         download: 0,
         upload: 0,
     },
-};
+});
 
 
 /**
@@ -39,7 +39,7 @@ export function httpRequest<S extends object | unknown>(options: {
 }): Promise<any> & { abort: () => void } {
     const xhr = new XMLHttpRequest();
     const promise = new Promise((resolve, reject) => {
-        if (!options.metrics) options.metrics = metricDefaults.metrics;
+        if (!options.metrics) options.metrics = metricDefaults().metrics;
         if (options.metrics) options.metrics.requestCount++;
 
         xhr.withCredentials = options.withCredentials === undefined || options.withCredentials;
