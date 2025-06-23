@@ -257,6 +257,7 @@ export const createState = <S>(state: S): Patchable<S> => state as Patchable<S>;
  * @param initialState @see createState
  * @param dom creates the initial dom from the state and is called on every render
  * @param initialPatches variadic list of patches that are applied after the first render
+ * @returns a patch function that can be used to update the state
  */
 export function app<S>(container: HTMLElement, initialState: Omit<S, "patch">, dom: Component<S>, ...initialPatches: Patch<S>[]) {
     const root = container as ContainerNode<S>;

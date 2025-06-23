@@ -39,7 +39,7 @@ const State = typeof init;
 const appNode = document.getElementById('app') as ContainerNode<State>;
 
 app<State>(appNode, init, 
-   (s) => [DIV, { class: 'app' },
+   (s) => [DIV,
                 [INPUT, {
                         type: 'button', 
                         onclick: { counter: s.counter + 1 }
