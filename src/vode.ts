@@ -1,23 +1,26 @@
 export type Vode<S> = FullVode<S> | JustTagVode | NoPropsVode<S>;
 export type ChildVode<S> = Vode<S> | TextVode | NoVode | Component<S>;
-export type FullVode<S> = [tag: Tag, props: Props<S> | ChildVode<S>, ...children: ChildVode<S>[]];
+export type FullVode<S> = [tag: Tag, props: Props<S>, ...children: ChildVode<S>[]];
 export type NoPropsVode<S> = [tag: Tag, ...children: ChildVode<S>[]] | string[];
 export type JustTagVode = [tag: Tag];
 export type TextVode = string;
 export type NoVode = undefined | null | false | void;
-export type AttachedVode<S> = (FullVode<S> | NoPropsVode<S> | JustTagVode) & { node: ChildNode, id: string } | Text & { node?: never, id?: never };
+export type AttachedVode<S> = Vode<S> & { node: ChildNode, id: string } | Text & { node?: never, id?: never };
+export type Tag = keyof (HTMLElementTagNameMap & SVGElementTagNameMap & MathMLElementTagNameMap);
+
+export type Patch<S> =
+| S
+| DeepPartial<S>
+| Effect<S>
+| AwaitablePatch<S>
+| undefined | null | false | void;
 
 export type Patchable<S> = S & { patch: Dispatch<Patch<S>> };
 export type DeepPartial<S> = { [P in keyof S]?: S[P] extends Array<infer I> ? Array<Patch<I>> : Patch<S[P]> };
 
-export type Dispatch<S> = (action: Patch<S>) => void;
+export type AwaitablePatch<S> = Promise<Patch<S>> | Generator<Patch<S>, unknown, void> | AsyncGenerator<Patch<S>, unknown, void>;
 
-export type Patch<S> =
-    | S
-    | DeepPartial<S>
-    | Effect<S>
-    | AwaitablePatch<S>
-    | undefined | null | false | void;
+export type Dispatch<S> = (action: Patch<S>) => void;
 
 export type Effect<S, P = any> =
     | (() => Patch<S>)
@@ -31,10 +34,6 @@ export type EffectArray<S> = [transformer: EffectFunction<S>, ...payload: any[]]
 export type EffectFunctionP<S, P> = (state: S, payload: P) => Patch<S>;
 export type EffectArrayP<S, P> = [transformer: EffectFunction<S>, payload: P];
 
-export type AwaitablePatch<S> = Promise<Patch<S>> | Generator<Patch<S>, unknown, void> | AsyncGenerator<Patch<S>, unknown, void>;
-
-/** HTML, SVG or MathML tag name */
-export type Tag = keyof (HTMLElementTagNameMap & SVGElementTagNameMap & MathMLElementTagNameMap);
 
 export type Props<S> = Partial<
     Omit<HTMLElement, keyof (
