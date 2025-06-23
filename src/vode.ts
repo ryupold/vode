@@ -5,7 +5,7 @@ export type NoPropsVode<S> = [tag: Tag, ...children: ChildVode<S>[]] | string[];
 export type JustTagVode = [tag: Tag];
 export type TextVode = string;
 export type NoVode = undefined | null | false | void;
-export type AttachedVode<S> = Vode<S> & { node: ChildNode, id: string } | Text & { node?: never, id?: never };
+export type AttachedVode<S> = Vode<S> & { node: ChildNode, id?: string } | Text & { node?: never, id?: never };
 export type Tag = keyof (HTMLElementTagNameMap & SVGElementTagNameMap & MathMLElementTagNameMap);
 
 export type Patch<S> =

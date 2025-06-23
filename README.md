@@ -6,7 +6,7 @@ The state is a singleton object that can be updated, and the UI will re-render w
 
 ## Patch
 
-The `patch` function returned by `app(...)` is a function that can be passed an object called `Patch` this object is used to update the state and re-render the UI. It takes a `Patch` object that describes the changes to be made to the state in a "trickle down manner". The `Patch` can be a simple object or a function that returns a new `Patch` to the current state. It can also be an async and/or genrator function that yields `Patch`es. Events also can return a `Patch`. When a 0 | false | null | undefined is applied as a `Patch`, it will be ignored.
+The `patch` function returned by `app(...)` is a function that can be passed an object called `Patch` this object is used to update the state and re-render the UI. It takes a `Patch` object that describes the changes to be made to the state in a "trickle down manner". The `Patch` can be a simple object or a function that returns a new `Patch` to the current state. It can also be an async and/or genrator function that yields `Patch`es. Events also can return a `Patch`. When a number | boolean | string | null | undefined is applied as a `Patch`, it will be ignored.
 
 ## Usage
 
