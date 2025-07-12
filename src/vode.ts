@@ -24,18 +24,13 @@ export type AwaitablePatch<S> = Promise<Patch<S>> | Generator<Patch<S>, unknown,
 
 export type Dispatch<S> = (action: Patch<S>) => void;
 
-export type Effect<S, P = any> =
+export type Effect<S> =
     | (() => Patch<S>)
     | EffectFunction<S>
-    | EffectArray<S>
-    | EffectFunctionP<S, P>
-    | EffectArrayP<S, P>;
+    | EffectArray<S>;
 
 export type EffectFunction<S> = (state: S, ...payload: any[]) => Patch<S>;
 export type EffectArray<S> = [transformer: EffectFunction<S>, ...payload: any[]];
-export type EffectFunctionP<S, P> = (state: S, payload: P) => Patch<S>;
-export type EffectArrayP<S, P> = [transformer: EffectFunction<S>, payload: P];
-
 
 export type Props<S> = Partial<
     Omit<HTMLElement, keyof (
@@ -56,7 +51,7 @@ export type Props<S> = Partial<
         onUnmount?: MountFunction<S>,
     };
 
-type MountFunction<S> =
+export type MountFunction<S> =
     | ((s: S, node: HTMLElement) => Patch<S>)
     | ((s: S, node: SVGSVGElement) => Patch<S>)
     | ((s: S, node: MathMLElement) => Patch<S>)
@@ -77,13 +72,13 @@ export type EventActions<S> = {
     [K in keyof EventsMap]: Patch<S> | undefined | null | false
 }
 
-type EventsMap =
+export type EventsMap =
     & { [K in keyof HTMLElementEventMap as `on${K}`]: HTMLElementEventMap[K] }
     & { [K in keyof WindowEventMap as `on${K}`]: WindowEventMap[K] }
     & { [K in keyof SVGElementEventMap as `on${K}`]: SVGElementEventMap[K] }
     & { onsearch: Event }
 
-type PropertyValue<S> = string | boolean | null | undefined | StyleProp | ClassProp | Patch<S> | void;
+export type PropertyValue<S> = string | boolean | null | undefined | StyleProp | ClassProp | Patch<S> | void;
 
 export type ContainerNode<S> = HTMLElement & {
     state: PatchableState<S>,
@@ -238,14 +233,14 @@ export function tag<S extends object | unknown>(v: Vode<S> | TextVode | NoVode |
         : undefined;
 }
 
-export const childCount = <S>(vode: Vode<S>) => vode.length - childrenStart(vode);
+export function childCount<S>(vode: Vode<S>) { return vode.length - childrenStart(vode); }
 
 export function child<S>(vode: Vode<S>, index: number): ChildVode<S> | undefined {
     return vode[index + childrenStart(vode)] as ChildVode<S>;
 }
 
 /** pass an object whose type determines the initial state */
-export const createState = <S>(state: S): PatchableState<S> => state as PatchableState<S>;
+export function createState<S>(state: S): PatchableState<S> { return state as PatchableState<S>; }
 
 /**
  * create a vode app inside a container element
@@ -297,9 +292,7 @@ export function app<S>(container: HTMLElement, initialState: Omit<S, "patch">, d
                         root.patch!(action[0](root.state!, ...(action as any[]).slice(1)));
                     else root.patch!(action[0](root.state!));
                 } else {
-                    for (const patch of action) {
-                        root.patch!(patch);
-                    }
+                    root.stats.patchCount--;
                 }
             } else if (typeof action === "function") {
                 root.patch!((<EffectFunction<S>>action)(root.state));
@@ -380,11 +373,11 @@ function classString(classProp: ClassProp): string {
     }
 }
 
-export function isNaturalVode(x: ChildVode<any>) {
+function isNaturalVode(x: ChildVode<any>) {
     return Array.isArray(x) && x.length > 0 && typeof x[0] === "string";
 }
 
-export function isTextVode(x: ChildVode<any>) {
+function isTextVode(x: ChildVode<any>) {
     return typeof x === "string" || (<Text><unknown>x)?.nodeType === Node.TEXT_NODE;
 }
 
@@ -453,7 +446,6 @@ function render<S>(state: S, patch: Dispatch<S>, parent: ChildNode, childIndex: 
     const alreadyAttached = !!newVode && typeof newVode !== "string" && !!((<any>newVode)?.node || (<any>newVode)?.nodeType === Node.TEXT_NODE);
 
     if (!isText && !isNode && !alreadyAttached && !oldVode) {
-        console.error("Invalid vode:", oldVode, newVode);
         throw new Error("Invalid vode: " + typeof newVode + " " + JSON.stringify(newVode));
     }
     else if (alreadyAttached && isText) {

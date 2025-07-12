@@ -31,11 +31,11 @@ export function httpRequest<S extends object | unknown>(options: {
     },
 }, dispatch?: {
     patch: Dispatch<S>,
-    action?: Effect<S, any>,
-    abortAction?: Effect<S, any>,
-    errAction?: Effect<S, any>,
-    progressAction?: Effect<S, ProgressEvent>,
-    uploadProgressAction?: Effect<S, { loaded: number, total: number }>
+    action?: Effect<S>,
+    abortAction?: Effect<S>,
+    errAction?: Effect<S>,
+    progressAction?: Effect<S>,
+    uploadProgressAction?: Effect<S>
 }): Promise<any> & { abort: () => void } {
     const xhr = new XMLHttpRequest();
     const promise = new Promise((resolve, reject) => {
@@ -48,7 +48,7 @@ export function httpRequest<S extends object | unknown>(options: {
         xhr.addEventListener("timeout", (err) => {
             reject(err || new Error("timeout"));
             if (dispatch?.errAction) {
-                dispatch.patch(<Effect<S>>[dispatch.errAction, err]);
+                dispatch.patch([dispatch.errAction, err]);
             }
         });
 
@@ -56,7 +56,7 @@ export function httpRequest<S extends object | unknown>(options: {
             xhr.upload.addEventListener("progress", (event) => {
                 if (event.lengthComputable) {
                     if (options.metrics && event.loaded) options.metrics.upload += event.loaded;
-                    dispatch.patch(<Effect<S>>[dispatch.uploadProgressAction,
+                    dispatch.patch([dispatch.uploadProgressAction,
                     { loaded: event.loaded, total: event.total }]);
                 }
             });
@@ -67,7 +67,7 @@ export function httpRequest<S extends object | unknown>(options: {
                 console.log("progress", event);
                 if (event.lengthComputable) {
                     if (options.metrics && event.loaded) options.metrics.download += event.loaded;
-                    dispatch.patch(<Effect<S, ProgressEvent>>[dispatch.progressAction, event]);
+                    dispatch.patch([dispatch.progressAction, event]);
                 }
             });
         }
@@ -92,14 +92,14 @@ export function httpRequest<S extends object | unknown>(options: {
         xhr.addEventListener("abort", () => {
             reject(aborted);
             if (dispatch?.abortAction) {
-                dispatch.patch(<Effect<S>>[dispatch.abortAction, aborted]);
+                dispatch.patch([dispatch.abortAction, aborted]);
             }
         });
 
         xhr.addEventListener("error", (err) => {
             reject(err);
             if (dispatch?.errAction) {
-                dispatch.patch(<Effect<S>>[dispatch.errAction, err]);
+                dispatch.patch([dispatch.errAction, err]);
             }
         });
 
