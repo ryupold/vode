@@ -10,46 +10,37 @@ export type Tag = keyof (HTMLElementTagNameMap & SVGElementTagNameMap & MathMLEl
 export type Component<S> = (s: S) => ChildVode<S>;
 
 export type Patch<S> =
-    | {}
-    | DeepPartial<S>
-    | Effect<S>
-    | AwaitablePatch<S>
-    | undefined | null | number | boolean | void;
-
-export type PatchableState<S> = S & { patch: Dispatch<Patch<S>> };
+    | undefined | null | number | boolean | string | void // no render patch
+    | {} | DeepPartial<S> // render patches
+    | Promise<Patch<S>> | Effect<S> // effects resulting in patches
 
 export type DeepPartial<S> = { [P in keyof S]?: S[P] extends Array<infer I> ? Array<Patch<I>> : Patch<S[P]> };
-
-export type AwaitablePatch<S> = Promise<Patch<S>> | Generator<Patch<S>, unknown, void> | AsyncGenerator<Patch<S>, unknown, void>;
-
-export type Dispatch<S> = (action: Patch<S>) => void;
 
 export type Effect<S> =
     | (() => Patch<S>)
     | EffectFunction<S>
-    | EffectArray<S>;
+    | [effect: EffectFunction<S>, ...args: any[]]
+    | Generator<Patch<S>, unknown, void>
+    | AsyncGenerator<Patch<S>, unknown, void>;
 
-export type EffectFunction<S> = (state: S, ...payload: any[]) => Patch<S>;
-export type EffectArray<S> = [transformer: EffectFunction<S>, ...payload: any[]];
+export type EffectFunction<S> = (state: S, ...args: any[]) => Patch<S>;
+
+export type Dispatch<S> = (action: Patch<S>) => void;
+export type PatchableState<S> = S & { patch: Dispatch<Patch<S>> };
 
 export type Props<S> = Partial<
-    Omit<HTMLElement, keyof (
-        DocumentFragment &
-        ElementCSSInlineStyle &
-        GlobalEventHandlers
-    )> &
-    ElementCreationOptions &
-    EventActions<S>
->
-    & {
-        [_: string]: unknown,
-        class?: ClassProp,
-        style?: StyleProp,
-        /** called after the element was attached */
-        onMount?: MountFunction<S>,
-        /** called before the element is detached */
-        onUnmount?: MountFunction<S>,
-    };
+    Omit<HTMLElement,
+        keyof (DocumentFragment & ElementCSSInlineStyle & GlobalEventHandlers)> &
+        { [K in keyof EventsMap]: Patch<S> } // all on* events
+> & {
+    [_: string]: unknown,
+    class?: ClassProp,
+    style?: StyleProp,
+    /** called after the element was attached */
+    onMount?: MountFunction<S>,
+    /** called before the element is detached */
+    onUnmount?: MountFunction<S>,
+};
 
 export type MountFunction<S> =
     | ((s: S, node: HTMLElement) => Patch<S>)
@@ -57,19 +48,13 @@ export type MountFunction<S> =
     | ((s: S, node: MathMLElement) => Patch<S>)
 
 export type ClassProp =
-    | boolean
-    | string
-    | undefined
-    | null
-    | Record<string, boolean | undefined | null>
-    | string[]
+    | "" | false | null | undefined // no class
+    | string // "class1 class2"
+    | string[] // ["class1", "class2"]
+    | Record<string, boolean | undefined | null> // { class1: true, class2: false }
 
 export type StyleProp = Record<number, never> & {
     [K in keyof CSSStyleDeclaration]?: CSSStyleDeclaration[K] | null
-}
-
-export type EventActions<S> = {
-    [K in keyof EventsMap]: Patch<S>
 }
 
 export type EventsMap =
@@ -117,130 +102,12 @@ export function vode<S extends object | unknown>(tag: Tag | Vode<S>, props?: Pro
     return [tag, ...children];
 }
 
-/** get properties of a vode, if there are any */
-export function props<S extends object | unknown>(vode: ChildVode<S> | AttachedVode<S>): Props<S> | undefined {
-    if (Array.isArray(vode)
-        && vode.length > 1
-        && vode[1]
-        && !Array.isArray(vode[1])
-    ) {
-        if (
-            typeof vode[1] === "object"
-            && (vode[1] as unknown as Node).nodeType !== Node.TEXT_NODE
-        ) {
-            return vode[1];
-        }
-    }
-
-    return undefined;
-}
-
-export function mergeClass(a: ClassProp, b: ClassProp): ClassProp {
-    if (!a) return b;
-    if (!b) return a;
-
-    if (typeof a === "string" && typeof b === "string") {
-        const aSplit = a.split(" ");
-        const bSplit = b.split(" ");
-        const classSet = new Set([...aSplit, ...bSplit]);
-        return Array.from(classSet).join(" ").trim();
-    }
-    else if (typeof a === "string" && Array.isArray(b)) {
-        const classSet = new Set([...b, ...a.split(" ")]);
-        return Array.from(classSet).join(" ").trim();
-    }
-    else if (Array.isArray(a) && typeof b === "string") {
-        const classSet = new Set([...a, ...b.split(" ")]);
-        return Array.from(classSet).join(" ").trim();
-    }
-    else if (Array.isArray(a) && Array.isArray(b)) {
-        const classSet = new Set([...a, ...b]);
-        return Array.from(classSet).join(" ").trim();
-    }
-    else if (typeof a === "string" && typeof b === "object") {
-        return { [a]: true, ...b };
-    }
-    else if (typeof a === "object" && typeof b === "string") {
-        return { ...a, [b]: true };
-    }
-    else if (typeof a === "object" && typeof b === "object") {
-        return { ...a, ...b };
-    } else if (typeof a === "object" && Array.isArray(b)) {
-        const aa = { ...a };
-        for (const item of b as string[]) {
-            (<Record<string, boolean | null | undefined>>aa)[item] = true;
-        }
-        return aa;
-    } else if (Array.isArray(a) && typeof b === "object") {
-        const aa: Record<string, any> = {};
-        for (const item of a as string[]) {
-            aa[item] = true;
-        }
-        for (const bKey of (<Record<string, any>>b).keys) {
-            aa[bKey] = (<Record<string, boolean | null | undefined>>b)[bKey];
-        }
-        return b;
-    }
-
-    throw new Error(`cannot merge classes of ${a} (${typeof a}) and ${b} (${typeof b})`);
-}
-
-export function patchProps<S extends object | unknown>(vode: Vode<S>, props: Props<S>): void {
-    if (!Array.isArray(vode)) return;
-
-    if (vode.length > 1) {
-        if (!Array.isArray(vode[1]) && typeof vode[1] === "object") {
-            vode[1] = merge(vode[1], props);
-            return;
-        }
-
-        if (childCount(vode) > 0) {
-            (<FullVode<S>>vode).push(null);
-        }
-        for (let i = vode.length - 1; i > 0; i--) {
-            if (i > 1) vode[i] = vode[i - 1];
-        }
-        vode[1] = props;
-    } else {
-        (<FullVode<S>>vode).push(props);
-    }
-}
-
-/** get a slice of all children of a vode, if there are any */
-export function children<S extends object | unknown>(vode: ChildVode<S> | AttachedVode<S>): ChildVode<S>[] | undefined {
-    const start = childrenStart(vode);
-    if (start > 0) {
-        return (<Vode<S>>vode).slice(start) as Vode<S>[];
-    }
-
-    return undefined;
-}
-
-/** index in vode at which child-vodes start */
-export function childrenStart<S extends object | unknown>(vode: ChildVode<S> | AttachedVode<S>): number {
-    if (props(vode)) {
-        return 2;
-    } else {
-        return 1;
-    }
-}
-
-/** html tag of the vode or #text if it is a text node */
-export function tag<S extends object | unknown>(v: Vode<S> | TextVode | NoVode | AttachedVode<S>): Tag | "#text" | undefined {
-    return !!v ? (Array.isArray(v)
-        ? v[0] : (typeof v === "string" || (<any>v).nodeType === Node.TEXT_NODE)
-            ? "#text" : undefined) as Tag
-        : undefined;
-}
-
-export function childCount<S>(vode: Vode<S>) { return vode.length - childrenStart(vode); }
-
-export function child<S>(vode: Vode<S>, index: number): ChildVode<S> | undefined {
-    return vode[index + childrenStart(vode)] as ChildVode<S>;
-}
-
 /** pass an object whose type determines the initial state */
 export function createState<S>(state: S): PatchableState<S> { return state as PatchableState<S>; }
+
+
+/** for a type safe way to create a deeply partial patch object or effect */
+export function patch<S>(p: DeepPartial<S> | Effect<S> | undefined | null | false | void): typeof p { return p; }
 
 /**
  * create a vode app inside a container element
@@ -345,8 +212,123 @@ export function app<S>(container: HTMLElement, initialState: Omit<S, "patch">, d
     return root.patch;
 }
 
-/** for a type safe way to create a deeply partial patch object or effect */
-export function patch<S>(p: DeepPartial<S> | Effect<S> | undefined | null | false | void): typeof p { return p; }
+/** get properties of a vode, if there are any */
+export function props<S extends object | unknown>(vode: ChildVode<S> | AttachedVode<S>): Props<S> | undefined {
+    if (Array.isArray(vode)
+        && vode.length > 1
+        && vode[1]
+        && !Array.isArray(vode[1])
+    ) {
+        if (
+            typeof vode[1] === "object"
+            && (vode[1] as unknown as Node).nodeType !== Node.TEXT_NODE
+        ) {
+            return vode[1];
+        }
+    }
+
+    return undefined;
+}
+
+export function mergeClass(a: ClassProp, b: ClassProp): ClassProp {
+    if (!a) return b;
+    if (!b) return a;
+
+    if (typeof a === "string" && typeof b === "string") {
+        const aSplit = a.split(" ");
+        const bSplit = b.split(" ");
+        const classSet = new Set([...aSplit, ...bSplit]);
+        return Array.from(classSet).join(" ").trim();
+    }
+    else if (typeof a === "string" && Array.isArray(b)) {
+        const classSet = new Set([...b, ...a.split(" ")]);
+        return Array.from(classSet).join(" ").trim();
+    }
+    else if (Array.isArray(a) && typeof b === "string") {
+        const classSet = new Set([...a, ...b.split(" ")]);
+        return Array.from(classSet).join(" ").trim();
+    }
+    else if (Array.isArray(a) && Array.isArray(b)) {
+        const classSet = new Set([...a, ...b]);
+        return Array.from(classSet).join(" ").trim();
+    }
+    else if (typeof a === "string" && typeof b === "object") {
+        return { [a]: true, ...b };
+    }
+    else if (typeof a === "object" && typeof b === "string") {
+        return { ...a, [b]: true };
+    }
+    else if (typeof a === "object" && typeof b === "object") {
+        return { ...a, ...b };
+    } else if (typeof a === "object" && Array.isArray(b)) {
+        const aa = { ...a };
+        for (const item of b as string[]) {
+            (<Record<string, boolean | null | undefined>>aa)[item] = true;
+        }
+        return aa;
+    } else if (Array.isArray(a) && typeof b === "object") {
+        const aa: Record<string, any> = {};
+        for (const item of a as string[]) {
+            aa[item] = true;
+        }
+        for (const bKey of (<Record<string, any>>b).keys) {
+            aa[bKey] = (<Record<string, boolean | null | undefined>>b)[bKey];
+        }
+        return b;
+    }
+
+    throw new Error(`cannot merge classes of ${a} (${typeof a}) and ${b} (${typeof b})`);
+}
+
+export function patchProps<S extends object | unknown>(vode: Vode<S>, props: Props<S>): void {
+    if (!Array.isArray(vode)) return;
+
+    if (vode.length > 1) {
+        if (!Array.isArray(vode[1]) && typeof vode[1] === "object") {
+            vode[1] = merge(vode[1], props);
+            return;
+        }
+
+        if (childCount(vode) > 0) {
+            (<FullVode<S>>vode).push(null);
+        }
+        for (let i = vode.length - 1; i > 0; i--) {
+            if (i > 1) vode[i] = vode[i - 1];
+        }
+        vode[1] = props;
+    } else {
+        (<FullVode<S>>vode).push(props);
+    }
+}
+
+/** get a slice of all children of a vode, if there are any */
+export function children<S extends object | unknown>(vode: ChildVode<S> | AttachedVode<S>): ChildVode<S>[] | undefined {
+    const start = childrenStart(vode);
+    if (start > 0) {
+        return (<Vode<S>>vode).slice(start) as Vode<S>[];
+    }
+
+    return undefined;
+}
+
+/** index in vode at which child-vodes start */
+export function childrenStart<S extends object | unknown>(vode: ChildVode<S> | AttachedVode<S>): number {
+    return props(vode) ? 2 : 1;
+}
+
+/** html tag of the vode or #text if it is a text node */
+export function tag<S extends object | unknown>(v: Vode<S> | TextVode | NoVode | AttachedVode<S>): Tag | "#text" | undefined {
+    return !!v ? (Array.isArray(v)
+        ? v[0] : (typeof v === "string" || (<any>v).nodeType === Node.TEXT_NODE)
+            ? "#text" : undefined) as Tag
+        : undefined;
+}
+
+export function childCount<S>(vode: Vode<S>) { return vode.length - childrenStart(vode); }
+
+export function child<S>(vode: Vode<S>, index: number): ChildVode<S> | undefined {
+    return vode[index + childrenStart(vode)] as ChildVode<S>;
+}
 
 /** merge multiple objects into one, applying from left to right
  * @param first object to merge

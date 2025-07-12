@@ -2,7 +2,7 @@
 
 Small web framework for minimal websites.
 Each vode app has its own state and renders a tree of HTML elements.
-The state is a singleton object that can be updated, and the UI will re-render when a patch is supplied.
+The state is a singleton object that can be updated, and the UI will re-render when a patch is supplied. Nesting vode-apps is undefined behavior for now.
 
 ## Patch
 
