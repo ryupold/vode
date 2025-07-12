@@ -61,38 +61,38 @@ Based on the contents of `src/vode.ts`, here’s an analysis of the overall desi
 
 ---
 
-## 1. **Minimalism and Explicit Typing**
+### 1. **Minimalism and Explicit Typing**
 - The code uses TypeScript extensively, with highly expressive and specific type definitions for all core concepts (`Vode`, `Props`, `Patch`, etc.).
 - Types facilitate both flexibility and safety, allowing various shapes for vNodes (virtual DOM nodes) and state patches.
 - The design avoids heavy abstractions or “magical” behaviors, favoring direct and explicit operations.
 
-## 2. **Flux-Inspired State Management**
+### 2. **Flux-Inspired State Management**
 - State is managed through patches and a `Dispatch` function, reminiscent of Flux or Redux architectures.
 - Patches can be values, partial updates, effects, or even asynchronous generators/promises, supporting advanced update strategies.
 - The `app` function wires together state, patching, and DOM rendering in a way that emphasizes a clear flow of state transformations.
 
-## 3. **Virtual DOM, But Lean**
+### 3. **Virtual DOM, But Lean**
 - The library defines its own vNode structure (`Vode`) and implements a custom diffing and rendering approach.
 - Children, props, and tags are handled directly, without dependency on React, Vue, or similar frameworks.
 - The rendering logic is recursive and imperative, with careful checks for node types, memoization, and props application.
 
-## 4. **Functional Approach**
+### 4. **Functional Approach**
 - Many utilities and API surfaces (like `vode`, `merge`, `patch`, `memo`) are designed to be composable and functional.
 - Mutations are mostly avoided except for DOM updates and state transitions, keeping the core logic pure and predictable.
 
-## 5. **Performance Awareness**
+### 5. **Performance Awareness**
 - Stats tracking (render time, patch count, etc.) is built into the container node, showing a concern for performance profiling and optimization.
 - Memoization (`memo`).
 
-## 6. **DOM and Event Integration**
+### 6. **DOM and Event Integration**
 - Props and event handlers are typed and patched in detail, supporting DOM events, SVG, and MathML out-of-the-box.
 - There’s direct handling of mounting and unmounting hooks, which simplifies lifecycle management without the need for a heavy component system.
 
-## 7. **Developer Ergonomics**
+### 7. **Developer Ergonomics**
 - Functions like `get`, `put`, `patchProps`, and `mergeClass` provide helpers for deep object operations, class merging, and patching, reducing boilerplate for common patterns.
 - The overloads and flexible APIs (e.g., the `vode` function) make the library adaptable for various use cases, from simple tags to full components.
 
-## 8. **No External Dependencies**
+### 8. **No External Dependencies**
 - The file is self-contained, with all logic implemented internally. This reinforces the “minimal web framework” approach.
 
 ---

@@ -4,18 +4,20 @@ export type FullVode<S> = [tag: Tag, props: Props<S>, ...children: ChildVode<S>[
 export type NoPropsVode<S> = [tag: Tag, ...children: ChildVode<S>[]] | string[];
 export type JustTagVode = [tag: Tag];
 export type TextVode = string;
-export type NoVode = undefined | null | false | void;
+export type NoVode = undefined | null | number | boolean | void;
 export type AttachedVode<S> = Vode<S> & { node: ChildNode, id?: string } | Text & { node?: never, id?: never };
 export type Tag = keyof (HTMLElementTagNameMap & SVGElementTagNameMap & MathMLElementTagNameMap);
+export type Component<S> = ((s: S) => ChildVode<S>) | ((s: S) => Component<S>);
 
 export type Patch<S> =
-| S
-| DeepPartial<S>
+| {}
+| DeepPartial<S> 
 | Effect<S>
 | AwaitablePatch<S>
-| undefined | null | false | void;
+| undefined | null | number | boolean | void;
 
-export type Patchable<S> = S & { patch: Dispatch<Patch<S>> };
+export type PatchableState<S> = S & { patch: Dispatch<Patch<S>> };
+
 export type DeepPartial<S> = { [P in keyof S]?: S[P] extends Array<infer I> ? Array<Patch<I>> : Patch<S[P]> };
 
 export type AwaitablePatch<S> = Promise<Patch<S>> | Generator<Patch<S>, unknown, void> | AsyncGenerator<Patch<S>, unknown, void>;
@@ -84,7 +86,7 @@ type EventsMap =
 type PropertyValue<S> = string | boolean | null | undefined | StyleProp | ClassProp | Patch<S> | void;
 
 export type ContainerNode<S> = HTMLElement & {
-    state: S,
+    state: PatchableState<S>,
     vode: AttachedVode<S>,
     patch: Dispatch<S>,
     render: () => void,
@@ -101,12 +103,6 @@ export type ContainerNode<S> = HTMLElement & {
         liveEffectCount: 0,
     },
 };
-
-type KeyPath<ObjectType extends object> =
-    { [Key in keyof ObjectType & (string | number)]: ObjectType[Key] extends object
-        ? `${Key}` | `${Key}.${KeyPath<ObjectType[Key]>}`
-        : `${Key}`
-    }[keyof ObjectType & (string | number)];
 
 /** create a vode for typed state
  * 
@@ -249,7 +245,7 @@ export function child<S>(vode: Vode<S>, index: number): ChildVode<S> | undefined
 }
 
 /** pass an object whose type determines the initial state */
-export const createState = <S>(state: S): Patchable<S> => state as Patchable<S>;
+export const createState = <S>(state: S): PatchableState<S> => state as PatchableState<S>;
 
 /**
  * create a vode app inside a container element
@@ -283,7 +279,7 @@ export function app<S>(container: HTMLElement, initialState: Omit<S, "patch">, d
                             root.stats.liveEffectCount--;
                         }
                     }
-                    root.patch!(v.value as Patchable<S>);
+                    root.patch!(v.value as Patch<S>);
                 } finally {
                     root.stats.liveEffectCount--;
                 }
@@ -298,15 +294,15 @@ export function app<S>(container: HTMLElement, initialState: Omit<S, "patch">, d
             } else if (Array.isArray(action)) {
                 if (typeof action[0] === "function") {
                     if (action.length > 1)
-                        root.patch!(action[0](root.state! as Patchable<S>, ...(action as any[]).slice(1)));
-                    else root.patch!(action[0](root.state! as Patchable<S>));
+                        root.patch!(action[0](root.state!, ...(action as any[]).slice(1)));
+                    else root.patch!(action[0](root.state!));
                 } else {
                     for (const patch of action) {
                         root.patch!(patch);
                     }
                 }
             } else if (typeof action === "function") {
-                root.patch!((<EffectFunction<S>>action)(root.state as Patchable<S>));
+                root.patch!((<EffectFunction<S>>action)(root.state));
             } else {
                 root.stats.renderPatchCount++;
                 root.q!.push(<Patch<S>>action);
@@ -342,8 +338,8 @@ export function app<S>(container: HTMLElement, initialState: Omit<S, "patch">, d
         })
     });
 
-    root.patch = (<Patchable<any>>initialState).patch;
-    root.state = <S>initialState;
+    root.patch = (<PatchableState<S>>initialState).patch;
+    root.state = <PatchableState<S>>initialState;
     root.q = [];
     const initialVode = dom(<S>initialState);
     root.vode = <AttachedVode<S>>initialVode;
@@ -355,8 +351,6 @@ export function app<S>(container: HTMLElement, initialState: Omit<S, "patch">, d
 
     return root.patch;
 }
-
-export type Component<S> = ((s: S) => ChildVode<S>) | ((s: S) => Component<S>);
 
 /** for a type safe way to create a deeply partial patch object or effect */
 export function patch<S>(p: DeepPartial<S> | Effect<S> | undefined | null | false | void): typeof p { return p; }
@@ -408,12 +402,6 @@ export function memo<S extends object | unknown>(compare: any[], componentOrProp
     return componentOrProps as typeof componentOrProps extends ((s: S) => Props<S>) ? ((s: S) => Props<S>) : Component<S>;
 }
 
-/** force complete recreation of node and rerender every time */
-export function neo<S extends object | unknown>(componentOrProps: Component<S>): Component<S> {
-    (<any>componentOrProps).__neo = true;
-    return componentOrProps;
-}
-
 function remember<S>(state: S, present: any, past: any): ChildVode<S> | AttachedVode<S> {
     if (typeof present !== "function")
         return present;
@@ -438,7 +426,6 @@ function remember<S>(state: S, present: any, past: any): ChildVode<S> | Attached
     if (typeof newRender === "object") 
     {
         (<any>newRender).__memo = present?.__memo;
-        (<any>newRender).__neo = present?.__neo;
     }
     return newRender;
 }
@@ -495,12 +482,8 @@ function render<S>(state: S, patch: Dispatch<S>, parent: ChildNode, childIndex: 
     }
 
     // falsy|text|element(A) -> element(B) 
-    // or
-    // neo -> element(B) 
     if (
         (isNode && (!oldNode || oldIsText || (<Vode<S>>oldVode)[0] !== (<Vode<S>>newVode)[0]))
-        ||
-        (<any>newVode).__neo
     ) {
         svg = svg || (<Vode<S>>newVode)[0] === "svg";
         const newNode: ChildNode = svg
@@ -727,40 +710,3 @@ function mergeState(target: any, source: any) {
     }
     return target;
 };
-
-/** put a value deep inside an object addressed by a key path (creating necessary structure on the way). if target is null, a new object is created */
-export function put<O extends object | unknown>(keyPath: O extends object ? KeyPath<O> : string, value: any = undefined, target: DeepPartial<O> | null = null) {
-    if (!target) target = {} as O as any;
-
-    const keys = keyPath.split('.');
-    if (keys.length > 1) {
-        let i = 0;
-        let raw = (<any>target)[keys[i]];
-        if (raw === undefined) {
-            (<any>target)[keys[i]] = raw = {};
-        }
-        for (i = 1; i < keys.length - 1; i++) {
-            const p = raw;
-            raw = raw[keys[i]];
-            if (raw === undefined) {
-                raw = {};
-                p[keys[i]] = raw;
-            }
-        }
-        if (keys[i] === undefined) console.log(keyPath);
-        raw[keys[i]] = value;
-    } else {
-        (<any>target)[keys[0]] = value;
-    }
-    return target
-}
-
-/** get a value deep inside an object by its key path */
-export function get<O extends object | unknown>(keyPath: O extends object ? KeyPath<O> : string, source: DeepPartial<O>) {
-    const keys = keyPath.split('.');
-    let raw = source ? (<any>source)[keys[0]] : undefined;
-    for (let i = 1; i < keys.length && !!raw; i++) {
-        raw = raw[keys[i]];
-    }
-    return raw;
-}
