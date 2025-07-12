@@ -27,27 +27,26 @@ index.html
 main.ts
 ```ts
 import { vode, app, createState} from 'vode.js';
-import { DIV, INPUT, SPAN } from 'vode-tags.js';
+import { BR, DIV, INPUT, SPAN } from 'vode-tags.js';
 
 
 const init = createState({
     counter: 0,
 });
 
-const State = typeof init;
+type State = typeof init;
 
 const appNode = document.getElementById('app') as ContainerNode<State>;
 
-app<State>(appNode, init, 
-   (s) => [DIV,
-                [INPUT, {
-                        type: 'button', 
-                        onclick: { counter: s.counter + 1 }
-                    }
-                ], 
-                [SPAN, {style: {color: 'red'}}, s.counter],
-            ]
-        ))),
+app<State>(appNode, init,
+    (s) => [DIV,
+        [INPUT, {
+            type: 'button',
+            onclick: { counter: s.counter + 1 },
+            value: 'Click me',
+        }],
+        [BR],
+        [SPAN, { style: { color: 'red' } }, `${s.counter}`],
     ]
 );
 ```

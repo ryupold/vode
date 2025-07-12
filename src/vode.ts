@@ -69,7 +69,7 @@ export type StyleProp = Record<number, never> & {
 }
 
 export type EventActions<S> = {
-    [K in keyof EventsMap]: Patch<S> | undefined | null | false
+    [K in keyof EventsMap]: Patch<S>
 }
 
 export type EventsMap =
