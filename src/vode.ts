@@ -262,7 +262,7 @@ export function app<S>(container: HTMLElement, initialState: Omit<S, "patch">, d
     Object.defineProperty(initialState, "patch", {
         enumerable: false, configurable: true,
         writable: false, value: async (action: Patch<S>) => {
-            if (!action) return;
+            if (!action || typeof action === "number" || typeof action === "boolean" || typeof action === "string" || typeof action === "bigint") return;
             root.stats.patchCount++;
 
             if ((action as AsyncGenerator<Patch<S>, unknown, void>)?.next) {
@@ -433,12 +433,24 @@ function remember<S>(state: S, present: any, past: any): ChildVode<S> | Attached
 function render<S>(state: S, patch: Dispatch<S>, parent: ChildNode, childIndex: number, oldVode: AttachedVode<S> | undefined, newVode: ChildVode<S>, svg?: boolean): AttachedVode<S> | undefined {
     // unwrap component if it is memoized
     newVode = remember(state, newVode, oldVode) as ChildVode<S>;
-    if (newVode === oldVode || (!oldVode && !newVode)) {
+
+    const isNoVode = !newVode || typeof newVode === "number" || typeof newVode === "boolean";
+    if (newVode === oldVode || (!oldVode && isNoVode)) {
         return oldVode;
     }
+    
+    const oldIsText = (oldVode as Text)?.nodeType === Node.TEXT_NODE;
+    const oldNode: ChildNode | undefined = oldIsText ? oldVode as Text : oldVode?.node;
 
-    const isText = isTextVode(newVode);
-    const isNode = !!newVode && isNaturalVode(newVode);
+    // falsy|text|element(A) -> undefined 
+    if (isNoVode) {
+        (<any>oldNode)?.onUnmount && patch((<any>oldNode).onUnmount(oldNode));
+        oldNode?.remove();
+        return undefined;
+    }
+
+    const isText = !isNoVode && isTextVode(newVode);
+    const isNode = !isNoVode && isNaturalVode(newVode);
     const alreadyAttached = !!newVode && typeof newVode !== "string" && !!((<any>newVode)?.node || (<any>newVode)?.nodeType === Node.TEXT_NODE);
 
     if (!isText && !isNode && !alreadyAttached && !oldVode) {
@@ -450,16 +462,6 @@ function render<S>(state: S, patch: Dispatch<S>, parent: ChildNode, childIndex: 
     }
     else if (alreadyAttached && isNode) {
         newVode = [...<Vode<S>>newVode];
-    }
-
-    const oldIsText = (oldVode as Text)?.nodeType === Node.TEXT_NODE;
-    const oldNode: ChildNode | undefined = oldIsText ? oldVode as Text : oldVode?.node;
-
-    // falsy|text|element(A) -> undefined 
-    if (!newVode) {
-        (<any>oldNode)?.onUnmount && patch((<any>oldNode).onUnmount(oldNode));
-        oldNode?.remove();
-        return undefined;
     }
 
     // text -> text
