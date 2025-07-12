@@ -7,14 +7,14 @@ export type TextVode = string;
 export type NoVode = undefined | null | number | boolean | void;
 export type AttachedVode<S> = Vode<S> & { node: ChildNode, id?: string } | Text & { node?: never, id?: never };
 export type Tag = keyof (HTMLElementTagNameMap & SVGElementTagNameMap & MathMLElementTagNameMap);
-export type Component<S> = ((s: S) => ChildVode<S>) | ((s: S) => Component<S>);
+export type Component<S> = (s: S) => ChildVode<S>;
 
 export type Patch<S> =
-| {}
-| DeepPartial<S> 
-| Effect<S>
-| AwaitablePatch<S>
-| undefined | null | number | boolean | void;
+    | {}
+    | DeepPartial<S>
+    | Effect<S>
+    | AwaitablePatch<S>
+    | undefined | null | number | boolean | void;
 
 export type PatchableState<S> = S & { patch: Dispatch<Patch<S>> };
 
@@ -423,8 +423,7 @@ function remember<S>(state: S, present: any, past: any): ChildVode<S> | Attached
         if (same) return past;
     }
     const newRender = unwrap(present, state);
-    if (typeof newRender === "object") 
-    {
+    if (typeof newRender === "object") {
         (<any>newRender).__memo = present?.__memo;
     }
     return newRender;
@@ -438,7 +437,7 @@ function render<S>(state: S, patch: Dispatch<S>, parent: ChildNode, childIndex: 
     if (newVode === oldVode || (!oldVode && isNoVode)) {
         return oldVode;
     }
-    
+
     const oldIsText = (oldVode as Text)?.nodeType === Node.TEXT_NODE;
     const oldNode: ChildNode | undefined = oldIsText ? oldVode as Text : oldVode?.node;
 
