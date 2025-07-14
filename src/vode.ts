@@ -31,7 +31,7 @@ export type PatchableState<S> = S & { patch: Dispatch<Patch<S>> };
 export type Props<S> = Partial<
     Omit<HTMLElement,
         keyof (DocumentFragment & ElementCSSInlineStyle & GlobalEventHandlers)> &
-        { [K in keyof EventsMap]: Patch<S> } // all on* events
+    { [K in keyof EventsMap]: Patch<S> } // all on* events
 > & {
     [_: string]: unknown,
     class?: ClassProp,
@@ -439,8 +439,9 @@ function render<S>(state: S, patch: Dispatch<S>, parent: ChildNode, childIndex: 
 
     // text -> text
     if (oldIsText && isText) {
-        if ((<Text>oldNode).textContent !== <string>newVode)
-            (<Text>oldNode).textContent = <string>newVode;
+        if ((<Text>oldNode).nodeValue !== <string>newVode) {
+            (<Text>oldNode).nodeValue = <string>newVode;
+        }
         return oldVode;
     }
     // falsy|element -> text
@@ -450,7 +451,11 @@ function render<S>(state: S, patch: Dispatch<S>, parent: ChildNode, childIndex: 
             (<any>oldNode).onUnmount && patch((<any>oldNode).onUnmount(oldNode));
             oldNode.replaceWith(text);
         } else {
-            parent.appendChild(text);
+            if (parent.childNodes[childIndex]) {
+                parent.insertBefore(text, parent.childNodes[childIndex]);
+            } else {
+                parent.appendChild(text);
+            }
         }
 
         return text as Text;
