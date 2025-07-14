@@ -69,21 +69,23 @@ export type EventsMap =
 export type PropertyValue<S> = string | boolean | null | undefined | StyleProp | ClassProp | Patch<S> | void;
 
 export type ContainerNode<S> = HTMLElement & {
-    state: PatchableState<S>,
-    vode: AttachedVode<S>,
-    patch: Dispatch<S>,
-    render: () => void,
-    q: Patch<S>[]
-    isRendering: boolean,
-    stats: {
-        patchCount: number,
-        liveEffectCount: number,
-        renderPatchCount: number,
-        renderCount: number,
-        renderTime: number,
-        queueLengthBeforeRender: number,
-        queueLengthAfterRender: number,
-    },
+    _vode: {
+        state: PatchableState<S>,
+        vode: AttachedVode<S>,
+        patch: Dispatch<S>,
+        render: () => void,
+        q: Patch<S>[]
+        isRendering: boolean,
+        stats: {
+            patchCount: number,
+            liveEffectCount: number,
+            renderPatchCount: number,
+            renderCount: number,
+            renderTime: number,
+            queueLengthBeforeRender: number,
+            queueLengthAfterRender: number,
+        },
+    }
 };
 
 /** type-safe way to create a vode. useful for type inference and autocompletion.
@@ -120,98 +122,102 @@ export function patch<S>(p: DeepPartial<S> | Effect<S> | NoRenderPatch): typeof 
  * @returns a patch function that can be used to update the state
  */
 export function app<S>(container: HTMLElement, initialState: Omit<S, "patch">, dom: Component<S>, ...initialPatches: Patch<S>[]) {
-    const root = container as ContainerNode<S>;
-    root.stats = { renderTime: 0, renderCount: 0, queueLengthBeforeRender: 0, queueLengthAfterRender: 0, liveEffectCount: 0, patchCount: 0, renderPatchCount: 0 };
+    const _vode = {} as ContainerNode<S>["_vode"];
+    _vode.stats = { renderTime: 0, renderCount: 0, queueLengthBeforeRender: 0, queueLengthAfterRender: 0, liveEffectCount: 0, patchCount: 0, renderPatchCount: 0 };
 
     Object.defineProperty(initialState, "patch", {
         enumerable: false, configurable: true,
         writable: false, value: async (action: Patch<S>) => {
             if (!action || (typeof action !== "function" && typeof action !== "object")) return;
-            root.stats.patchCount++;
+            _vode.stats.patchCount++;
 
             if ((action as AsyncGenerator<Patch<S>, unknown, void>)?.next) {
                 const generator = action as AsyncGenerator<Patch<S>, unknown, void>;
-                root.stats.liveEffectCount++;
+                _vode.stats.liveEffectCount++;
                 try {
                     let v = await generator.next();
                     while (v.done === false) {
-                        root.stats.liveEffectCount++;
+                        _vode.stats.liveEffectCount++;
                         try {
-                            root.patch!(v.value);
+                            _vode.patch!(v.value);
                             v = await generator.next();
                         } finally {
-                            root.stats.liveEffectCount--;
+                            _vode.stats.liveEffectCount--;
                         }
                     }
-                    root.patch!(v.value as Patch<S>);
+                    _vode.patch!(v.value as Patch<S>);
                 } finally {
-                    root.stats.liveEffectCount--;
+                    _vode.stats.liveEffectCount--;
                 }
             } else if ((action as Promise<S>).then) {
-                root.stats.liveEffectCount++;
+                _vode.stats.liveEffectCount++;
                 try {
                     const nextState = await (action as Promise<S>);
-                    root.patch!(<Patch<S>>nextState);
+                    _vode.patch!(<Patch<S>>nextState);
                 } finally {
-                    root.stats.liveEffectCount--;
+                    _vode.stats.liveEffectCount--;
                 }
             } else if (Array.isArray(action)) {
                 if (typeof action[0] === "function") {
                     if (action.length > 1)
-                        root.patch!(action[0](root.state!, ...(action as any[]).slice(1)));
-                    else root.patch!(action[0](root.state!));
+                        _vode.patch!(action[0](_vode.state!, ...(action as any[]).slice(1)));
+                    else _vode.patch!(action[0](_vode.state!));
                 } else {
-                    root.stats.patchCount--;
+                    _vode.stats.patchCount--;
                 }
             } else if (typeof action === "function") {
-                root.patch!((<EffectFunction<S>>action)(root.state));
+                _vode.patch!((<EffectFunction<S>>action)(_vode.state));
             } else {
-                root.stats.renderPatchCount++;
-                root.q!.push(<Patch<S>>action);
-                if (!root.isRendering) root.render!();
+                _vode.stats.renderPatchCount++;
+                _vode.q!.push(<Patch<S>>action);
+                if (!_vode.isRendering) _vode.render!();
             }
         }
     });
 
-    Object.defineProperty(root, "render", {
+    Object.defineProperty(_vode, "render", {
         enumerable: false, configurable: true,
         writable: false, value: () => requestAnimationFrame(() => {
-            if (root.isRendering || root.q!.length === 0) return;
-            root.isRendering = true;
+            if (_vode.isRendering || _vode.q!.length === 0) return;
+            _vode.isRendering = true;
             const sw = Date.now();
             try {
-                root.stats.queueLengthBeforeRender = root.q!.length;
+                _vode.stats.queueLengthBeforeRender = _vode.q!.length;
 
-                while (root.q!.length > 0) {
-                    const patch = root.q!.shift();
-                    if(patch === EmptyPatch) continue;
-                    mergeState(root.state, patch);
+                while (_vode.q!.length > 0) {
+                    const patch = _vode.q!.shift();
+                    if (patch === EmptyPatch) continue;
+                    mergeState(_vode.state, patch);
                 }
-                root.vode = render(root.state, root.patch, container, 0, root.vode, dom(root.state))!;
+                _vode.vode = render(_vode.state, _vode.patch, container, 0, _vode.vode, dom(_vode.state))!;
             } finally {
-                root.isRendering = false;
-                root.stats.renderCount++;
-                root.stats.renderTime = Date.now() - sw;
-                root.stats.queueLengthAfterRender = root.q!.length;
-                if (root.q!.length > 0) {
-                    root.render!();
+                _vode.isRendering = false;
+                _vode.stats.renderCount++;
+                _vode.stats.renderTime = Date.now() - sw;
+                _vode.stats.queueLengthAfterRender = _vode.q!.length;
+                if (_vode.q!.length > 0) {
+                    _vode.render!();
                 }
             }
         })
     });
 
-    root.patch = (<PatchableState<S>>initialState).patch;
-    root.state = <PatchableState<S>>initialState;
-    root.q = [];
+    _vode.patch = (<PatchableState<S>>initialState).patch;
+    _vode.state = <PatchableState<S>>initialState;
+    _vode.q = [];
+    
+    const root = container as ContainerNode<S>;
+    root._vode = _vode;
+
     const initialVode = dom(<S>initialState);
-    root.vode = <AttachedVode<S>>initialVode;
-    root.vode = render(<S>initialState, root.patch!, container, 0, undefined, initialVode)!;
+    _vode.vode = <AttachedVode<S>>initialVode;
+    _vode.vode = render(<S>initialState, _vode.patch!, container, 0, undefined, initialVode)!;
 
     for (const effect of initialPatches) {
-        root.patch!(effect);
+        _vode.patch!(effect);
     }
 
-    return root.patch;
+    return _vode.patch;
 }
 
 /** get properties of a vode, if there are any */
