@@ -75,7 +75,6 @@ export type ContainerNode<S> = HTMLElement & {
     render: () => void,
     q: Patch<S>[]
     isRendering: boolean,
-    lastRender: number,
     stats: {
         patchCount: number,
         liveEffectCount: number,
@@ -176,12 +175,11 @@ export function app<S>(container: HTMLElement, initialState: Omit<S, "patch">, d
 
     Object.defineProperty(root, "render", {
         enumerable: false, configurable: true,
-        writable: false, value: () => requestAnimationFrame((timestamp) => {
-            if (root.isRendering || root.lastRender === timestamp || root.q!.length === 0) return;
+        writable: false, value: () => requestAnimationFrame(() => {
+            if (root.isRendering || root.q!.length === 0) return;
             root.isRendering = true;
             const sw = Date.now();
             try {
-                root.lastRender = timestamp;
                 root.stats.queueLengthBeforeRender = root.q!.length;
 
                 while (root.q!.length > 0) {
