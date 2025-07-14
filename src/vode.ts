@@ -4,15 +4,18 @@ export type FullVode<S> = [tag: Tag, props: Props<S>, ...children: ChildVode<S>[
 export type NoPropsVode<S> = [tag: Tag, ...children: ChildVode<S>[]] | string[];
 export type JustTagVode = [tag: Tag];
 export type TextVode = string;
-export type NoVode = undefined | null | number | boolean | void;
+export type NoVode = undefined | null | number | boolean | bigint | void;
 export type AttachedVode<S> = Vode<S> & { node: ChildNode, id?: string } | Text & { node?: never, id?: never };
 export type Tag = keyof (HTMLElementTagNameMap & SVGElementTagNameMap & MathMLElementTagNameMap);
 export type Component<S> = (s: S) => ChildVode<S>;
 
 export type Patch<S> =
-    | undefined | null | number | boolean | string | void // no render patch
-    | {} | DeepPartial<S> // render patches
+    | NoRenderPatch // ignored
+    | typeof EmptyPatch | DeepPartial<S> // render patches
     | Promise<Patch<S>> | Effect<S> // effects resulting in patches
+
+export const EmptyPatch = {} as const; // smallest patch to cause a render without any changes
+export type NoRenderPatch = undefined | null | number | boolean | bigint | string | symbol | void;
 
 export type DeepPartial<S> = { [P in keyof S]?: S[P] extends Array<infer I> ? Array<Patch<I>> : Patch<S[P]> };
 
@@ -74,23 +77,23 @@ export type ContainerNode<S> = HTMLElement & {
     isRendering: boolean,
     lastRender: number,
     stats: {
-        renderTime: number,
+        patchCount: number,
+        liveEffectCount: number,
+        renderPatchCount: number,
         renderCount: number,
+        renderTime: number,
         queueLengthBeforeRender: number,
         queueLengthAfterRender: number,
-        patchCount: 0,
-        renderPatchCount: 0,
-        liveEffectCount: 0,
     },
 };
 
-/** create a vode for typed state
+/** type-safe way to create a vode. useful for type inference and autocompletion.
  * 
  * overloads:
- * - just a tag: `v("div") // => ["div"]`
- * - tag and props: `v("div", { class: "foo" }) // => ["div", { class: "foo" }]`
- * - tag, props and children: `v("div", { class: "foo" }, ["span", "bar"]) // => ["div", { class: "foo" }, ["span", "bar"]]`
- * - identity: `v(["div", ["span", "bar"]]) // => ["div", ["span", "bar"]]`
+ * - just a tag: `vode("div") // => ["div"]`
+ * - tag and props: `vode("div", { class: "foo" }) // => ["div", { class: "foo" }]`
+ * - tag, props and children: `vode("div", { class: "foo" }, ["span", "bar"]) // => ["div", { class: "foo" }, ["span", "bar"]]`
+ * - identity: `vode(["div", ["span", "bar"]]) // => ["div", ["span", "bar"]]`
  */
 export function vode<S extends object | unknown>(tag: Tag | Vode<S>, props?: Props<S> | ChildVode<S>, ...children: ChildVode<S>[]): Vode<S> {
     if (Array.isArray(tag)) {
@@ -107,7 +110,7 @@ export function createState<S>(state: S): PatchableState<S> { return state as Pa
 
 
 /** for a type safe way to create a deeply partial patch object or effect */
-export function patch<S>(p: DeepPartial<S> | Effect<S> | undefined | null | false | void): typeof p { return p; }
+export function patch<S>(p: DeepPartial<S> | Effect<S> | NoRenderPatch): typeof p { return p; }
 
 /**
  * create a vode app inside a container element
@@ -124,7 +127,7 @@ export function app<S>(container: HTMLElement, initialState: Omit<S, "patch">, d
     Object.defineProperty(initialState, "patch", {
         enumerable: false, configurable: true,
         writable: false, value: async (action: Patch<S>) => {
-            if (!action || typeof action === "number" || typeof action === "boolean" || typeof action === "string" || typeof action === "bigint") return;
+            if (!action || (typeof action !== "function" && typeof action !== "object")) return;
             root.stats.patchCount++;
 
             if ((action as AsyncGenerator<Patch<S>, unknown, void>)?.next) {
@@ -183,6 +186,7 @@ export function app<S>(container: HTMLElement, initialState: Omit<S, "patch">, d
 
                 while (root.q!.length > 0) {
                     const patch = root.q!.shift();
+                    if(patch === EmptyPatch) continue;
                     mergeState(root.state, patch);
                 }
                 root.vode = render(root.state, root.patch, container, 0, root.vode, dom(root.state))!;
