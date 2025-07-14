@@ -6,19 +6,24 @@ on:
       - 'main'
 
 jobs:
-  build:
+  test-build-and-publish-to-npm:
     runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write
     steps:
       - uses: actions/checkout@v4
-      # Setup .npmrc file to publish to npm
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20.x'
-          registry-url: 'https://registry.npmjs.org'
-      - run: npm run build
-      - run: npm publish --provenance --access public
+      - uses: oven-sh/setup-bun@v2
+      - run: bun run build
+      - run: |
+          echo "releasing to npm..."
+          bun publish --provenance --access public | grep "+ @ryupold/vode@" > version.txt
+          NEWVERSION=$(cat version.txt)
+          if [[ $NEWVERSION == *"vode"* ]]; then
+            echo "...success: $NEWVERSION"
+          else
+            echo "...failed to publish"
+          fi
+
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_TOKEN: ${{ secrets.NPM_TOKEN }}

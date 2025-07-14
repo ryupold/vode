@@ -1,6 +1,6 @@
 {
     "name": "@ryupold/vode",
-    "version": "0.9.3",
+    "version": "0.9.6",
     "description": "Small web framework for minimal websites",
     "author": "Michael Scherbakow (ryupold)",
     "license": "MIT",
@@ -20,13 +20,17 @@
         "url": "https://github.com/ryupold/vode/issues"
     },
     "homepage": "https://github.com/ryupold/vode#readme",
-    "main": "index.js",
+    "module": "index.ts",
     "scripts": {
+        "build": "bun build index.ts --outfile vode.mjs",
+        "build-min": "bun build index.ts --outfile vode.min.mjs --minify",
+        "pack": "rm *.tgz && bun run build && bun pm pack",
+        "publish": "bun publish --provenance --access public",
         "clean": "tsc -b --clean",
-        "build": "tsc -b",
         "watch": "tsc -b -w"
     },
     "devDependencies": {
+        "bun": "^1.2.18",
         "typescript": "^5.8.3"
     }
 }

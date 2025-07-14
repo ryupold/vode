@@ -7,7 +7,14 @@ The state is a singleton object that can be updated, and the UI will re-render w
 ## Install
 
 ```bash
+# npm
 npm install @ryupold/vode --save
+
+# yarn
+yarn add @ryupold/vode
+
+# bun
+bun add @ryupold/vode
 ```
 
 ## Patch
