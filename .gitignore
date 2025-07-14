@@ -16,3 +16,6 @@
 *.d.ts
 *.d.ts.map
 *.tsbuildinfo
+node_modules/
+
+package-lock.json
