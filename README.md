@@ -4,6 +4,12 @@ Small web framework for minimal websites.
 Each vode app has its own state and renders a tree of HTML elements.
 The state is a singleton object that can be updated, and the UI will re-render when a patch is supplied. Nesting vode-apps is undefined behavior for now.
 
+## Install
+
+```bash
+npm install @ryupold/vode --save
+```
+
 ## Patch
 
 The `patch` function returned by `app(...)` is a function that can be passed an object called `Patch` this object is used to update the state and re-render the UI. It takes a `Patch` object that describes the changes to be made to the state in a "trickle down manner". The `Patch` can be a simple object or a function that returns a new `Patch` to the current state. It can also be an async and/or genrator function that yields `Patch`es. Events also can return a `Patch`. When a number | boolean | string | null | undefined is applied as a `Patch`, it will be ignored.
@@ -26,8 +32,9 @@ index.html
 
 main.ts
 ```ts
-import { vode, app, createState} from 'vode.js';
-import { BR, DIV, INPUT, SPAN } from 'vode-tags.js';
+// import { app, createState} from 'vode.js';
+// import { BR, DIV, INPUT, SPAN } from 'vode-tags.js';
+import { app, createState, BR, DIV, INPUT, SPAN } from '@ryupold/vode';
 
 
 const init = createState({
@@ -36,10 +43,10 @@ const init = createState({
 
 type State = typeof init;
 
-const appNode = document.getElementById('app') as ContainerNode<State>;
+const appNode = document.getElementById('app');
 
 app<State>(appNode, init,
-    (s) => [DIV,
+    (s: State) => [DIV,
         [INPUT, {
             type: 'button',
             onclick: { counter: s.counter + 1 },

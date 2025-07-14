@@ -1,0 +1,32 @@
+{
+    "name": "@ryupold/vode",
+    "version": "0.9.0",
+    "description": "Small web framework for minimal websites",
+    "author": "Michael Scherbakow (ryupold)",
+    "license": "MIT",
+    "keywords": [
+        "web",
+        "frontend",
+        "state",
+        "minimal",
+        "framework",
+        "typescript"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/ryupold/vode.git"
+    },
+    "bugs": {
+        "url": "https://github.com/ryupold/vode/issues"
+    },
+    "homepage": "https://github.com/ryupold/vode#readme",
+    "main": "index.js",
+    "scripts": {
+        "clean": "tsc -b --clean",
+        "build": "tsc -b",
+        "watch": "tsc -b -w"
+    },
+    "devDependencies": {
+        "typescript": "^5.8.3"
+    }
+}
