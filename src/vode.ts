@@ -85,9 +85,7 @@ export type ContainerNode<S> = HTMLElement & {
             liveEffectCount: number,
             renderPatchCount: number,
             renderCount: number,
-            renderTime: number,
-            queueLengthBeforeRender: number,
-            queueLengthAfterRender: number,
+            lastRenderTime: number,
         },
     }
 };
@@ -125,7 +123,7 @@ export function app<S extends object | unknown>(container: HTMLElement, initialS
     if (typeof dom !== "function") throw new Error("dom must be a function that returns a vode");
 
     const _vode = {} as ContainerNode<S>["_vode"];
-    _vode.stats = { renderTime: 0, renderCount: 0, queueLengthBeforeRender: 0, queueLengthAfterRender: 0, liveEffectCount: 0, patchCount: 0, renderPatchCount: 0 };
+    _vode.stats = { lastRenderTime: 0, renderCount: 0, liveEffectCount: 0, patchCount: 0, renderPatchCount: 0 };
 
     Object.defineProperty(initialState, "patch", {
         enumerable: false, configurable: true,
@@ -190,7 +188,7 @@ export function app<S extends object | unknown>(container: HTMLElement, initialS
             } finally {
                 _vode.isRendering = false;
                 _vode.stats.renderCount++;
-                _vode.stats.renderTime = Date.now() - sw;
+                _vode.stats.lastRenderTime = Date.now() - sw;
                 if (_vode.q) {
                     _vode.render();
                 }
