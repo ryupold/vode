@@ -106,13 +106,10 @@ export function createPatch<S extends object | unknown>(p: DeepPartial<S> | Effe
  * - identity: `vode(["div", ["span", "bar"]])` => `["div", ["span", "bar"]]` --*rendered*-> `<div><span>bar</span></div>`
  */
 export function vode<S extends object | unknown>(tag: Tag | Vode<S>, props?: Props<S> | ChildVode<S>, ...children: ChildVode<S>[]): Vode<S> {
-    if (Array.isArray(tag)) {
-        return tag;
-    }
-    if (props) {
-        return [tag, props as Props<S>, ...children];
-    }
-    return [tag, ...children];
+    if(!tag) throw new Error("tag must be a string or vode");
+    if (Array.isArray(tag)) return tag;
+    else if (props) return [tag, props as Props<S>, ...children];
+    else return [tag, ...children];
 }
 
 /** create a vode app inside a container element
@@ -123,6 +120,10 @@ export function vode<S extends object | unknown>(tag: Tag | Vode<S>, props?: Pro
  * @returns a patch function that can be used to update the state
  */
 export function app<S extends object | unknown>(container: HTMLElement, initialState: Omit<S, "patch">, dom: Component<S>, ...initialPatches: Patch<S>[]) {
+    if (!container) throw new Error("container must be a valid HTMLElement");
+    if (!initialState || typeof initialState !== "object") throw new Error("initialState must be an object");
+    if (typeof dom !== "function") throw new Error("dom must be a function that returns a vode");
+
     const _vode = {} as ContainerNode<S>["_vode"];
     _vode.stats = { renderTime: 0, renderCount: 0, queueLengthBeforeRender: 0, queueLengthAfterRender: 0, liveEffectCount: 0, patchCount: 0, renderPatchCount: 0 };
 
