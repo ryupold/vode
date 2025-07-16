@@ -289,10 +289,10 @@ export function mergeClass(a: ClassProp, b: ClassProp): ClassProp {
         for (const item of a as string[]) {
             aa[item] = true;
         }
-        for (const bKey of (<Record<string, any>>b).keys) {
+        for (const bKey of Object.keys(b)) {
             aa[bKey] = (<Record<string, boolean | null | undefined>>b)[bKey];
         }
-        return b;
+        return aa;
     }
 
     throw new Error(`cannot merge classes of ${a} (${typeof a}) and ${b} (${typeof b})`);
