@@ -12,7 +12,7 @@ export type Component<S> = (s: S) => ChildVode<S>;
 export type Patch<S> =
     | NoRenderPatch // ignored
     | typeof EmptyPatch | DeepPartial<S> // render patches
-    | Promise<Patch<S>> | Effect<S> // effects resulting in patches
+    | Promise<Patch<S>> | Effect<S>; // effects resulting in patches
 
 export const EmptyPatch = {} as const; // smallest patch to cause a render without any changes
 export type NoRenderPatch = undefined | null | number | boolean | bigint | string | symbol | void;
@@ -27,9 +27,6 @@ export type Effect<S> =
     | AsyncGenerator<Patch<S>, unknown, void>;
 
 export type EffectFunction<S> = (state: S, ...args: any[]) => Patch<S>;
-
-export type Dispatch<S> = (action: Patch<S>) => void;
-export type PatchableState<S> = S & { patch: Dispatch<Patch<S>> };
 
 export type Props<S> = Partial<
     Omit<HTMLElement,
@@ -48,34 +45,42 @@ export type Props<S> = Partial<
 export type MountFunction<S> =
     | ((s: S, node: HTMLElement) => Patch<S>)
     | ((s: S, node: SVGSVGElement) => Patch<S>)
-    | ((s: S, node: MathMLElement) => Patch<S>)
+    | ((s: S, node: MathMLElement) => Patch<S>);
 
 export type ClassProp =
     | "" | false | null | undefined // no class
     | string // "class1 class2"
     | string[] // ["class1", "class2"]
-    | Record<string, boolean | undefined | null> // { class1: true, class2: false }
+    | Record<string, boolean | undefined | null>; // { class1: true, class2: false }
 
 export type StyleProp = Record<number, never> & {
     [K in keyof CSSStyleDeclaration]?: CSSStyleDeclaration[K] | null
-}
+};
 
 export type EventsMap =
     & { [K in keyof HTMLElementEventMap as `on${K}`]: HTMLElementEventMap[K] }
     & { [K in keyof WindowEventMap as `on${K}`]: WindowEventMap[K] }
     & { [K in keyof SVGElementEventMap as `on${K}`]: SVGElementEventMap[K] }
-    & { onsearch: Event }
+    & { onsearch: Event };
 
 export type PropertyValue<S> = string | boolean | null | undefined | StyleProp | ClassProp | Patch<S> | void;
 
+
+export type Dispatch<S> = (action: Patch<S>) => void;
+export type PatchableState<S> = S & { patch: Dispatch<Patch<S>> };
+
 export type ContainerNode<S> = HTMLElement & {
+    /** the `_vode` property is added to the container in `app()`.
+     * it contains all necessary stuff for the vode app to function.
+     * delete it to clear all resources of the vode app, or remove the container itself */
     _vode: {
-        state: PatchableState<S>,
-        vode: AttachedVode<S>,
-        patch: Dispatch<S>,
-        render: () => void,
-        q: Patch<S>[]
-        isRendering: boolean,
+        state: PatchableState<S>, // can touch this, but let it be an object
+        vode: AttachedVode<S>, //don't touch this
+        patch: Dispatch<S>, // can't touch this
+        render: () => void, // can't touch this
+        q: Patch<S>[],  // this will change in the future, so don't touch it
+        isRendering: boolean,  // under no circumstances touch this
+        /** stats about the overall patches & last render time */
         stats: {
             patchCount: number,
             liveEffectCount: number,
@@ -88,13 +93,18 @@ export type ContainerNode<S> = HTMLElement & {
     }
 };
 
+/** create a state object used as initial state for `app()`. it is updated with `PatchableState.patch()` using `merge()` */
+export function createState<S extends object | unknown>(state: S): PatchableState<S> { return state as PatchableState<S>; }
+
+/** type safe way to create a patch. useful for type inference and autocompletion. */
+export function createPatch<S extends object | unknown>(p: DeepPartial<S> | Effect<S> | NoRenderPatch): Patch<S> { return p; }
+
 /** type-safe way to create a vode. useful for type inference and autocompletion.
  * 
- * overloads:
- * - just a tag: `vode("div") // => ["div"]`
- * - tag and props: `vode("div", { class: "foo" }) // => ["div", { class: "foo" }]`
- * - tag, props and children: `vode("div", { class: "foo" }, ["span", "bar"]) // => ["div", { class: "foo" }, ["span", "bar"]]`
- * - identity: `vode(["div", ["span", "bar"]]) // => ["div", ["span", "bar"]]`
+ * - just a tag: `vode("div")` => `["div"]` --*rendered*-> `<div></div>`
+ * - tag and props: `vode("div", { class: "foo" })` => `["div", { class: "foo" }]` --*rendered*-> `<div class="foo"></div>`
+ * - tag, props and children: `vode("div", { class: "foo" }, ["span", "bar"])` => `["div", { class: "foo" }, ["span", "bar"]]` --*rendered*-> `<div class="foo"><span>bar</span></div>`
+ * - identity: `vode(["div", ["span", "bar"]])` => `["div", ["span", "bar"]]` --*rendered*-> `<div><span>bar</span></div>`
  */
 export function vode<S extends object | unknown>(tag: Tag | Vode<S>, props?: Props<S> | ChildVode<S>, ...children: ChildVode<S>[]): Vode<S> {
     if (Array.isArray(tag)) {
@@ -106,22 +116,14 @@ export function vode<S extends object | unknown>(tag: Tag | Vode<S>, props?: Pro
     return [tag, ...children];
 }
 
-/** pass an object whose type determines the initial state */
-export function createState<S>(state: S): PatchableState<S> { return state as PatchableState<S>; }
-
-
-/** for a type safe way to create a deeply partial patch object or effect */
-export function patch<S>(p: DeepPartial<S> | Effect<S> | NoRenderPatch): typeof p { return p; }
-
-/**
- * create a vode app inside a container element
+/** create a vode app inside a container element
  * @param container will use this container as root and places the result of the dom function and further renderings in it
- * @param initialState @see createState
+ * @param initialState
  * @param dom creates the initial dom from the state and is called on every render
  * @param initialPatches variadic list of patches that are applied after the first render
  * @returns a patch function that can be used to update the state
  */
-export function app<S>(container: HTMLElement, initialState: Omit<S, "patch">, dom: Component<S>, ...initialPatches: Patch<S>[]) {
+export function app<S extends object | unknown>(container: HTMLElement, initialState: Omit<S, "patch">, dom: Component<S>, ...initialPatches: Patch<S>[]) {
     const _vode = {} as ContainerNode<S>["_vode"];
     _vode.stats = { renderTime: 0, renderCount: 0, queueLengthBeforeRender: 0, queueLengthAfterRender: 0, liveEffectCount: 0, patchCount: 0, renderPatchCount: 0 };
 
@@ -205,7 +207,7 @@ export function app<S>(container: HTMLElement, initialState: Omit<S, "patch">, d
     _vode.patch = (<PatchableState<S>>initialState).patch;
     _vode.state = <PatchableState<S>>initialState;
     _vode.q = [];
-    
+
     const root = container as ContainerNode<S>;
     root._vode = _vode;
 
@@ -220,8 +222,23 @@ export function app<S>(container: HTMLElement, initialState: Omit<S, "patch">, d
     return _vode.patch;
 }
 
-/** get properties of a vode, if there are any */
-export function props<S extends object | unknown>(vode: ChildVode<S> | AttachedVode<S>): Props<S> | undefined {
+/** memoizes the resulting component or props by comparing element by element (===) with the
+ * `compare` of the previous render. otherwise skips the render step (not calling `componentOrProps`)*/
+export function memo<S>(compare: any[], componentOrProps: Component<S> | ((s: S) => Props<S>)): typeof componentOrProps extends ((s: S) => Props<S>) ? ((s: S) => Props<S>) : Component<S> {
+    (<any>componentOrProps).__memo = compare;
+    return componentOrProps as typeof componentOrProps extends ((s: S) => Props<S>) ? ((s: S) => Props<S>) : Component<S>;
+}
+
+/** html tag of the vode or `#text` if it is a text node */
+export function tag<S>(v: Vode<S> | TextVode | NoVode | AttachedVode<S>): Tag | "#text" | undefined {
+    return !!v ? (Array.isArray(v)
+        ? v[0] : (typeof v === "string" || (<any>v).nodeType === Node.TEXT_NODE)
+            ? "#text" : undefined) as Tag
+        : undefined;
+}
+
+/** get properties object of a vode, if there is any */
+export function props<S>(vode: ChildVode<S> | AttachedVode<S>): Props<S> | undefined {
     if (Array.isArray(vode)
         && vode.length > 1
         && vode[1]
@@ -238,6 +255,7 @@ export function props<S extends object | unknown>(vode: ChildVode<S> | AttachedV
     return undefined;
 }
 
+/** merge `ClassProp`s regardless of structure */
 export function mergeClass(a: ClassProp, b: ClassProp): ClassProp {
     if (!a) return b;
     if (!b) return a;
@@ -288,48 +306,14 @@ export function mergeClass(a: ClassProp, b: ClassProp): ClassProp {
     throw new Error(`cannot merge classes of ${a} (${typeof a}) and ${b} (${typeof b})`);
 }
 
-export function patchProps<S extends object | unknown>(vode: Vode<S>, props: Props<S>): void {
-    if (!Array.isArray(vode)) return;
-
-    if (vode.length > 1) {
-        if (!Array.isArray(vode[1]) && typeof vode[1] === "object") {
-            vode[1] = merge(vode[1], props);
-            return;
-        }
-
-        if (childCount(vode) > 0) {
-            (<FullVode<S>>vode).push(null);
-        }
-        for (let i = vode.length - 1; i > 0; i--) {
-            if (i > 1) vode[i] = vode[i - 1];
-        }
-        vode[1] = props;
-    } else {
-        (<FullVode<S>>vode).push(props);
-    }
-}
-
 /** get a slice of all children of a vode, if there are any */
-export function children<S extends object | unknown>(vode: ChildVode<S> | AttachedVode<S>): ChildVode<S>[] | undefined {
+export function children<S>(vode: ChildVode<S> | AttachedVode<S>): ChildVode<S>[] | null {
     const start = childrenStart(vode);
     if (start > 0) {
         return (<Vode<S>>vode).slice(start) as Vode<S>[];
     }
 
-    return undefined;
-}
-
-/** index in vode at which child-vodes start */
-export function childrenStart<S extends object | unknown>(vode: ChildVode<S> | AttachedVode<S>): number {
-    return props(vode) ? 2 : 1;
-}
-
-/** html tag of the vode or #text if it is a text node */
-export function tag<S extends object | unknown>(v: Vode<S> | TextVode | NoVode | AttachedVode<S>): Tag | "#text" | undefined {
-    return !!v ? (Array.isArray(v)
-        ? v[0] : (typeof v === "string" || (<any>v).nodeType === Node.TEXT_NODE)
-            ? "#text" : undefined) as Tag
-        : undefined;
+    return null;
 }
 
 export function childCount<S>(vode: Vode<S>) { return vode.length - childrenStart(vode); }
@@ -338,11 +322,13 @@ export function child<S>(vode: Vode<S>, index: number): ChildVode<S> | undefined
     return vode[index + childrenStart(vode)] as ChildVode<S>;
 }
 
-/** merge multiple objects into one, applying from left to right
- * @param first object to merge
- * @returns merged object
- */
-export function merge(first?: any, ...p: any[]): any {
+/** index in vode at which child-vodes start */
+export function childrenStart<S>(vode: ChildVode<S> | AttachedVode<S>): number {
+    return props(vode) ? 2 : 1;
+}
+
+/** @returns multiple merged objects as one, applying from left to right ({}, first, ...p) */
+export function merge(first?: object | unknown, ...p: (object | unknown)[]): object {
     first = mergeState({}, first);
     for (const pp of p) {
         if (!pp) continue;
@@ -351,66 +337,40 @@ export function merge(first?: any, ...p: any[]): any {
     return first!;
 }
 
-function classString(classProp: ClassProp): string {
-    if (typeof classProp === "string") {
-        return classProp;
-    } else if (Array.isArray(classProp)) {
-        return classProp.map(classString).join(" ");
-    } else if (typeof classProp === "object") {
-        return Object.keys(classProp!).filter(k => classProp![k]).join(" ");
-    } else {
-        return "";
-    }
-}
+function mergeState(target: any, source: any) {
+    if (!source) return target;
 
-function isNaturalVode(x: ChildVode<any>) {
-    return Array.isArray(x) && x.length > 0 && typeof x[0] === "string";
-}
-
-function isTextVode(x: ChildVode<any>) {
-    return typeof x === "string" || (<Text><unknown>x)?.nodeType === Node.TEXT_NODE;
-}
-
-function unwrap<S>(c: Component<S> | ChildVode<S>, s: S): ChildVode<S> {
-    if (typeof c === "function") {
-        return unwrap(c(s), s);
-    } else {
-        return c;
-    }
-}
-
-/** memoization of the given component or props (compare array is compared element by element (===) with the previous render) */
-export function memo<S extends object | unknown>(compare: any[], componentOrProps: Component<S> | ((s: S) => Props<S>)): typeof componentOrProps extends ((s: S) => Props<S>) ? ((s: S) => Props<S>) : Component<S> {
-    (<any>componentOrProps).__memo = compare;
-    return componentOrProps as typeof componentOrProps extends ((s: S) => Props<S>) ? ((s: S) => Props<S>) : Component<S>;
-}
-
-function remember<S>(state: S, present: any, past: any): ChildVode<S> | AttachedVode<S> {
-    if (typeof present !== "function")
-        return present;
-
-    const presentMemo = present?.__memo;
-    const pastMemo = past?.__memo;
-
-    if (Array.isArray(presentMemo)
-        && Array.isArray(pastMemo)
-        && presentMemo.length === pastMemo.length
-    ) {
-        let same = true;
-        for (let i = 0; i < presentMemo.length; i++) {
-            if (presentMemo[i] !== pastMemo[i]) {
-                same = false;
-                break;
+    for (const key in source) {
+        const value = source[key];
+        if (value && typeof value === "object") {
+            const targetValue = target[key];
+            if (targetValue) {
+                if (Array.isArray(value)) {
+                    target[key] = [...value];
+                } else if (value instanceof Date && targetValue !== value) {
+                    target[key] = new Date(value);
+                } else {
+                    if (Array.isArray(targetValue)) target[key] = mergeState({}, value);
+                    else if (typeof targetValue === "object") mergeState(target[key], value);
+                    else target[key] = mergeState({}, value);
+                }
+            } else if (Array.isArray(value)) {
+                target[key] = [...value];
+            } else if (value instanceof Date) {
+                target[key] = new Date(value);
+            } else {
+                target[key] = mergeState({}, value);
             }
         }
-        if (same) return past;
+        else if (value === undefined) {
+            delete target[key];
+        }
+        else {
+            target[key] = value;
+        }
     }
-    const newRender = unwrap(present, state);
-    if (typeof newRender === "object") {
-        (<any>newRender).__memo = present?.__memo;
-    }
-    return newRender;
-}
+    return target;
+};
 
 function render<S>(state: S, patch: Dispatch<S>, parent: ChildNode, childIndex: number, oldVode: AttachedVode<S> | undefined, newVode: ChildVode<S>, svg?: boolean): AttachedVode<S> | undefined {
     // unwrap component if it is memoized
@@ -567,6 +527,49 @@ function render<S>(state: S, patch: Dispatch<S>, parent: ChildNode, childIndex: 
     return undefined;
 }
 
+function isNaturalVode(x: ChildVode<any>) {
+    return Array.isArray(x) && x.length > 0 && typeof x[0] === "string";
+}
+
+function isTextVode(x: ChildVode<any>) {
+    return typeof x === "string" || (<Text><unknown>x)?.nodeType === Node.TEXT_NODE;
+}
+
+function remember<S>(state: S, present: any, past: any): ChildVode<S> | AttachedVode<S> {
+    if (typeof present !== "function")
+        return present;
+
+    const presentMemo = present?.__memo;
+    const pastMemo = past?.__memo;
+
+    if (Array.isArray(presentMemo)
+        && Array.isArray(pastMemo)
+        && presentMemo.length === pastMemo.length
+    ) {
+        let same = true;
+        for (let i = 0; i < presentMemo.length; i++) {
+            if (presentMemo[i] !== pastMemo[i]) {
+                same = false;
+                break;
+            }
+        }
+        if (same) return past;
+    }
+    const newRender = unwrap(present, state);
+    if (typeof newRender === "object") {
+        (<any>newRender).__memo = present?.__memo;
+    }
+    return newRender;
+}
+
+function unwrap<S>(c: Component<S> | ChildVode<S>, s: S): ChildVode<S> {
+    if (typeof c === "function") {
+        return unwrap(c(s), s);
+    } else {
+        return c;
+    }
+}
+
 function patchProperties<S>(patch: Dispatch<S>, node: ChildNode, oldProps?: Props<S>, newProps?: Props<S>, isSvg?: boolean) {
     if (!newProps && !oldProps) return;
     if (!oldProps) {         // set new props
@@ -664,37 +667,14 @@ function patchProperty<S>(patch: Dispatch<S>, node: ChildNode, key: string | key
     return newValue;
 }
 
-function mergeState(target: any, source: any) {
-    if (!source) return target;
-
-    for (const key in source) {
-        const value = source[key];
-        if (value && typeof value === "object") {
-            const targetValue = target[key];
-            if (targetValue) {
-                if (Array.isArray(value)) {
-                    target[key] = [...value];
-                } else if (value instanceof Date && targetValue !== value) {
-                    target[key] = new Date(value);
-                } else {
-                    if (Array.isArray(targetValue)) target[key] = mergeState({}, value);
-                    else if (typeof targetValue === "object") mergeState(target[key], value);
-                    else target[key] = mergeState({}, value);
-                }
-            } else if (Array.isArray(value)) {
-                target[key] = [...value];
-            } else if (value instanceof Date) {
-                target[key] = new Date(value);
-            } else {
-                target[key] = mergeState({}, value);
-            }
-        }
-        else if (value === undefined) {
-            delete target[key];
-        }
-        else {
-            target[key] = value;
-        }
+function classString(classProp: ClassProp): string {
+    if (typeof classProp === "string") {
+        return classProp;
+    } else if (Array.isArray(classProp)) {
+        return classProp.map(classString).join(" ");
+    } else if (typeof classProp === "object") {
+        return Object.keys(classProp!).filter(k => classProp![k]).join(" ");
+    } else {
+        return "";
     }
-    return target;
-};
+}
