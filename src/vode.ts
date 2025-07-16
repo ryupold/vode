@@ -11,10 +11,9 @@ export type Component<S> = (s: S) => ChildVode<S>;
 
 export type Patch<S> =
     | NoRenderPatch // ignored
-    | typeof EmptyPatch | DeepPartial<S> // render patches
+    | {} | DeepPartial<S> // render patches
     | Promise<Patch<S>> | Effect<S>; // effects resulting in patches
 
-export const EmptyPatch = {} as const; // smallest patch to cause a render without any changes
 export type NoRenderPatch = undefined | null | number | boolean | bigint | string | symbol | void;
 
 export type DeepPartial<S> = { [P in keyof S]?: S[P] extends Array<infer I> ? Array<Patch<I>> : Patch<S[P]> };
@@ -78,7 +77,7 @@ export type ContainerNode<S> = HTMLElement & {
         vode: AttachedVode<S>, //don't touch this
         patch: Dispatch<S>, // can't touch this
         render: () => void, // can't touch this
-        q: Patch<S>[],  // this will change in the future, so don't touch it
+        q: object | null,  // next patch aggregate to be applied
         isRendering: boolean,  // under no circumstances touch this
         /** stats about the overall patches & last render time */
         stats: {
@@ -97,7 +96,7 @@ export type ContainerNode<S> = HTMLElement & {
 export function createState<S extends object | unknown>(state: S): PatchableState<S> { return state as PatchableState<S>; }
 
 /** type safe way to create a patch. useful for type inference and autocompletion. */
-export function createPatch<S extends object | unknown>(p: DeepPartial<S> | Effect<S> | NoRenderPatch): Patch<S> { return p; }
+export function createPatch<S extends object | unknown>(p: DeepPartial<S> | Effect<S> | NoRenderPatch): typeof p { return p; }
 
 /** type-safe way to create a vode. useful for type inference and autocompletion.
  * 
@@ -171,7 +170,7 @@ export function app<S extends object | unknown>(container: HTMLElement, initialS
                 _vode.patch!((<EffectFunction<S>>action)(_vode.state));
             } else {
                 _vode.stats.renderPatchCount++;
-                _vode.q!.push(<Patch<S>>action);
+                _vode.q = mergeState(_vode.q || {}, action);
                 if (!_vode.isRendering) _vode.render!();
             }
         }
@@ -180,25 +179,19 @@ export function app<S extends object | unknown>(container: HTMLElement, initialS
     Object.defineProperty(_vode, "render", {
         enumerable: false, configurable: true,
         writable: false, value: () => requestAnimationFrame(() => {
-            if (_vode.isRendering || _vode.q!.length === 0) return;
+            if (_vode.isRendering || !_vode.q) return;
             _vode.isRendering = true;
             const sw = Date.now();
             try {
-                _vode.stats.queueLengthBeforeRender = _vode.q!.length;
-
-                while (_vode.q!.length > 0) {
-                    const patch = _vode.q!.shift();
-                    if (patch === EmptyPatch) continue;
-                    mergeState(_vode.state, patch);
-                }
+                _vode.state = mergeState(_vode.state, _vode.q);
+                _vode.q = null;
                 _vode.vode = render(_vode.state, _vode.patch, container, 0, _vode.vode, dom(_vode.state))!;
             } finally {
                 _vode.isRendering = false;
                 _vode.stats.renderCount++;
                 _vode.stats.renderTime = Date.now() - sw;
-                _vode.stats.queueLengthAfterRender = _vode.q!.length;
-                if (_vode.q!.length > 0) {
-                    _vode.render!();
+                if (_vode.q) {
+                    _vode.render();
                 }
             }
         })
@@ -206,7 +199,7 @@ export function app<S extends object | unknown>(container: HTMLElement, initialS
 
     _vode.patch = (<PatchableState<S>>initialState).patch;
     _vode.state = <PatchableState<S>>initialState;
-    _vode.q = [];
+    _vode.q = null;
 
     const root = container as ContainerNode<S>;
     root._vode = _vode;
