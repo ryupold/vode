@@ -104,7 +104,7 @@ export function createPatch<S extends object | unknown>(p: DeepPartial<S> | Effe
  * - identity: `vode(["div", ["span", "bar"]])` => `["div", ["span", "bar"]]` --*rendered*-> `<div><span>bar</span></div>`
  */
 export function vode<S extends object | unknown>(tag: Tag | Vode<S>, props?: Props<S> | ChildVode<S>, ...children: ChildVode<S>[]): Vode<S> {
-    if(!tag) throw new Error("tag must be a string or vode");
+    if (!tag) throw new Error("tag must be a string or vode");
     if (Array.isArray(tag)) return tag;
     else if (props) return [tag, props as Props<S>, ...children];
     else return [tag, ...children];
@@ -564,31 +564,34 @@ function unwrap<S>(c: Component<S> | ChildVode<S>, s: S): ChildVode<S> {
 
 function patchProperties<S>(patch: Dispatch<S>, node: ChildNode, oldProps?: Props<S>, newProps?: Props<S>, isSvg?: boolean) {
     if (!newProps && !oldProps) return;
-    if (!oldProps) {         // set new props
+
+    // match existing properties
+    if (oldProps) {
+        for (const key in oldProps) {
+            const oldValue = oldProps[key as keyof Props<S>] as PropertyValue<S>;
+            const newValue = newProps?.[key as keyof Props<S>] as PropertyValue<S>;
+
+            if (oldValue !== newValue) {
+                if (newProps) newProps[key as keyof Props<S>] = patchProperty(patch, node, key, oldValue, newValue, isSvg);
+                else patchProperty(patch, node, key, oldValue, undefined, isSvg);
+            }
+        }
+    }
+
+    //new properties that weren't in oldProps
+    if (newProps && oldProps) {
+        for (const key in newProps) {
+            if (!(key in oldProps)) {
+                const newValue = newProps[key as keyof Props<S>] as PropertyValue<S>;
+                newProps[key as keyof Props<S>] = patchProperty(patch, <Element>node, key, undefined, newValue, isSvg);
+            }
+        }
+    }
+    // only new props
+    else if (newProps) {
         for (const key in newProps) {
             const newValue = newProps[key as keyof Props<S>] as PropertyValue<S>;
             newProps[key as keyof Props<S>] = patchProperty(patch, <Element>node, key, undefined, newValue, isSvg);
-        }
-    } else if (newProps) {   // clear old props and set new in one loop
-        const combinedKeys = new Set([...Object.keys(oldProps), ...Object.keys(newProps)]);
-        for (const key of combinedKeys) {
-            const oldValue = oldProps[key as keyof Props<S>] as PropertyValue<S>;
-            const newValue = newProps[key as keyof Props<S>] as PropertyValue<S>;
-            if (key[0] === "o" && key[1] === "n") {
-                const oldEvent = (<any>node)["__" + key];
-                if ((oldEvent && oldEvent !== newValue) || (!oldEvent && oldValue !== newValue)) {
-                    newProps[key as keyof Props<S>] = patchProperty(patch, <Element>node, key, oldValue, newValue, isSvg);
-                }
-                (<any>node)["__" + key] = newValue;
-            }
-            else if (oldValue !== newValue) {
-                newProps[key as keyof Props<S>] = patchProperty(patch, <Element>node, key, oldValue, newValue, isSvg);
-            }
-        }
-    } else {                 //delete all old props, cause there are no new props
-        for (const key in oldProps) {
-            const oldValue = oldProps[key as keyof Props<S>] as PropertyValue<S>;
-            oldProps[key as keyof Props<S>] = patchProperty(patch, <Element>node, key, oldValue, undefined, isSvg);
         }
     }
 }
