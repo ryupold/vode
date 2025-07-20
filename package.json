@@ -1,6 +1,6 @@
 {
     "name": "@ryupold/vode",
-    "version": "0.13.0",
+    "version": "0.13.1",
     "description": "Small web framework for minimal websites",
     "author": "Michael Scherbakow (ryupold)",
     "license": "MIT",

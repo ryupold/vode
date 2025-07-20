@@ -1,8 +1,8 @@
 export type Vode<S> = FullVode<S> | JustTagVode | NoPropsVode<S>;
-export type ChildVode<S> = Vode<S> | TextVode | NoVode | Component<S>;
 export type FullVode<S> = [tag: Tag, props: Props<S>, ...children: ChildVode<S>[]];
 export type NoPropsVode<S> = [tag: Tag, ...children: ChildVode<S>[]] | string[];
 export type JustTagVode = [tag: Tag];
+export type ChildVode<S> = Vode<S> | TextVode | NoVode | Component<S>;
 export type TextVode = string;
 export type NoVode = undefined | null | number | boolean | bigint | void;
 export type AttachedVode<S> = Vode<S> & { node: ChildNode, id?: string } | Text & { node?: never, id?: never };
@@ -11,12 +11,12 @@ export type Component<S> = (s: S) => ChildVode<S>;
 
 export type Patch<S> =
     | NoRenderPatch // ignored
-    | {} | DeepPartial<S> // render patches
+    | RenderPatch<S>
     | Promise<Patch<S>> | Effect<S>; // effects resulting in patches
 
 export type NoRenderPatch = undefined | null | number | boolean | bigint | string | symbol | void;
-
-export type DeepPartial<S> = { [P in keyof S]?: S[P] extends Array<infer I> ? Array<Patch<I>> : Patch<S[P]> };
+export type RenderPatch<S> = {} | DeepPartial<S>;
+export type DeepPartial<S> = { [P in keyof S]?: S[P] extends Array<infer I> ? Array<DeepPartial<I>> : DeepPartial<S[P]> };
 
 export type Effect<S> =
     | (() => Patch<S>)
