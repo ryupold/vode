@@ -62,8 +62,10 @@ export type EventsMap =
     & { [K in keyof SVGElementEventMap as `on${K}`]: SVGElementEventMap[K] }
     & { onsearch: Event };
 
-export type PropertyValue<S> = string | boolean | null | undefined | StyleProp | ClassProp | Patch<S> | void;
-
+export type PropertyValue<S> =
+    | string | boolean | null | undefined | void
+    | StyleProp | ClassProp
+    | Patch<S>;
 
 export type Dispatch<S> = (action: Patch<S>) => void;
 export type PatchableState<S> = S & { patch: Dispatch<Patch<S>> };
@@ -317,16 +319,6 @@ export function child<S>(vode: Vode<S>, index: number): ChildVode<S> | undefined
 /** index in vode at which child-vodes start */
 export function childrenStart<S>(vode: ChildVode<S> | AttachedVode<S>): number {
     return props(vode) ? 2 : 1;
-}
-
-/** @returns multiple merged objects as one, applying from left to right ({}, first, ...p) */
-export function merge(first?: object | unknown, ...p: (object | unknown)[]): object {
-    first = mergeState({}, first);
-    for (const pp of p) {
-        if (!pp) continue;
-        first = mergeState(first, pp);
-    }
-    return first!;
 }
 
 function mergeState(target: any, source: any) {
@@ -663,13 +655,12 @@ function patchProperty<S>(patch: Dispatch<S>, node: ChildNode, key: string | key
 }
 
 function classString(classProp: ClassProp): string {
-    if (typeof classProp === "string") {
+    if (typeof classProp === "string")
         return classProp;
-    } else if (Array.isArray(classProp)) {
+    else if (Array.isArray(classProp))
         return classProp.map(classString).join(" ");
-    } else if (typeof classProp === "object") {
+    else if (typeof classProp === "object")
         return Object.keys(classProp!).filter(k => classProp![k]).join(" ");
-    } else {
+    else
         return "";
-    }
 }

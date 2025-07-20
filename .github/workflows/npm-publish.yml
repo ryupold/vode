@@ -1,7 +1,8 @@
 name: Publish to https://registry.npmjs.org
 
 on:
-  push:
+  release:
+    types: published
     branches:
       - 'main'
 
