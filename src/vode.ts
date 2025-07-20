@@ -30,7 +30,7 @@ export type EffectFunction<S> = (state: S, ...args: any[]) => Patch<S>;
 export type Props<S> = Partial<
     Omit<HTMLElement,
         keyof (DocumentFragment & ElementCSSInlineStyle & GlobalEventHandlers)> &
-    { [K in keyof EventsMap]: Patch<S> } // all on* events
+    { [K in keyof EventsMap]: ((state: S, evt: Event) => Patch<S>) | Patch<S> } // all on* events
 > & {
     [_: string]: unknown,
     class?: ClassProp,
