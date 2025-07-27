@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 40">
+    <style>
+        text {
+            font-weight: bold;
+            font-family: "Monaco", monospace;
+            color: #2d3748;
+            fill: #2d3748;
+        }
+
+        .braces-text {
+            font-size: 40px;
+            opacity: 0.666;
+            stroke: #aaa;
+            stroke-width: 1px;
+        }
+
+        .item-text {
+            paint-order: stroke;
+            stroke: #aaa;
+            stroke-width: 1px;
+        }
+
+        .comma-text {
+            font-size: 14px;
+            paint-order: stroke;
+            stroke: #fff;
+            stroke-width: 0.5px;
+            stroke-linecap: butt;
+            stroke-linejoin: miter;
+            opacity: 0.333;
+        }
+    </style>
+    <text x="-5%" y="76%" class="braces-text">[</text>
+
+    <text x="13%" y="76%" font-size="32" class="item-text">V</text>
+    <text x="24%" y="76%" class="comma-text">,</text>
+        
+    <g transform="translate(32, -3)">
+        <text x="0" y="76%" font-size="20" class="item-text" >{</text>
+        <text x="12" y="76%" font-size="20" class="item-text">}</text>
+    </g>
+    <text x="50" y="76%" class="comma-text">,</text>
+
+    <text x="58" y="76%" font-size="24" class="item-text">d</text>
+    <text x="69" y="76%" class="comma-text">,</text>
+
+    <text x="76" y="76%" font-size="24" class="item-text">e</text>
+
+    <text x="83%" y="76%" class="braces-text">]</text>
+</svg>

@@ -10,11 +10,11 @@ export type Tag = keyof (HTMLElementTagNameMap & SVGElementTagNameMap & MathMLEl
 export type Component<S> = (s: S) => ChildVode<S>;
 
 export type Patch<S> =
-    | NoRenderPatch // ignored
-    | RenderPatch<S>
-    | Promise<Patch<S>> | Effect<S>; // effects resulting in patches
+    | IgnoredPatch // ignored
+    | RenderPatch<S> // updates state, causes render
+    | Promise<Patch<S>> | Effect<S>; // is executed, awaited, results in patches
 
-export type NoRenderPatch = undefined | null | number | boolean | bigint | string | symbol | void;
+export type IgnoredPatch = undefined | null | number | boolean | bigint | string | symbol | void;
 export type RenderPatch<S> = {} | DeepPartial<S>;
 export type DeepPartial<S> = { [P in keyof S]?: S[P] extends Array<infer I> ? Array<DeepPartial<I>> : DeepPartial<S[P]> };
 
@@ -75,12 +75,12 @@ export type ContainerNode<S> = HTMLElement & {
      * it contains all necessary stuff for the vode app to function.
      * delete it to clear all resources of the vode app, or remove the container itself */
     _vode: {
-        state: PatchableState<S>, // can touch this, but let it be an object
-        vode: AttachedVode<S>, //don't touch this
-        patch: Dispatch<S>, // can't touch this
-        render: () => void, // can't touch this
+        state: PatchableState<S>, 
+        vode: AttachedVode<S>, 
+        patch: Dispatch<S>, 
+        render: () => void, 
         q: object | null,  // next patch aggregate to be applied
-        isRendering: boolean,  // under no circumstances touch this
+        isRendering: boolean,
         /** stats about the overall patches & last render time */
         stats: {
             patchCount: number,
@@ -96,7 +96,7 @@ export type ContainerNode<S> = HTMLElement & {
 export function createState<S extends object | unknown>(state: S): PatchableState<S> { return state as PatchableState<S>; }
 
 /** type safe way to create a patch. useful for type inference and autocompletion. */
-export function createPatch<S extends object | unknown>(p: DeepPartial<S> | Effect<S> | NoRenderPatch): typeof p { return p; }
+export function createPatch<S extends object | unknown>(p: DeepPartial<S> | Effect<S> | IgnoredPatch): typeof p { return p; }
 
 /** type-safe way to create a vode. useful for type inference and autocompletion.
  * 
