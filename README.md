@@ -2,6 +2,120 @@
 
 A small web framework for a minimalistic development flow. Zero dependencies, no build step except for typescript compilation, and a simple virtual DOM implementation that is easy to understand and use. Autocompletion out of the box due to binding to `lib.dom.d.ts`.
 
+## Usage
+
+### ESM
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ESM Example</title>
+</head>
+<body>
+    <div id="app"></div>
+    <script type="module">
+        import { app, createState, BR, DIV, INPUT, SPAN } from 'https://unpkg.com/@ryupold/vode/dist/vode.min.mjs';
+
+        const appNode = document.getElementById('app');
+
+        app(appNode, { counter: 0 },
+            (s) => [DIV,
+                [INPUT, {
+                    type: 'button',
+                    onclick: { counter: s.counter + 1 },
+                    value: 'Click me',
+                }],
+                [BR],
+                [SPAN, { style: { color: 'red' } }, `${s.counter}`],
+            ]
+        );
+    </script>
+</body>
+</html>
+```
+
+### Classic
+Binds the library to the global `V` variable.
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Classic Script Example</title>
+    <script src="https://unpkg.com/@ryupold/vode/dist/vode.min.js"></script>
+</head>
+<body>
+    <div id="app"></div>
+    <script>
+        const appNode = document.getElementById('app');
+        V.app(appNode, { counter: 0 },
+            (s) => ["DIV",
+                ["INPUT", {
+                    type: 'button',
+                    onclick: { counter: s.counter + 1 },
+                    value: 'Click me',
+                }
+                ],
+                ["BR"],
+                ["SPAN", { style: { color: 'red' } }, `${s.counter}`],
+            ]);
+    </script>
+</body>
+</html>
+```
+
+### NPM
+
+```bash
+# npm
+npm install @ryupold/vode --save
+
+# yarn
+yarn add @ryupold/vode
+
+# bun
+bun add @ryupold/vode
+```
+
+index.html
+```html
+<html>
+<head>
+    <title>Vode Example</title>
+    <script type="module" src="main.js"></script>
+</head>
+<body>
+    <div id="app"></div>
+</body>
+</html>
+```
+
+main.ts
+```ts
+import { app, createState, BR, DIV, INPUT, SPAN } from '@ryupold/vode';
+
+
+const init = createState({
+    counter: 0,
+});
+
+type State = typeof init;
+
+const appNode = document.getElementById('app');
+
+app<State>(appNode, init,
+    (s: State) => [DIV,
+        [INPUT, {
+            type: 'button',
+            onclick: { counter: s.counter + 1 },
+            value: 'Click me',
+        }],
+        [BR],
+        [SPAN, { style: { color: 'red' } }, `${s.counter}`],
+    ]
+);
+```
+
 ## vode
 
 A `vode` is a representation of a virtual DOM node, which is a tree structure of HTML elements. It is written as tuple:
@@ -92,8 +206,59 @@ It will render the initial state and update the DOM when patches are applied to 
 
 You can have multiple isolated `app` instances on a page, each with its own state and render function. The returned patch function from `app` can be used to synchronize the state between them.
 
+### state
+The state is a singleton object that can be updated. A re-render happens when a patch object is supplied to the patch function or via event.
+
+```ts
+// type safe way to create the state object
+const s = createState({
+    counter: 0,
+    pointing: false,
+    loading: false,
+    title: 'foo',
+    body: '',
+});
+
+type State = typeof s;
+
+app(appNode, s, ...); 
+// after calling app(), the state object is bound to the appNode
+
+// update state directly as it is a singleton (silent patch)
+s.title = 'Hello World';
+
+// render patch
+s.patch({});
+
+// render patch with a change that is applied to the state 
+s.patch({ title: 'bar' }); 
+
+// render patch with a function that receives the state
+s.patch((s) => ({body: s.body + ' baz'})); 
+
+// render patch with an async function that receives the state
+s.patch(async (s) => {
+    s.loading = true; // sometimes it is easier to combine a silent patch
+    s.patch({});      // with an empty render patch
+    const result = await apiCall();
+    return { title: result.title, body: result.body, loading: false };
+}); 
+
+// you can also use a generator function that yields patches
+s.patch(async function*(s){
+    yield { loading: true };
+    const result = await apiCall();
+    yield { title: result.title, body: result.body };
+    return { loading: false }; 
+});
+
+s.patch(null); // ignored, also: undefined, number, string, boolean, void
+
+s.patch({ pointing: undefined }); // deletes the property from the state
+```
+
 ### memoization
-To optimize performance, you can use `memo(Array, Component)` to cache the result of a component function. This is useful when the component does not depend on the state or when the state does not change frequently.
+To optimize performance, you can use `memo(Array, Component | PropsFactory)` to cache the result of a component function. This is useful when the component does not depend on the state or when the creation of the vode is expensive. You can also pass a function that returns the Props object to memoize the attributes.
 
 ```ts
 const CompMemoFooBar = (s) =>  [DIV, { class: "container" }, 
@@ -118,156 +283,9 @@ const CompMemoFooBar = (s) =>  [DIV, { class: "container" },
 ];
 ```
 
-### state
-The state is a singleton object that can be updated. A re-render happens when a patch object is supplied to the patch function or via event.
+### Direct access to DOM elements
 
-```ts
-// type safe way to create the state object
-const s = createState({
-    counter: 0,
-    pointing: false,
-    loading: false,
-    title: 'foo',
-    body: '',
-});
-
-type State = typeof s;
-
-app(appNode, s, ...); // after calling app(), the state object is bound to the appNode
-
-
-s.title = 'Hello World'; // update state directly as it is a singleton (silent patch)
-
-s.patch({}); // render patch
-
-s.patch({ title: 'bar' }); // render patch with a change that is applied to the state 
-
-s.patch((s) => ({body: s.body + ' baz'})); // render patch with a function that receives the state
-
-s.patch(async function*(s){
-    // you can also use a generator function that yields patches
-    yield { loading: true };
-    const result = await apiCall();
-    yield { title: result.title, body: result.body };
-    return { loading: false }; 
-});
-
-s.patch(null); // ignored, also: undefined, number, string, boolean, void
-
-s.patch({ pointing: undefined }); // deletes the property from the state
-```
-
-## Install
-
-### ESM
-```html
-<!DOCTYPE html>
-<html>
-<head>
-    <title>ESM Example</title>
-</head>
-<body>
-    <div id="app"></div>
-    <script type="module">
-        import { app, createState, BR, DIV, INPUT, SPAN } from 'https://cdn.jsdelivr.net/npm/@ryupold/vode/dist/vode.min.mjs';
-
-        const appNode = document.getElementById('app');
-
-        app(appNode, { counter: 0 },
-            (s) => [DIV,
-                [INPUT, {
-                    type: 'button',
-                    onclick: { counter: s.counter + 1 },
-                    value: 'Click me',
-                }],
-                [BR],
-                [SPAN, { style: { color: 'red' } }, `${s.counter}`],
-            ]
-        );
-    </script>
-</body>
-</html>
-```
-
-### Classic
-```html
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Classic Script Example</title>
-    <script src="https://cdn.jsdelivr.net/npm/@ryupold/vode/dist/vode.min.js"></script>
-</head>
-<body>
-    <div id="app"></div>
-    <script>
-        const appNode = document.getElementById('app');
-        V.app(appNode, { counter: 0 },
-            (s) => ["DIV",
-                ["INPUT", {
-                    type: 'button',
-                    onclick: { counter: s.counter + 1 },
-                    value: 'Click me',
-                }
-                ],
-                ["BR"],
-                ["SPAN", { style: { color: 'red' } }, `${s.counter}`],
-            ]);
-    </script>
-</body>
-</html>
-```
-
-### NPM
-
-```bash
-# npm
-npm install @ryupold/vode --save
-
-# yarn
-yarn add @ryupold/vode
-
-# bun
-bun add @ryupold/vode
-```
-
-index.html
-```html
-<html>
-<head>
-    <title>Vode Example</title>
-    <script type="module" src="main.js"></script>
-</head>
-<body>
-    <div id="app"></div>
-</body>
-</html>
-```
-
-main.ts
-```ts
-import { app, createState, BR, DIV, INPUT, SPAN } from '@ryupold/vode';
-
-
-const init = createState({
-    counter: 0,
-});
-
-type State = typeof init;
-
-const appNode = document.getElementById('app');
-
-app<State>(appNode, init,
-    (s: State) => [DIV,
-        [INPUT, {
-            type: 'button',
-            onclick: { counter: s.counter + 1 },
-            value: 'Click me',
-        }],
-        [BR],
-        [SPAN, { style: { color: 'red' } }, `${s.counter}`],
-    ]
-);
-```
+Additionally to the standard HTML attributes, you can define 2 special event attributes: `onMount(State, Element)` and `onUnmount(State, Element)` in the vode props. These are called when the element is created or removed during rendering. They receive the `State` as the first argument and the DOM element as the second argument. Like the other events they can be patches too.
 
 ## Contributing
 
