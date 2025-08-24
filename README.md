@@ -18,7 +18,9 @@ A small web framework for a minimalistic development flow. Zero dependencies, no
 
         const appNode = document.getElementById('app');
 
-        app(appNode, { counter: 0 },
+        const state = { counter: 0 };
+
+        app(appNode, state,
             (s) => [DIV,
                 [INPUT, {
                     type: 'button',
@@ -47,8 +49,11 @@ Binds the library to the global `V` variable.
 <body>
     <div id="app"></div>
     <script>
-        const appNode = document.getElementById('app');
-        V.app(appNode, { counter: 0 },
+        var appNode = document.getElementById('app');
+        
+        var state = { counter: 0 };
+
+        V.app(appNode, state,
             (s) => ["DIV",
                 ["INPUT", {
                     type: 'button',
@@ -94,16 +99,15 @@ main.ts
 ```ts
 import { app, createState, BR, DIV, INPUT, SPAN } from '@ryupold/vode';
 
-
-const init = createState({
+const state = createState({
     counter: 0,
 });
 
-type State = typeof init;
+type State = typeof state;
 
 const appNode = document.getElementById('app');
 
-app<State>(appNode, init,
+app<State>(appNode, state,
     (s: State) => [DIV,
         [INPUT, {
             type: 'button',
@@ -193,35 +197,33 @@ const CompFooBar = (s) => [DIV, { class: "container" },
 `app` is a function that takes a HTML node, an initial state object, and a render function (`Component<State>`).  
 ```ts
 const appNode = document.getElementById('APP-ID');
-const initialState = {
+const state = {
     counter: 0,
     pointing: false,
     loading: false,
     title: '',
     body: '',
 };
-const patch = app<State>(appNode, initialState, (s) => CompFooBar(s));
+const patch = app<State>(appNode, state, (s) => CompFooBar(s));
 ```
-It will render the initial state and update the DOM when patches are applied to the patch function or via events. All elements returnded by the render function are placed under `appNode`. 
+It will render the initial state and update the DOM when patches are applied to the patch function or via events. All elements returned by the render function are placed under `appNode`. 
 
 You can have multiple isolated `app` instances on a page, each with its own state and render function. The returned patch function from `app` can be used to synchronize the state between them.
 
 ### state
 The state is a singleton object that can be updated. A re-render happens when a patch object is supplied to the patch function or via event.
 
-```ts
+```js
 // type safe way to create the state object
-const s = createState({
+const s = {
     counter: 0,
     pointing: false,
     loading: false,
     title: 'foo',
     body: '',
-});
+};
 
-type State = typeof s;
-
-app(appNode, s, ...); 
+app(appNode, s, s => AppView(s)); 
 // after calling app(), the state object is bound to the appNode
 
 // update state directly as it is a singleton (silent patch)
@@ -233,10 +235,10 @@ s.patch({});
 // render patch with a change that is applied to the state 
 s.patch({ title: 'bar' }); 
 
-// render patch with a function that receives the state
+// patch with a function that receives the state
 s.patch((s) => ({body: s.body + ' baz'})); 
 
-// render patch with an async function that receives the state
+// patch with an async function that receives the state
 s.patch(async (s) => {
     s.loading = true; // sometimes it is easier to combine a silent patch
     s.patch({});      // with an empty render patch
@@ -244,7 +246,7 @@ s.patch(async (s) => {
     return { title: result.title, body: result.body, loading: false };
 }); 
 
-// you can also use a generator function that yields patches
+// patch with a generator function that yields patches
 s.patch(async function*(s){
     yield { loading: true };
     const result = await apiCall();
@@ -252,9 +254,11 @@ s.patch(async function*(s){
     return { loading: false }; 
 });
 
-s.patch(null); // ignored, also: undefined, number, string, boolean, void
+// ignored, also: undefined, number, string, boolean, void
+s.patch(null);
 
-s.patch({ pointing: undefined }); // deletes the property from the state
+// setting a property in a patch to undefined deletes it from the state object
+s.patch({ pointing: undefined });
 ```
 
 ### memoization
