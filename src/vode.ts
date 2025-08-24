@@ -75,10 +75,10 @@ export type ContainerNode<S> = HTMLElement & {
      * it contains all necessary stuff for the vode app to function.
      * delete it to clear all resources of the vode app, or remove the container itself */
     _vode: {
-        state: PatchableState<S>, 
-        vode: AttachedVode<S>, 
-        patch: Dispatch<S>, 
-        render: () => void, 
+        state: PatchableState<S>,
+        vode: AttachedVode<S>,
+        patch: Dispatch<S>,
+        render: () => void,
         q: object | null,  // next patch aggregate to be applied
         isRendering: boolean,
         /** stats about the overall patches & last render time */
@@ -171,7 +171,7 @@ export function app<S extends object | unknown>(container: HTMLElement, initialS
                 _vode.patch!((<EffectFunction<S>>action)(_vode.state));
             } else {
                 _vode.stats.renderPatchCount++;
-                _vode.q = mergeState(_vode.q || {}, action);
+                _vode.q = mergeState(_vode.q || {}, action, false);
                 if (!_vode.isRendering) _vode.render!();
             }
         }
@@ -184,7 +184,7 @@ export function app<S extends object | unknown>(container: HTMLElement, initialS
             _vode.isRendering = true;
             const sw = Date.now();
             try {
-                _vode.state = mergeState(_vode.state, _vode.q);
+                _vode.state = mergeState(_vode.state, _vode.q, true);
                 _vode.q = null;
                 _vode.vode = render(_vode.state, _vode.patch, container, 0, _vode.vode, dom(_vode.state))!;
             } finally {
@@ -321,7 +321,7 @@ export function childrenStart<S>(vode: ChildVode<S> | AttachedVode<S>): number {
     return props(vode) ? 2 : 1;
 }
 
-function mergeState(target: any, source: any) {
+function mergeState(target: any, source: any, allowDeletion: boolean) {
     if (!source) return target;
 
     for (const key in source) {
@@ -334,19 +334,19 @@ function mergeState(target: any, source: any) {
                 } else if (value instanceof Date && targetValue !== value) {
                     target[key] = new Date(value);
                 } else {
-                    if (Array.isArray(targetValue)) target[key] = mergeState({}, value);
-                    else if (typeof targetValue === "object") mergeState(target[key], value);
-                    else target[key] = mergeState({}, value);
+                    if (Array.isArray(targetValue)) target[key] = mergeState({}, value, allowDeletion);
+                    else if (typeof targetValue === "object") mergeState(target[key], value, allowDeletion);
+                    else target[key] = mergeState({}, value, allowDeletion);
                 }
             } else if (Array.isArray(value)) {
                 target[key] = [...value];
             } else if (value instanceof Date) {
                 target[key] = new Date(value);
             } else {
-                target[key] = mergeState({}, value);
+                target[key] = mergeState({}, value, allowDeletion);
             }
         }
-        else if (value === undefined) {
+        else if (value === undefined && allowDeletion) {
             delete target[key];
         }
         else {
