@@ -214,7 +214,6 @@ You can have multiple isolated `app` instances on a page, each with its own stat
 The state is a singleton object that can be updated. A re-render happens when a patch object is supplied to the patch function or via event.
 
 ```js
-// type safe way to create the state object
 const s = {
     counter: 0,
     pointing: false,
