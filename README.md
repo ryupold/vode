@@ -5,6 +5,7 @@ A small web framework for a minimalistic development flow. Zero dependencies, no
 ## Usage
 
 ### ESM
+
 ```html
 <!DOCTYPE html>
 <html>
@@ -54,15 +55,15 @@ Binds the library to the global `V` variable.
         var state = { counter: 0 };
 
         V.app(appNode, state,
-            (s) => ["DIV",
-                ["INPUT", {
+            (s) => ["div",
+                ["input", {
                     type: 'button',
                     onclick: { counter: s.counter + 1 },
                     value: 'Click me',
                 }
                 ],
-                ["BR"],
-                ["SPAN", { style: { color: 'red' } }, `${s.counter}`],
+                ["br"],
+                ["span", { style: { color: 'red' } }, `${s.counter}`],
             ]);
     </script>
 </body>
@@ -70,6 +71,8 @@ Binds the library to the global `V` variable.
 ```
 
 ### NPM
+
+[![NPM](https://badge.fury.io/js/%40ryupold%2Fvode.svg)](https://www.npmjs.com/package/@ryupold/vode)
 
 ```bash
 # npm
@@ -299,4 +302,4 @@ Not planning to add more features, just keeping it simple and easy.
 But if you find bugs or have suggestions, feel free to open an [issue](https://github.com/ryupold/vode/issues) or a pull request.
 
 ## License
-[MIT](./LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
