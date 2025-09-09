@@ -1,6 +1,6 @@
 {
     "name": "@ryupold/vode",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "description": "Small web framework for minimal websites",
     "author": "Michael Scherbakow (ryupold)",
     "license": "MIT",
@@ -32,8 +32,8 @@
         "watch": "tsc -b -w"
     },
     "devDependencies": {
-        "bun": "^1.2.18",
-        "esbuild": "^0.25.8",
-        "typescript": "^5.8.3"
+        "bun": "^1.2.21",
+        "esbuild": "^0.25.9",
+        "typescript": "^5.9.2"
     }
 }

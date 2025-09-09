@@ -1,12 +1,12 @@
 export type Vode<S> = FullVode<S> | JustTagVode | NoPropsVode<S>;
 export type FullVode<S> = [tag: Tag, props: Props<S>, ...children: ChildVode<S>[]];
-export type NoPropsVode<S> = [tag: Tag, ...children: ChildVode<S>[]] | string[];
+export type NoPropsVode<S> = [tag: Tag, ...children: ChildVode<S>[]] | (TextVode[]);
 export type JustTagVode = [tag: Tag];
 export type ChildVode<S> = Vode<S> | TextVode | NoVode | Component<S>;
-export type TextVode = string;
+export type TextVode = string & {};
 export type NoVode = undefined | null | number | boolean | bigint | void;
 export type AttachedVode<S> = Vode<S> & { node: ChildNode, id?: string } | Text & { node?: never, id?: never };
-export type Tag = keyof (HTMLElementTagNameMap & SVGElementTagNameMap & MathMLElementTagNameMap);
+export type Tag = keyof (HTMLElementTagNameMap & SVGElementTagNameMap & MathMLElementTagNameMap) | (string & {});
 export type Component<S> = (s: S) => ChildVode<S>;
 
 export type Patch<S> =
@@ -92,7 +92,7 @@ export type ContainerNode<S> = HTMLElement & {
     }
 };
 
-/** create a state object used as initial state for `app()`. it is updated with `PatchableState.patch()` using `merge()` */
+/** create a state object used as state for `app()`. it is updated with `PatchableState.patch()` using `merge()` */
 export function createState<S extends object | unknown>(state: S): PatchableState<S> { return state as PatchableState<S>; }
 
 /** type safe way to create a patch. useful for type inference and autocompletion. */
@@ -114,20 +114,20 @@ export function vode<S extends object | unknown>(tag: Tag | Vode<S>, props?: Pro
 
 /** create a vode app inside a container element
  * @param container will use this container as root and places the result of the dom function and further renderings in it
- * @param initialState
+ * @param state the state object that is used as singleton state bound to the vode app and is updated with `patch()`
  * @param dom creates the initial dom from the state and is called on every render
  * @param initialPatches variadic list of patches that are applied after the first render
  * @returns a patch function that can be used to update the state
  */
-export function app<S extends object | unknown>(container: HTMLElement, initialState: Omit<S, "patch">, dom: Component<S>, ...initialPatches: Patch<S>[]) {
+export function app<S extends object | unknown>(container: HTMLElement, state: Omit<S, "patch">, dom: Component<S>, ...initialPatches: Patch<S>[]) {
     if (!container) throw new Error("container must be a valid HTMLElement");
-    if (!initialState || typeof initialState !== "object") throw new Error("initialState must be an object");
+    if (!state || typeof state !== "object") throw new Error("given state must be an object");
     if (typeof dom !== "function") throw new Error("dom must be a function that returns a vode");
 
     const _vode = {} as ContainerNode<S>["_vode"];
     _vode.stats = { lastRenderTime: 0, renderCount: 0, liveEffectCount: 0, patchCount: 0, renderPatchCount: 0 };
 
-    Object.defineProperty(initialState, "patch", {
+    Object.defineProperty(state, "patch", {
         enumerable: false, configurable: true,
         writable: false, value: async (action: Patch<S>) => {
             if (!action || (typeof action !== "function" && typeof action !== "object")) return;
@@ -198,16 +198,16 @@ export function app<S extends object | unknown>(container: HTMLElement, initialS
         })
     });
 
-    _vode.patch = (<PatchableState<S>>initialState).patch;
-    _vode.state = <PatchableState<S>>initialState;
+    _vode.patch = (<PatchableState<S>>state).patch;
+    _vode.state = <PatchableState<S>>state;
     _vode.q = null;
 
     const root = container as ContainerNode<S>;
     root._vode = _vode;
 
-    const initialVode = dom(<S>initialState);
+    const initialVode = dom(<S>state);
     _vode.vode = <AttachedVode<S>>initialVode;
-    _vode.vode = render(<S>initialState, _vode.patch!, container, 0, undefined, initialVode)!;
+    _vode.vode = render(<S>state, _vode.patch!, container, 0, undefined, initialVode)!;
 
     for (const effect of initialPatches) {
         _vode.patch!(effect);

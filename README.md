@@ -197,7 +197,7 @@ const CompFooBar = (s) => [DIV, { class: "container" },
 
 ### app
 
-`app` is a function that takes a HTML node, an initial state object, and a render function (`Component<State>`).  
+`app` is a function that takes a HTML node, a state object, and a render function (`Component<State>`).  
 ```ts
 const appNode = document.getElementById('APP-ID');
 const state = {
@@ -207,14 +207,17 @@ const state = {
     title: '',
     body: '',
 };
-const patch = app<State>(appNode, state, (s) => CompFooBar(s));
+const patch = app(appNode, state, (s) => CompFooBar(s));
 ```
-It will render the initial state and update the DOM when patches are applied to the patch function or via events. All elements returned by the render function are placed under `appNode`. 
+It will render the state and update the DOM when patches are applied to the `patch` function or via events. All elements returned by the render function are placed under `appNode`. 
 
-You can have multiple isolated `app` instances on a page, each with its own state and render function. The returned patch function from `app` can be used to synchronize the state between them.
+You can have multiple isolated vode app instances on a page, each with its own state and render function. The returned patch function from `app` can be used to synchronize the state between them.
 
-### state
-The state is a singleton object that can be updated. A re-render happens when a patch object is supplied to the patch function or via event.
+### state & patch
+The state object you pass to [`app`](#app) can be updated directly or via `patch`. 
+During the call to `app`, the state object is bound to the vode app instance and becomes a singleton from its perspective. 
+Also a `patch` function is added to the state object; it is the same function that is also returned by `app`.
+A re-render happens when a patch object is supplied to the `patch` function or via event.
 
 ```js
 const s = {
