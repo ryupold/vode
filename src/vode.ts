@@ -68,7 +68,7 @@ export type PropertyValue<S> =
     | Patch<S>;
 
 export type Dispatch<S> = (action: Patch<S>) => void;
-export type PatchableState<S> = S & { patch: Dispatch<Patch<S>> };
+export type PatchableState<S> = S & { patch: Dispatch<S> };
 
 export type ContainerNode<S> = HTMLElement & {
     /** the `_vode` property is added to the container in `app()`.
