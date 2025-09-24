@@ -5,7 +5,7 @@ export type JustTagVode = [tag: Tag];
 export type ChildVode<S> = Vode<S> | TextVode | NoVode | Component<S>;
 export type TextVode = string & {};
 export type NoVode = undefined | null | number | boolean | bigint | void;
-export type AttachedVode<S> = Vode<S> & { node: ChildNode, id?: string } | Text & { node?: never, id?: never };
+export type AttachedVode<S> = Vode<S> & { node: ChildNode } | Text & { node?: never };
 export type Tag = keyof (HTMLElementTagNameMap & SVGElementTagNameMap & MathMLElementTagNameMap) | (string & {});
 export type Component<S> = (s: S) => ChildVode<S>;
 
@@ -92,12 +92,6 @@ export type ContainerNode<S> = HTMLElement & {
     }
 };
 
-/** create a state object used as state for `app()`. it is updated with `PatchableState.patch()` using `merge()` */
-export function createState<S extends object | unknown>(state: S): PatchableState<S> { return state as PatchableState<S>; }
-
-/** type safe way to create a patch. useful for type inference and autocompletion. */
-export function createPatch<S extends object | unknown>(p: DeepPartial<S> | Effect<S> | IgnoredPatch): typeof p { return p; }
-
 /** type-safe way to create a vode. useful for type inference and autocompletion.
  * 
  * - just a tag: `vode("div")` => `["div"]` --*rendered*-> `<div></div>`
@@ -115,12 +109,12 @@ export function vode<S extends object | unknown>(tag: Tag | Vode<S>, props?: Pro
 /** create a vode app inside a container element
  * @param container will use this container as root and places the result of the dom function and further renderings in it
  * @param state the state object that is used as singleton state bound to the vode app and is updated with `patch()`
- * @param dom creates the initial dom from the state and is called on every render
+ * @param dom function is alled every render and returnes the vode-dom that is updated incrementally to the DOM based on the state.
  * @param initialPatches variadic list of patches that are applied after the first render
  * @returns a patch function that can be used to update the state
  */
-export function app<S extends object | unknown>(container: HTMLElement, state: Omit<S, "patch">, dom: Component<S>, ...initialPatches: Patch<S>[]) {
-    if (!container) throw new Error("container must be a valid HTMLElement");
+export function app<S extends object | unknown>(container: Element, state: Omit<S, "patch">, dom: (s: S) => Vode<S>, ...initialPatches: Patch<S>[]) {
+    if (!container?.parentElement) throw new Error("container must be a valid HTMLElement inside the <html></html> document");
     if (!state || typeof state !== "object") throw new Error("given state must be an object");
     if (typeof dom !== "function") throw new Error("dom must be a function that returns a vode");
 
@@ -186,7 +180,11 @@ export function app<S extends object | unknown>(container: HTMLElement, state: O
             try {
                 _vode.state = mergeState(_vode.state, _vode.q, true);
                 _vode.q = null;
-                _vode.vode = render(_vode.state, _vode.patch, container, 0, _vode.vode, dom(_vode.state))!;
+                const vom = dom(_vode.state);
+                _vode.vode = render(_vode.state, _vode.patch, container.parentElement as Element, 0, _vode.vode, vom)!;
+                if ((<ContainerNode<S>>container).tagName !== (vom[0] as Tag).toUpperCase()) { //the tag name was changed during render -> update reference to vode-app-root 
+                    container = _vode.vode.node as Element;
+                }
             } finally {
                 _vode.isRendering = false;
                 _vode.stats.renderCount++;
@@ -205,9 +203,14 @@ export function app<S extends object | unknown>(container: HTMLElement, state: O
     const root = container as ContainerNode<S>;
     root._vode = _vode;
 
-    const initialVode = dom(<S>state);
-    _vode.vode = <AttachedVode<S>>initialVode;
-    _vode.vode = render(<S>state, _vode.patch!, container, 0, undefined, initialVode)!;
+    _vode.vode = render(
+        <S>state,
+        _vode.patch!,
+        container.parentElement,
+        Array.from(container.parentElement.children).indexOf(container),
+        hydrate<S>(container),
+        dom(<S>state)
+    )!;
 
     for (const effect of initialPatches) {
         _vode.patch!(effect);
@@ -222,6 +225,12 @@ export function memo<S>(compare: any[], componentOrProps: Component<S> | ((s: S)
     (<any>componentOrProps).__memo = compare;
     return componentOrProps as typeof componentOrProps extends ((s: S) => Props<S>) ? ((s: S) => Props<S>) : Component<S>;
 }
+
+/** create a state object used as state for `app()`. it is updated with `PatchableState.patch()` using `merge()` */
+export function createState<S extends object | unknown>(state: S): PatchableState<S> { return state as PatchableState<S>; }
+
+/** type safe way to create a patch. useful for type inference and autocompletion. */
+export function createPatch<S extends object | unknown>(p: DeepPartial<S> | Effect<S> | IgnoredPatch): typeof p { return p; }
 
 /** html tag of the vode or `#text` if it is a text node */
 export function tag<S>(v: Vode<S> | TextVode | NoVode | AttachedVode<S>): Tag | "#text" | undefined {
@@ -356,7 +365,39 @@ function mergeState(target: any, source: any, allowDeletion: boolean) {
     return target;
 };
 
-function render<S>(state: S, patch: Dispatch<S>, parent: ChildNode, childIndex: number, oldVode: AttachedVode<S> | undefined, newVode: ChildVode<S>, svg?: boolean): AttachedVode<S> | undefined {
+function hydrate<S = unknown>(element: Element | Text): AttachedVode<S> | undefined {
+    if ((element as Text)?.nodeType === Node.TEXT_NODE) {
+        if ((element as Text).nodeValue?.trim() !== "")
+            return element as Text;
+        return undefined; //ignore (mostly html whitespace)
+    }
+    else if (element.nodeType === Node.COMMENT_NODE) {
+        return undefined; //ignore (not interesting)
+    }
+    else {
+        const tag: Tag = (<Element>element).tagName.toLowerCase();
+        const root: Vode<S> = [tag];
+
+        (<AttachedVode<S>>root).node = element;
+        if ((element as HTMLElement)?.hasAttributes()) {
+            const props: Props<S> = {};
+            const attr = (<HTMLElement>element).attributes;
+            for (let a of attr) {
+                props[a.name] = a.value;
+            }
+            (<Vode<S>>root).push(props as any);
+        }
+        if (element.hasChildNodes()) {
+            for (let child of element.childNodes) {
+                const wet = child && hydrate<S>(child as Element | Text)! as ChildVode<S>;
+                if (wet) root.push(wet as any);
+            }
+        }
+        return <AttachedVode<S>>root;
+    }
+}
+
+function render<S>(state: S, patch: Dispatch<S>, parent: Element, childIndex: number, oldVode: AttachedVode<S> | undefined, newVode: ChildVode<S>, svg?: boolean): AttachedVode<S> | undefined {
     // unwrap component if it is memoized
     newVode = remember(state, newVode, oldVode) as ChildVode<S>;
 
@@ -403,13 +444,12 @@ function render<S>(state: S, patch: Dispatch<S>, parent: ChildNode, childIndex: 
             (<any>oldNode).onUnmount && patch((<any>oldNode).onUnmount(oldNode));
             oldNode.replaceWith(text);
         } else {
-            if (parent.childNodes[childIndex]) {
-                parent.insertBefore(text, parent.childNodes[childIndex]);
+            if (parent.childNodes[childIndex + 1]) {
+                parent.insertBefore(text, parent.childNodes[childIndex + 1]);
             } else {
                 parent.appendChild(text);
             }
         }
-
         return text as Text;
     }
 
@@ -435,8 +475,8 @@ function render<S>(state: S, patch: Dispatch<S>, parent: ChildNode, childIndex: 
             (<any>oldNode).onUnmount && patch((<any>oldNode).onUnmount(oldNode));
             oldNode.replaceWith(newNode);
         } else {
-            if (parent.childNodes[childIndex]) {
-                parent.insertBefore(newNode, parent.childNodes[childIndex]);
+            if (parent.childNodes[childIndex + 1]) {
+                parent.insertBefore(newNode, parent.childNodes[childIndex + 1]);
             } else {
                 parent.appendChild(newNode);
             }
@@ -446,7 +486,7 @@ function render<S>(state: S, patch: Dispatch<S>, parent: ChildNode, childIndex: 
         if (newChildren) {
             for (let i = 0; i < newChildren.length; i++) {
                 const child = newChildren[i];
-                const attached = render(state, patch, newNode, i, undefined, child, svg);
+                const attached = render(state, patch, newNode as Element, i, undefined, child, svg);
                 (<Vode<S>>newVode!)[properties ? i + 2 : i + 1] = <Vode<S>>attached;
             }
         }
@@ -486,7 +526,7 @@ function render<S>(state: S, patch: Dispatch<S>, parent: ChildNode, childIndex: 
                 const child = newKids[i];
                 const oldChild = oldKids && oldKids[i];
 
-                const attached = render(state, patch, oldNode!, i, oldChild, child, svg);
+                const attached = render(state, patch, oldNode as Element, i, oldChild, child, svg);
                 if (attached) {
                     (<Vode<S>>newVode)[hasProps ? i + 2 : i + 1] = <Vode<S>>attached;
                 }

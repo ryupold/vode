@@ -236,12 +236,6 @@ var V = (() => {
   });
 
   // src/vode.js
-  function createState(state) {
-    return state;
-  }
-  function createPatch(p) {
-    return p;
-  }
   function vode(tag2, props2, ...children2) {
     if (!tag2)
       throw new Error("tag must be a string or vode");
@@ -252,16 +246,16 @@ var V = (() => {
     else
       return [tag2, ...children2];
   }
-  function app(container, initialState, dom, ...initialPatches) {
-    if (!container)
-      throw new Error("container must be a valid HTMLElement");
-    if (!initialState || typeof initialState !== "object")
-      throw new Error("initialState must be an object");
+  function app(container, state, dom, ...initialPatches) {
+    if (!container?.parentElement)
+      throw new Error("container must be a valid HTMLElement inside the <html></html> document");
+    if (!state || typeof state !== "object")
+      throw new Error("given state must be an object");
     if (typeof dom !== "function")
       throw new Error("dom must be a function that returns a vode");
     const _vode = {};
     _vode.stats = { lastRenderTime: 0, renderCount: 0, liveEffectCount: 0, patchCount: 0, renderPatchCount: 0 };
-    Object.defineProperty(initialState, "patch", {
+    Object.defineProperty(state, "patch", {
       enumerable: false,
       configurable: true,
       writable: false,
@@ -308,7 +302,7 @@ var V = (() => {
           _vode.patch(action(_vode.state));
         } else {
           _vode.stats.renderPatchCount++;
-          _vode.q = mergeState(_vode.q || {}, action);
+          _vode.q = mergeState(_vode.q || {}, action, false);
           if (!_vode.isRendering)
             _vode.render();
         }
@@ -324,9 +318,13 @@ var V = (() => {
         _vode.isRendering = true;
         const sw = Date.now();
         try {
-          _vode.state = mergeState(_vode.state, _vode.q);
+          _vode.state = mergeState(_vode.state, _vode.q, true);
           _vode.q = null;
-          _vode.vode = render(_vode.state, _vode.patch, container, 0, _vode.vode, dom(_vode.state));
+          const vom = dom(_vode.state);
+          _vode.vode = render(_vode.state, _vode.patch, container.parentElement, 0, _vode.vode, vom);
+          if (container.tagName !== vom[0].toUpperCase()) {
+            container = _vode.vode.node;
+          }
         } finally {
           _vode.isRendering = false;
           _vode.stats.renderCount++;
@@ -337,14 +335,12 @@ var V = (() => {
         }
       })
     });
-    _vode.patch = initialState.patch;
-    _vode.state = initialState;
+    _vode.patch = state.patch;
+    _vode.state = state;
     _vode.q = null;
     const root = container;
     root._vode = _vode;
-    const initialVode = dom(initialState);
-    _vode.vode = initialVode;
-    _vode.vode = render(initialState, _vode.patch, container, 0, void 0, initialVode);
+    _vode.vode = render(state, _vode.patch, container.parentElement, Array.from(container.parentElement.children).indexOf(container), hydrate(container), dom(state));
     for (const effect of initialPatches) {
       _vode.patch(effect);
     }
@@ -353,6 +349,12 @@ var V = (() => {
   function memo(compare, componentOrProps) {
     componentOrProps.__memo = compare;
     return componentOrProps;
+  }
+  function createState(state) {
+    return state;
+  }
+  function createPatch(p) {
+    return p;
   }
   function tag(v) {
     return !!v ? Array.isArray(v) ? v[0] : typeof v === "string" || v.nodeType === Node.TEXT_NODE ? "#text" : void 0 : void 0;
@@ -424,7 +426,7 @@ var V = (() => {
   function childrenStart(vode2) {
     return props(vode2) ? 2 : 1;
   }
-  function mergeState(target, source) {
+  function mergeState(target, source, allowDeletion) {
     if (!source)
       return target;
     for (const key in source) {
@@ -438,26 +440,55 @@ var V = (() => {
             target[key] = new Date(value);
           } else {
             if (Array.isArray(targetValue))
-              target[key] = mergeState({}, value);
+              target[key] = mergeState({}, value, allowDeletion);
             else if (typeof targetValue === "object")
-              mergeState(target[key], value);
+              mergeState(target[key], value, allowDeletion);
             else
-              target[key] = mergeState({}, value);
+              target[key] = mergeState({}, value, allowDeletion);
           }
         } else if (Array.isArray(value)) {
           target[key] = [...value];
         } else if (value instanceof Date) {
           target[key] = new Date(value);
         } else {
-          target[key] = mergeState({}, value);
+          target[key] = mergeState({}, value, allowDeletion);
         }
-      } else if (value === void 0) {
+      } else if (value === void 0 && allowDeletion) {
         delete target[key];
       } else {
         target[key] = value;
       }
     }
     return target;
+  }
+  function hydrate(element) {
+    if (element?.nodeType === Node.TEXT_NODE) {
+      if (element.nodeValue?.trim() !== "")
+        return element;
+      return void 0;
+    } else if (element.nodeType === Node.COMMENT_NODE) {
+      return void 0;
+    } else {
+      const tag2 = element.tagName.toLowerCase();
+      const root = [tag2];
+      root.node = element;
+      if (element?.hasAttributes()) {
+        const props2 = {};
+        const attr = element.attributes;
+        for (let a of attr) {
+          props2[a.name] = a.value;
+        }
+        root.push(props2);
+      }
+      if (element.hasChildNodes()) {
+        for (let child2 of element.childNodes) {
+          const wet = child2 && hydrate(child2);
+          if (wet)
+            root.push(wet);
+        }
+      }
+      return root;
+    }
   }
   function render(state, patch, parent, childIndex, oldVode, newVode, svg) {
     newVode = remember(state, newVode, oldVode);
@@ -494,8 +525,8 @@ var V = (() => {
         oldNode.onUnmount && patch(oldNode.onUnmount(oldNode));
         oldNode.replaceWith(text);
       } else {
-        if (parent.childNodes[childIndex]) {
-          parent.insertBefore(text, parent.childNodes[childIndex]);
+        if (parent.childNodes[childIndex + 1]) {
+          parent.insertBefore(text, parent.childNodes[childIndex + 1]);
         } else {
           parent.appendChild(text);
         }
@@ -516,8 +547,8 @@ var V = (() => {
         oldNode.onUnmount && patch(oldNode.onUnmount(oldNode));
         oldNode.replaceWith(newNode);
       } else {
-        if (parent.childNodes[childIndex]) {
-          parent.insertBefore(newNode, parent.childNodes[childIndex]);
+        if (parent.childNodes[childIndex + 1]) {
+          parent.insertBefore(newNode, parent.childNodes[childIndex + 1]);
         } else {
           parent.appendChild(newNode);
         }

@@ -2,6 +2,8 @@
 
 A small web framework for a minimalistic development flow. Zero dependencies, no build step except for typescript compilation, and a simple virtual DOM implementation that is easy to understand and use. Autocompletion out of the box due to binding to `lib.dom.d.ts`.
 
+It can be used to create single page applications or isolated components with complex state. The usage of arrays gives flexibility in composition and makes refactoring easy.
+
 ## Usage
 
 ### ESM
@@ -133,6 +135,87 @@ A `vode` is a representation of a virtual DOM node, which is a tree structure of
 
 As you can see, it is a simple array with the first element being the tag name, the second element being an optional properties object, and the rest being child-vodes.
 
+They are lightweight structures to describe what the DOM should look like.
+
+Imagine this HTML:
+
+```html
+<div class="card">
+  <div class="card-image">
+    <figure class="image is-4by3">
+      <img
+        src="https://bulma.io/assets/images/placeholders/1280x960.png"
+        alt="Placeholder image"
+      />
+    </figure>
+  </div>
+  <div class="card-content">
+    <div class="media">
+      <div class="media-left">
+        <figure class="image is-48x48">
+          <img
+            src="https://bulma.io/assets/images/placeholders/96x96.png"
+            alt="Placeholder image"
+          />
+        </figure>
+      </div>
+      <div class="media-content">
+        <p class="title is-4">John Smith</p>
+        <p class="subtitle is-6">@johnsmith</p>
+      </div>
+    </div>
+
+    <div class="content">
+      Lorem ipsum dolor sit amet, consectetur adipiscing elit. Phasellus nec
+      iaculis mauris. <a>@bulmaio</a>. <a href="#">#css</a>
+      <a href="#">#responsive</a>
+      <br />
+      <time datetime="2025-09-24">10:09 PM - 24 Sep 2025</time>
+    </div>
+  </div>
+</div>
+```
+
+expressed as **"vode"** it would look like this:
+
+```ts
+[DIV, { class: "card" },
+    [DIV, { class: "card-image" },
+        [FIGURE, { class: "image is-4by3" },
+            [IMG, {
+                src: "https://bulma.io/assets/images/placeholders/1280x960.png",
+                alt: "Placeholder image"
+            }]
+        ]
+    ],
+    [DIV, { class: "card-content" },
+        [DIV, { class: "media" },
+            [DIV, { class: "media-left" },
+                [FIGURE, { class: "image is-48x48" },
+                    [IMG, {
+                        src: "https://bulma.io/assets/images/placeholders/96x96.png",
+                        alt: "Placeholder image"
+                    }]
+                ]
+            ],
+            [DIV, { class: "media-content" },
+                [P, { class: "title is-4" }, "John Smith"],
+                [P, { class: "subtitle is-6" }, "@johnsmith"]
+            ]
+        ],
+        [DIV, { class: "content" },
+            "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Phasellus nec iaculis mauris. ",
+            [A, "@bulmaio"], ". ", [A, { href: "#" }, "#css"],
+            [A, { href: "#" }, "#responsive"],
+            [BR],
+            [TIME, { datetime: "2025-09-24" }, "10:09 PM - 24 Sep 2025"]
+        ]
+    ]
+]
+```
+
+Viewed alone it does not provide an obvious benefit (apart from looking better imho), but as the result of a function of state, it can become very useful to express conditional UI this way.
+
 ### Component
 ```ts
 type Component<S> = (s: S) => ChildVode<S>;
@@ -142,13 +225,26 @@ A `Component<State>` is a function that takes a state object and returns a `Vode
 
 ```ts
 // A full vode has a tag, properties, and children. props and children are optional.
-const CompFooBar = (s) => [DIV, { class: "container" }, 
+const CompFoo = (s) => [SPAN, { class: "foo" }, s.isAuthenticated ? "foo" : "bar"];
+
+const CompBar = (s) => [DIV, { class: "container" }, 
     
     // a child vode can be a string, which results in a text node
     [H1, "Hello World"], 
     
     // a vode can also be a self-closing tag
-    [BR],
+    [HR],
+
+    // conditional rendering
+    s.isAuthenticated 
+        ? [STRONG, `and also hello ${s.user}`]
+        : [FORM,
+            [INPUT, { type: "email", name: "email" }],
+            [INPUT, { type: "password", name: "pw" }],
+            [INPUT, { type: "submit" }],
+        ],
+    // a child-vode of false, undefined or null is not rendered 
+    !s.isAuthenticated && [HR],
     
     // style object maps directly to the HTML style attribute
     [P, { style: { color: "red", fontWeight: "bold" } }, "This is a paragraph."],
@@ -164,9 +260,9 @@ const CompFooBar = (s) => [DIV, { class: "container" },
     // and the HTML event object as second argument
     [BUTTON, {
         // all on* events accept `Patch<State>`
-        onclick: (state, evt) => {
+        onclick: (s, evt) => {
             // objects returned by events are patched automatically
-            return { counter: state.counter + 1 }; 
+            return { counter: s.counter + 1 }; 
         },
 
         // you can set the patch object directly for events
@@ -174,14 +270,14 @@ const CompFooBar = (s) => [DIV, { class: "container" },
         onmouseleave: { pointing: false },
 
         // a patch can be an async function
-        onmouseup: async (state, evt) => {
-            state.patch({ loading: true });
+        onmouseup: async (s, evt) => {
+            s.patch({ loading: true });
             const result = await apiCall();
             return { title: result.data.title, loading: false };
         },
 
         // you can also use a generator function that yields patches
-        onmousedown: async function* (state, evt) {
+        onmousedown: async function* (s, evt) {
             yield { loading: true }; 
             const result = await apiCall();
             yield { 
@@ -190,8 +286,18 @@ const CompFooBar = (s) => [DIV, { class: "container" },
             return { loading: false };
         },
 
+        // events can be attached condionally
+        ondblclick : s.counter > 20 && (s, evt) => {
+            return { counter: s.counter * 2 }; 
+        },
+
         class: { bar: s.pointing }
     }, "Click me!"],
+
+    // components can be used as child-vodes, they are called lazy on render
+    CompFoo,
+    // or this way
+    CompFoo(s),
 ];
 ```
 
@@ -199,7 +305,7 @@ const CompFooBar = (s) => [DIV, { class: "container" },
 
 `app` is a function that takes a HTML node, a state object, and a render function (`Component<State>`).  
 ```ts
-const appNode = document.getElementById('APP-ID');
+const containerNode = document.getElementById('APP-ID');
 const state = {
     counter: 0,
     pointing: false,
@@ -207,11 +313,37 @@ const state = {
     title: '',
     body: '',
 };
-const patch = app(appNode, state, (s) => CompFooBar(s));
+const patch = app(containerNode, state, (s) => CompFooBar(s));
 ```
-It will render the state and update the DOM when patches are applied to the `patch` function or via events. All elements returned by the render function are placed under `appNode`. 
+It will analyse the current structure of the given `containerNode` and adjust its structure in the first render. When render-patches are applied to the `patch` function or via yield/return of events, the `containerNode` is updated to match the vode structure 1:1. 
 
+#### they multiply
 You can have multiple isolated vode app instances on a page, each with its own state and render function. The returned patch function from `app` can be used to synchronize the state between them.
+
+#### nesting
+It is possible to nest vode-apps inside vode-apps, but the library is not opionated on how you do that. One can imagine this type of component:
+
+```ts
+export function IsolatedVodeApp<OuterState, InnerState>(
+    tag: Tag,
+    props: Props<OuterState>,
+    state: InnerState,
+    View: (ins:InnerState) => Vode<InnerState>, 
+    ...initialPatches: Patch<InnerState>[]
+): ChildVode<OuterState> {
+    return memo<OuterState>([],
+        () => [tag,
+            {
+                ...props,
+                onMount: (_: OuterState, container: HTMLElement) => {
+                    app<InnerState>(container, state, View, ...initialPatches);
+                }
+            }
+        ]
+    );
+}
+```
+The `empty memo` prevents further render calls from the outer app so rendering of the subtree inside is controlled by the inner app.
 
 ### state & patch
 The state object you pass to [`app`](#app) can be updated directly or via `patch`. 
