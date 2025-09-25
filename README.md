@@ -144,7 +144,7 @@ Imagine this HTML:
   <div class="card-image">
     <figure class="image is-4by3">
       <img
-        src="https://bulma.io/assets/images/placeholders/1280x960.png"
+        src="placeholders/1280x960.png"
         alt="Placeholder image"
       />
     </figure>
@@ -154,7 +154,7 @@ Imagine this HTML:
       <div class="media-left">
         <figure class="image is-48x48">
           <img
-            src="https://bulma.io/assets/images/placeholders/96x96.png"
+            src="placeholders/96x96.png"
             alt="Placeholder image"
           />
         </figure>
@@ -166,8 +166,7 @@ Imagine this HTML:
     </div>
 
     <div class="content">
-      Lorem ipsum dolor sit amet, consectetur adipiscing elit. Phasellus nec
-      iaculis mauris. <a>@bulmaio</a>. <a href="#">#css</a>
+      Lorem ipsum dolor sit amet, consectetur adipiscing elit. <a href="?post=vode">vode</a>. <a href="#">#css</a>
       <a href="#">#responsive</a>
       <br />
       <time datetime="2025-09-24">10:09 PM - 24 Sep 2025</time>
@@ -179,36 +178,36 @@ Imagine this HTML:
 expressed as **"vode"** it would look like this:
 
 ```ts
-[DIV, { class: "card" },
-    [DIV, { class: "card-image" },
-        [FIGURE, { class: "image is-4by3" },
+[DIV, { class: 'card' },
+    [DIV, { class: 'card-image' },
+        [FIGURE, { class: 'image is-4by3' },
             [IMG, {
-                src: "https://bulma.io/assets/images/placeholders/1280x960.png",
-                alt: "Placeholder image"
+                src: 'placeholders/1280x960.png',
+                alt: 'Placeholder image'
             }]
         ]
     ],
-    [DIV, { class: "card-content" },
-        [DIV, { class: "media" },
-            [DIV, { class: "media-left" },
-                [FIGURE, { class: "image is-48x48" },
+    [DIV, { class: 'card-content' },
+        [DIV, { class: 'media' },
+            [DIV, { class: 'media-left' },
+                [FIGURE, { class: 'image is-48x48' },
                     [IMG, {
-                        src: "https://bulma.io/assets/images/placeholders/96x96.png",
-                        alt: "Placeholder image"
+                        src: 'placeholders/96x96.png',
+                        alt: 'Placeholder image'
                     }]
                 ]
             ],
-            [DIV, { class: "media-content" },
-                [P, { class: "title is-4" }, "John Smith"],
-                [P, { class: "subtitle is-6" }, "@johnsmith"]
+            [DIV, { class: 'media-content' },
+                [P, { class: 'title is-4' }, 'John Smith'],
+                [P, { class: 'subtitle is-6' }, '@johnsmith']
             ]
         ],
-        [DIV, { class: "content" },
-            "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Phasellus nec iaculis mauris. ",
-            [A, "@bulmaio"], ". ", [A, { href: "#" }, "#css"],
-            [A, { href: "#" }, "#responsive"],
+        [DIV, { class: 'content' },
+            'Lorem ipsum dolor sit amet, consectetur adipiscing elit. ',
+            [A, {href: '?post=vode'}, 'vode'], '. ', [A, { href: '#' }, '#css'],
+            [A, { href: '#' }, '#responsive'],
             [BR],
-            [TIME, { datetime: "2025-09-24" }, "10:09 PM - 24 Sep 2025"]
+            [TIME, { datetime: '2025-09-24' }, '10:09 PM - 24 Sep 2025']
         ]
     ]
 ]
@@ -317,10 +316,10 @@ const patch = app(containerNode, state, (s) => CompFooBar(s));
 ```
 It will analyse the current structure of the given `containerNode` and adjust its structure in the first render. When render-patches are applied to the `patch` function or via yield/return of events, the `containerNode` is updated to match the vode structure 1:1. 
 
-#### they multiply
+#### isolated state
 You can have multiple isolated vode app instances on a page, each with its own state and render function. The returned patch function from `app` can be used to synchronize the state between them.
 
-#### nesting
+#### isolated app
 It is possible to nest vode-apps inside vode-apps, but the library is not opionated on how you do that. One can imagine this type of component:
 
 ```ts
@@ -396,6 +395,14 @@ s.patch(null);
 
 // setting a property in a patch to undefined deletes it from the state object
 s.patch({ pointing: undefined });
+
+//❌ it is discouraged to patch inside the render step 💩
+const ComponentEwww = (s) => {
+    if(!s.isLoading)
+        s.patch(() => startLoading());
+
+    return [DIV, s.loading ? [PROGRESS] : s.title];
+}
 ```
 
 ### memoization
@@ -426,7 +433,7 @@ const CompMemoFooBar = (s) =>  [DIV, { class: "container" },
 
 ### Direct access to DOM elements
 
-Additionally to the standard HTML attributes, you can define 2 special event attributes: `onMount(State, Element)` and `onUnmount(State, Element)` in the vode props. These are called when the element is created or removed during rendering. They receive the `State` as the first argument and the DOM element as the second argument. Like the other events they can be patches too.
+Additionally to the standard HTML attributes, you can define 2 special event attributes: `onMount(State, Element)` and `onUnmount(State, Element)` in the vode props. These are called when the element is created or removed during rendering. They receive the `State` as the first argument and the DOM element as the second argument. Like the other events they can be patches too. 
 
 ## Contributing
 

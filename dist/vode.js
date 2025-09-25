@@ -322,8 +322,9 @@ var V = (() => {
           _vode.q = null;
           const vom = dom(_vode.state);
           _vode.vode = render(_vode.state, _vode.patch, container.parentElement, 0, _vode.vode, vom);
-          if (container.tagName !== vom[0].toUpperCase()) {
+          if (container.tagName.toUpperCase() !== vom[0].toUpperCase()) {
             container = _vode.vode.node;
+            container._vode = _vode;
           }
         } finally {
           _vode.isRendering = false;

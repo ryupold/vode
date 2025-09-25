@@ -182,8 +182,9 @@ export function app<S extends object | unknown>(container: Element, state: Omit<
                 _vode.q = null;
                 const vom = dom(_vode.state);
                 _vode.vode = render(_vode.state, _vode.patch, container.parentElement as Element, 0, _vode.vode, vom)!;
-                if ((<ContainerNode<S>>container).tagName !== (vom[0] as Tag).toUpperCase()) { //the tag name was changed during render -> update reference to vode-app-root 
+                if ((<ContainerNode<S>>container).tagName.toUpperCase() !== (vom[0] as Tag).toUpperCase()) { //the tag name was changed during render -> update reference to vode-app-root 
                     container = _vode.vode.node as Element;
+                    (<ContainerNode<S>>container)._vode = _vode
                 }
             } finally {
                 _vode.isRendering = false;
