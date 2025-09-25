@@ -220,6 +220,46 @@ export function app<S extends object | unknown>(container: Element, state: Omit<
     return _vode.patch;
 }
 
+/** return vode representation of given DOM node */
+export function hydrate<S = unknown>(element: Element | Text): AttachedVode<S> | undefined {
+    if ((element as Text)?.nodeType === Node.TEXT_NODE) {
+        if ((element as Text).nodeValue?.trim() !== "")
+            return element as Text;
+        return undefined; //ignore (mostly html whitespace)
+    }
+    else if (element.nodeType === Node.COMMENT_NODE) {
+        return undefined; //ignore (not interesting)
+    }
+    else if (element.nodeType === Node.ELEMENT_NODE) {
+        const tag: Tag = (<Element>element).tagName.toLowerCase();
+        const root: Vode<S> = [tag];
+
+        (<AttachedVode<S>>root).node = element;
+        if ((element as HTMLElement)?.hasAttributes()) {
+            const props: Props<S> = {};
+            const attr = (<HTMLElement>element).attributes;
+            for (let a of attr) {
+                props[a.name] = a.value;
+            }
+            (<Vode<S>>root).push(props as any);
+        }
+        if (element.hasChildNodes()) {
+            const remove: ChildNode[] = [];
+            for (let child of element.childNodes) {
+                const wet = child && hydrate<S>(child as Element | Text)! as ChildVode<S>;
+                if (wet) root.push(wet as any);
+                else if (child) remove.push(child);
+            }
+            for (let child of remove) {
+                child.remove();
+            }
+        }
+        return <AttachedVode<S>>root;
+    } else {
+        return undefined;
+    }
+}
+
 /** memoizes the resulting component or props by comparing element by element (===) with the
  * `compare` of the previous render. otherwise skips the render step (not calling `componentOrProps`)*/
 export function memo<S>(compare: any[], componentOrProps: Component<S> | ((s: S) => Props<S>)): typeof componentOrProps extends ((s: S) => Props<S>) ? ((s: S) => Props<S>) : Component<S> {
@@ -365,45 +405,6 @@ function mergeState(target: any, source: any, allowDeletion: boolean) {
     }
     return target;
 };
-
-function hydrate<S = unknown>(element: Element | Text): AttachedVode<S> | undefined {
-    if ((element as Text)?.nodeType === Node.TEXT_NODE) {
-        if ((element as Text).nodeValue?.trim() !== "")
-            return element as Text;
-        return undefined; //ignore (mostly html whitespace)
-    }
-    else if (element.nodeType === Node.COMMENT_NODE) {
-        return undefined; //ignore (not interesting)
-    }
-    else if (element.nodeType === Node.ELEMENT_NODE) {
-        const tag: Tag = (<Element>element).tagName.toLowerCase();
-        const root: Vode<S> = [tag];
-
-        (<AttachedVode<S>>root).node = element;
-        if ((element as HTMLElement)?.hasAttributes()) {
-            const props: Props<S> = {};
-            const attr = (<HTMLElement>element).attributes;
-            for (let a of attr) {
-                props[a.name] = a.value;
-            }
-            (<Vode<S>>root).push(props as any);
-        }
-        if (element.hasChildNodes()) {
-            const remove: ChildNode[] = [];
-            for (let child of element.childNodes) {
-                const wet = child && hydrate<S>(child as Element | Text)! as ChildVode<S>;
-                if (wet) root.push(wet as any);
-                else if (child) remove.push(child);
-            }
-            for (let child of remove) {
-                child.remove();
-            }
-        }
-        return <AttachedVode<S>>root;
-    } else {
-        return undefined;
-    }
-}
 
 function render<S>(state: S, patch: Dispatch<S>, parent: Element, childIndex: number, oldVode: AttachedVode<S> | undefined, newVode: ChildVode<S>, svg?: boolean): AttachedVode<S> | undefined {
     // unwrap component if it is memoized

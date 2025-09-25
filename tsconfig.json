@@ -26,6 +26,5 @@
     "./index.ts",
     "./src/vode.ts",
     "./src/vode-tags.ts",
-    "./src/html.ts",
   ]
 }

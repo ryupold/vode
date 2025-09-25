@@ -227,7 +227,7 @@ var V = (() => {
     childrenStart: () => childrenStart,
     createPatch: () => createPatch,
     createState: () => createState,
-    htmlToVode: () => htmlToVode,
+    hydrate: () => hydrate,
     memo: () => memo,
     mergeClass: () => mergeClass,
     props: () => props,
@@ -347,6 +347,43 @@ var V = (() => {
     }
     return _vode.patch;
   }
+  function hydrate(element) {
+    if (element?.nodeType === Node.TEXT_NODE) {
+      if (element.nodeValue?.trim() !== "")
+        return element;
+      return void 0;
+    } else if (element.nodeType === Node.COMMENT_NODE) {
+      return void 0;
+    } else if (element.nodeType === Node.ELEMENT_NODE) {
+      const tag2 = element.tagName.toLowerCase();
+      const root = [tag2];
+      root.node = element;
+      if (element?.hasAttributes()) {
+        const props2 = {};
+        const attr = element.attributes;
+        for (let a of attr) {
+          props2[a.name] = a.value;
+        }
+        root.push(props2);
+      }
+      if (element.hasChildNodes()) {
+        const remove = [];
+        for (let child2 of element.childNodes) {
+          const wet = child2 && hydrate(child2);
+          if (wet)
+            root.push(wet);
+          else if (child2)
+            remove.push(child2);
+        }
+        for (let child2 of remove) {
+          child2.remove();
+        }
+      }
+      return root;
+    } else {
+      return void 0;
+    }
+  }
   function memo(compare, componentOrProps) {
     componentOrProps.__memo = compare;
     return componentOrProps;
@@ -461,43 +498,6 @@ var V = (() => {
       }
     }
     return target;
-  }
-  function hydrate(element) {
-    if (element?.nodeType === Node.TEXT_NODE) {
-      if (element.nodeValue?.trim() !== "")
-        return element;
-      return void 0;
-    } else if (element.nodeType === Node.COMMENT_NODE) {
-      return void 0;
-    } else if (element.nodeType === Node.ELEMENT_NODE) {
-      const tag2 = element.tagName.toLowerCase();
-      const root = [tag2];
-      root.node = element;
-      if (element?.hasAttributes()) {
-        const props2 = {};
-        const attr = element.attributes;
-        for (let a of attr) {
-          props2[a.name] = a.value;
-        }
-        root.push(props2);
-      }
-      if (element.hasChildNodes()) {
-        const remove = [];
-        for (let child2 of element.childNodes) {
-          const wet = child2 && hydrate(child2);
-          if (wet)
-            root.push(wet);
-          else if (child2)
-            remove.push(child2);
-        }
-        for (let child2 of remove) {
-          child2.remove();
-        }
-      }
-      return root;
-    } else {
-      return void 0;
-    }
   }
   function render(state, patch, parent, childIndex, oldVode, newVode, svg) {
     newVode = remember(state, newVode, oldVode);
@@ -956,40 +956,5 @@ var V = (() => {
   var MUNDER = "munder";
   var MUNDEROVER = "munderover";
   var SEMANTICS = "semantics";
-
-  // src/html.js
-  function htmlToVode(html) {
-    const div = document.createElement("div");
-    div.innerHTML = html.trim();
-    const vodes = [];
-    for (const child2 of div.childNodes) {
-      const v = elementToVode(child2);
-      if (v != null)
-        vodes.push(v);
-    }
-    return vodes;
-  }
-  function elementToVode(element) {
-    if (element.nodeType === Node.TEXT_NODE) {
-      return element.textContent;
-    }
-    if (element.nodeType !== Node.ELEMENT_NODE) {
-      return void 0;
-    }
-    const vode2 = [element.tagName.toLowerCase()];
-    if (element.hasAttributes()) {
-      const props2 = {};
-      for (const att of element.attributes) {
-        props2[att.name] = att.value;
-      }
-      vode2.push(props2);
-    }
-    for (const child2 of element.childNodes) {
-      const v = elementToVode(child2);
-      if (v && (typeof v !== "string" || v.length > 0))
-        vode2.push(v);
-    }
-    return vode2;
-  }
   return __toCommonJS(index_exports);
 })();
