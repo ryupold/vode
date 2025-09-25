@@ -374,7 +374,7 @@ function hydrate<S = unknown>(element: Element | Text): AttachedVode<S> | undefi
     else if (element.nodeType === Node.COMMENT_NODE) {
         return undefined; //ignore (not interesting)
     }
-    else {
+    else if (element.nodeType === Node.ELEMENT_NODE) {
         const tag: Tag = (<Element>element).tagName.toLowerCase();
         const root: Vode<S> = [tag];
 
@@ -388,12 +388,19 @@ function hydrate<S = unknown>(element: Element | Text): AttachedVode<S> | undefi
             (<Vode<S>>root).push(props as any);
         }
         if (element.hasChildNodes()) {
+            const remove: ChildNode[] = [];
             for (let child of element.childNodes) {
                 const wet = child && hydrate<S>(child as Element | Text)! as ChildVode<S>;
                 if (wet) root.push(wet as any);
+                else if (child) remove.push(child);
+            }
+            for (let child of remove) {
+                child.remove();
             }
         }
         return <AttachedVode<S>>root;
+    } else {
+        return undefined;
     }
 }
 
@@ -444,8 +451,8 @@ function render<S>(state: S, patch: Dispatch<S>, parent: Element, childIndex: nu
             (<any>oldNode).onUnmount && patch((<any>oldNode).onUnmount(oldNode));
             oldNode.replaceWith(text);
         } else {
-            if (parent.childNodes[childIndex + 1]) {
-                parent.insertBefore(text, parent.childNodes[childIndex + 1]);
+            if (parent.childNodes[childIndex]) {
+                parent.insertBefore(text, parent.childNodes[childIndex]);
             } else {
                 parent.appendChild(text);
             }
@@ -475,8 +482,8 @@ function render<S>(state: S, patch: Dispatch<S>, parent: Element, childIndex: nu
             (<any>oldNode).onUnmount && patch((<any>oldNode).onUnmount(oldNode));
             oldNode.replaceWith(newNode);
         } else {
-            if (parent.childNodes[childIndex + 1]) {
-                parent.insertBefore(newNode, parent.childNodes[childIndex + 1]);
+            if (parent.childNodes[childIndex]) {
+                parent.insertBefore(newNode, parent.childNodes[childIndex]);
             } else {
                 parent.appendChild(newNode);
             }

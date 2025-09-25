@@ -231,7 +231,7 @@ function hydrate(element) {
     return;
   } else if (element.nodeType === Node.COMMENT_NODE) {
     return;
-  } else {
+  } else if (element.nodeType === Node.ELEMENT_NODE) {
     const tag2 = element.tagName.toLowerCase();
     const root = [tag2];
     root.node = element;
@@ -244,13 +244,21 @@ function hydrate(element) {
       root.push(props2);
     }
     if (element.hasChildNodes()) {
+      const remove = [];
       for (let child2 of element.childNodes) {
         const wet = child2 && hydrate(child2);
         if (wet)
           root.push(wet);
+        else if (child2)
+          remove.push(child2);
+      }
+      for (let child2 of remove) {
+        child2.remove();
       }
     }
     return root;
+  } else {
+    return;
   }
 }
 function render(state, patch, parent, childIndex, oldVode, newVode, svg) {
@@ -288,8 +296,8 @@ function render(state, patch, parent, childIndex, oldVode, newVode, svg) {
       oldNode.onUnmount && patch(oldNode.onUnmount(oldNode));
       oldNode.replaceWith(text);
     } else {
-      if (parent.childNodes[childIndex + 1]) {
-        parent.insertBefore(text, parent.childNodes[childIndex + 1]);
+      if (parent.childNodes[childIndex]) {
+        parent.insertBefore(text, parent.childNodes[childIndex]);
       } else {
         parent.appendChild(text);
       }
@@ -310,8 +318,8 @@ function render(state, patch, parent, childIndex, oldVode, newVode, svg) {
       oldNode.onUnmount && patch(oldNode.onUnmount(oldNode));
       oldNode.replaceWith(newNode);
     } else {
-      if (parent.childNodes[childIndex + 1]) {
-        parent.insertBefore(newNode, parent.childNodes[childIndex + 1]);
+      if (parent.childNodes[childIndex]) {
+        parent.insertBefore(newNode, parent.childNodes[childIndex]);
       } else {
         parent.appendChild(newNode);
       }
