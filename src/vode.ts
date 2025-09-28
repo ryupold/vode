@@ -34,7 +34,7 @@ export type Props<S> = Partial<
 > & {
     [_: string]: unknown,
     class?: ClassProp,
-    style?: StyleProp,
+    style?: StyleProp | string,
     /** called after the element was attached */
     onMount?: MountFunction<S>,
     /** called before the element is detached */
@@ -641,6 +641,8 @@ function patchProperty<S>(patch: Dispatch<S>, node: ChildNode, key: string | key
     if (key === "style") {
         if (!newValue) {
             (node as HTMLElement).style.cssText = "";
+        } else if (typeof newValue === "string") {
+            if(oldValue !== newValue) (node as HTMLElement).style.cssText = newValue;
         } else if (oldValue) {
             for (let k in { ...(oldValue as Props<S>), ...(newValue as Props<S>) }) {
                 if (!oldValue || newValue[k as keyof PropertyValue<S>] !== oldValue[k as keyof PropertyValue<S>]) {

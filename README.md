@@ -247,6 +247,7 @@ const CompBar = (s) => [DIV, { class: "container" },
     
     // style object maps directly to the HTML style attribute
     [P, { style: { color: "red", fontWeight: "bold" } }, "This is a paragraph."],
+    [P, { style: "color: red; font-weight: bold;" }, "This is also a paragraph."],
 
     // class property has multiple forms
     [UL,
