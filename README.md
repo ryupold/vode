@@ -213,14 +213,16 @@ expressed as **"vode"** it would look like this:
 ]
 ```
 
-Viewed alone it does not provide an obvious benefit (apart from looking better imho), but as the result of a function of state, it can become very useful to express conditional UI this way.
+Viewed alone it does not provide an obvious benefit (apart from looking better imho), 
+but as the result of a function of state, it can become very useful to express conditional UI this way. 
 
 ### Component
 ```ts
 type Component<S> = (s: S) => ChildVode<S>;
 ```
 
-A `Component<State>` is a function that takes a state object and returns a `Vode<State>`. It is used to render the UI based on the current state.
+A `Component<State>` is a function that takes a state object and returns a `Vode<State>`. 
+It is used to render the UI based on the current state.
 
 ```ts
 // A full vode has a tag, properties, and children. props and children are optional.
@@ -315,35 +317,41 @@ const state = {
 };
 const patch = app(containerNode, state, (s) => CompFooBar(s));
 ```
-It will analyse the current structure of the given `containerNode` and adjust its structure in the first render. When render-patches are applied to the `patch` function or via yield/return of events, the `containerNode` is updated to match the vode structure 1:1. 
+It will analyse the current structure of the given `containerNode` and adjust its structure in the first render. 
+When render-patches are applied to the `patch` function or via yield/return of events, 
+the `containerNode` is updated to match the vode structure 1:1. 
 
 #### isolated state
-You can have multiple isolated vode app instances on a page, each with its own state and render function. The returned patch function from `app` can be used to synchronize the state between them.
+You can have multiple isolated vode app instances on a page, each with its own state and render function.
+The returned patch function from `app` can be used to synchronize the state between them.
 
 #### isolated app
-It is possible to nest vode-apps inside vode-apps, but the library is not opionated on how you do that. One can imagine this type of component:
+It is possible to nest vode-apps inside vode-apps, but the library is not opionated on how you do that. 
+One can imagine this type of component:
 
 ```ts
 export function IsolatedVodeApp<OuterState, InnerState>(
     tag: Tag,
     props: Props<OuterState>,
     state: InnerState,
-    View: (ins:InnerState) => Vode<InnerState>, 
+    View: (ins: InnerState) => Vode<InnerState>,
     ...initialPatches: Patch<InnerState>[]
 ): ChildVode<OuterState> {
     return memo<OuterState>([],
         () => [tag,
             {
                 ...props,
-                onMount: (_: OuterState, container: HTMLElement) => {
+                onMount: (s: OuterState, container: Element) => {
                     app<InnerState>(container, state, View, ...initialPatches);
+                    if (props.onMount) props.onMount(s, container);
                 }
             }
         ]
     );
 }
 ```
-The `empty memo` prevents further render calls from the outer app so rendering of the subtree inside is controlled by the inner app.
+The `empty memo` prevents further render calls from the outer app
+so rendering of the subtree inside is controlled by the inner app.
 
 ### state & patch
 The state object you pass to [`app`](#app) can be updated directly or via `patch`. 
@@ -407,42 +415,53 @@ const ComponentEwww = (s) => {
 ```
 
 ### memoization
-To optimize performance, you can use `memo(Array, Component | PropsFactory)` to cache the result of a component function. This is useful when the component does not depend on the state or when the creation of the vode is expensive. You can also pass a function that returns the Props object to memoize the attributes.
+To optimize performance, you can use `memo(Array, Component | PropsFactory)` to cache the result of a component function. 
+This is useful when the component does not depend on the state or when the creation of the vode is expensive.
+You can also pass a function that returns the Props object to memoize the attributes.
 
 ```ts
-const CompMemoFooBar = (s) =>  [DIV, { class: "container" }, 
-    [H1, "Hello World"], 
-    [BR], 
-    [P, "This is a paragraph."],
-    
-    // expensive component to render
-    memo(
-        // this array is shallow compared to the previous render
-        [s.title, s.body], 
-        // this is the component function that will be 
-        // called only when the array changes
-        (s) => {
-            const list = [UL];
-            for (let i = 0; i < 1000; i++) {
-                list.push([LI, `Item ${i}`]);
-            }
-            return list;
-        },
-    )
-];
+const CompMemoFooBar = (s) => 
+    [DIV, { class: "container" }, 
+        [H1, "Hello World"], 
+        [BR], 
+        [P, "This is a paragraph."],
+        
+        // expensive component to render
+        memo(
+            // this array is shallow compared to the previous render
+            [s.title, s.body], 
+            // this is the component function that will be 
+            // called only when the array changes
+            (s) => {
+                const list = [UL];
+                for (let i = 0; i < 1000; i++) {
+                    list.push([LI, `Item ${i}`]);
+                }
+                return list;
+            },
+        )
+    ];
 ```
 
-### Direct access to DOM elements
+### Access to DOM elements
 
-Additionally to the standard HTML attributes, you can define 2 special event attributes: `onMount(State, Element)` and `onUnmount(State, Element)` in the vode props. These are called when the element is created or removed during rendering. They receive the `State` as the first argument and the DOM element as the second argument. Like the other events they can be patches too. 
+You can use the `hydrate(Element | Text)` function to convert existing DOM tree into a vode structure.
+
+Additionally to the standard HTML attributes, you can define 2 special event attributes: 
+`onMount(State, Element)` and `onUnmount(State, Element)` in the vode props. 
+These are called when the element is created or removed during rendering. 
+They receive the `State` as the first argument and the DOM element as the second argument.
+Like the other events they can be patches too. 
 
 ## Contributing
 
-I was delighted by the simplicity of [hyperapp](https://github.com/jorgebucaran/hyperapp), which inspired me to create this library. 
+I was delighted by the simplicity of [hyperapp](https://github.com/jorgebucaran/hyperapp), 
+which inspired me to create this library. 
 
 Not planning to add more features, just keeping it simple and easy.
 
-But if you find bugs or have suggestions, feel free to open an [issue](https://github.com/ryupold/vode/issues) or a pull request.
+But if you find bugs or have suggestions, 
+feel free to open an [issue](https://github.com/ryupold/vode/issues) or a pull request.
 
 ## License
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)

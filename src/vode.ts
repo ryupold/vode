@@ -209,7 +209,7 @@ export function app<S extends object | unknown>(container: Element, state: Omit<
         _vode.patch!,
         container.parentElement,
         Array.from(container.parentElement.children).indexOf(container),
-        hydrate<S>(container),
+        hydrate<S>(container, true) as AttachedVode<S>,
         dom(<S>state)
     )!;
 
@@ -221,10 +221,10 @@ export function app<S extends object | unknown>(container: Element, state: Omit<
 }
 
 /** return vode representation of given DOM node */
-export function hydrate<S = unknown>(element: Element | Text): AttachedVode<S> | undefined {
+export function hydrate<S = unknown>(element: Element | Text, prepareForRender?: boolean): Vode<S> | string | AttachedVode<S> | undefined {
     if ((element as Text)?.nodeType === Node.TEXT_NODE) {
         if ((element as Text).nodeValue?.trim() !== "")
-            return element as Text;
+            return prepareForRender ? element as Text : (element as Text).nodeValue!;
         return undefined; //ignore (mostly html whitespace)
     }
     else if (element.nodeType === Node.COMMENT_NODE) {
@@ -234,7 +234,7 @@ export function hydrate<S = unknown>(element: Element | Text): AttachedVode<S> |
         const tag: Tag = (<Element>element).tagName.toLowerCase();
         const root: Vode<S> = [tag];
 
-        (<AttachedVode<S>>root).node = element;
+        if(prepareForRender) (<AttachedVode<S>>root).node = element;
         if ((element as HTMLElement)?.hasAttributes()) {
             const props: Props<S> = {};
             const attr = (<HTMLElement>element).attributes;
@@ -246,15 +246,15 @@ export function hydrate<S = unknown>(element: Element | Text): AttachedVode<S> |
         if (element.hasChildNodes()) {
             const remove: ChildNode[] = [];
             for (let child of element.childNodes) {
-                const wet = child && hydrate<S>(child as Element | Text)! as ChildVode<S>;
+                const wet = child && hydrate<S>(child as Element | Text, prepareForRender)! as ChildVode<S>;
                 if (wet) root.push(wet as any);
-                else if (child) remove.push(child);
+                else if (child && prepareForRender) remove.push(child);
             }
             for (let child of remove) {
                 child.remove();
             }
         }
-        return <AttachedVode<S>>root;
+        return root;
     } else {
         return undefined;
     }
@@ -642,7 +642,7 @@ function patchProperty<S>(patch: Dispatch<S>, node: ChildNode, key: string | key
         if (!newValue) {
             (node as HTMLElement).style.cssText = "";
         } else if (typeof newValue === "string") {
-            if(oldValue !== newValue) (node as HTMLElement).style.cssText = newValue;
+            if (oldValue !== newValue) (node as HTMLElement).style.cssText = newValue;
         } else if (oldValue) {
             for (let k in { ...(oldValue as Props<S>), ...(newValue as Props<S>) }) {
                 if (!oldValue || newValue[k as keyof PropertyValue<S>] !== oldValue[k as keyof PropertyValue<S>]) {
