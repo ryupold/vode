@@ -1,6 +1,6 @@
 # ![vode-logo](./logo.svg)
 
-[![TypeScript](https://img.shields.io/badge/TypeScript-100%-blue?logo=typescript)](https://www.typescriptlang.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-100%25-blue?logo=typescript)](https://www.typescriptlang.org/)
 [![Dependencies](https://img.shields.io/badge/dependencies-0-success)](package.json)
 [![NPM](https://badge.fury.io/js/%40ryupold%2Fvode.svg)](https://www.npmjs.com/package/@ryupold/vode)
 [![NPM Downloads](https://img.shields.io/npm/dm/@ryupold/vode)](https://www.npmjs.com/package/@ryupold/vode)
