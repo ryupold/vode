@@ -1,5 +1,11 @@
 # ![vode-logo](./logo.svg)
 
+[![TypeScript](https://img.shields.io/badge/TypeScript-100%-blue?logo=typescript)](https://www.typescriptlang.org/)
+[![Dependencies](https://img.shields.io/badge/dependencies-0-success)](package.json)
+[![NPM](https://badge.fury.io/js/%40ryupold%2Fvode.svg)](https://www.npmjs.com/package/@ryupold/vode)
+[![NPM Downloads](https://img.shields.io/npm/dm/@ryupold/vode)](https://www.npmjs.com/package/@ryupold/vode)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
+
 A small web framework for a minimalistic development flow. Zero dependencies, no build step except for typescript compilation, and a simple virtual DOM implementation that is easy to understand and use. Autocompletion out of the box due to binding to `lib.dom.d.ts`.
 
 It can be used to create single page applications or isolated components with complex state. The usage of arrays gives flexibility in composition and makes refactoring easy.
@@ -101,7 +107,7 @@ index.html
 ```
 
 main.ts
-```ts
+```typescript
 import { app, createState, BR, DIV, INPUT, SPAN } from '@ryupold/vode';
 
 const state = createState({
@@ -177,7 +183,7 @@ Imagine this HTML:
 
 expressed as **"vode"** it would look like this:
 
-```ts
+```javascript
 [DIV, { class: 'card' },
     [DIV, { class: 'card-image' },
         [FIGURE, { class: 'image is-4by3' },
@@ -217,14 +223,14 @@ Viewed alone it does not provide an obvious benefit (apart from looking better i
 but as the result of a function of state, it can become very useful to express conditional UI this way. 
 
 ### Component
-```ts
+```typescript
 type Component<S> = (s: S) => ChildVode<S>;
 ```
 
 A `Component<State>` is a function that takes a state object and returns a `Vode<State>`. 
 It is used to render the UI based on the current state.
 
-```ts
+```typescript
 // A full vode has a tag, properties, and children. props and children are optional.
 const CompFoo = (s) => [SPAN, { class: "foo" }, s.isAuthenticated ? "foo" : "bar"];
 
@@ -306,8 +312,8 @@ const CompBar = (s) => [DIV, { class: "container" },
 ### app
 
 `app` is a function that takes a HTML node, a state object, and a render function (`Component<State>`).  
-```ts
-const containerNode = document.getElementById('APP-ID');
+```typescript
+const containerNode = document.getElementById('ANY-ELEMENT');
 const state = {
     counter: 0,
     pointing: false,
@@ -317,6 +323,7 @@ const state = {
 };
 const patch = app(containerNode, state, (s) => CompFooBar(s));
 ```
+
 It will analyse the current structure of the given `containerNode` and adjust its structure in the first render. 
 When render-patches are applied to the `patch` function or via yield/return of events, 
 the `containerNode` is updated to match the vode structure 1:1. 
@@ -325,24 +332,21 @@ the `containerNode` is updated to match the vode structure 1:1.
 You can have multiple isolated vode app instances on a page, each with its own state and render function.
 The returned patch function from `app` can be used to synchronize the state between them.
 
-#### isolated app
+#### nested vode-app
 It is possible to nest vode-apps inside vode-apps, but the library is not opionated on how you do that. 
 One can imagine this type of component:
 
-```ts
+```typescript
 export function IsolatedVodeApp<OuterState, InnerState>(
     tag: Tag,
-    props: Props<OuterState>,
     state: InnerState,
     View: (ins: InnerState) => Vode<InnerState>,
-    ...initialPatches: Patch<InnerState>[]
 ): ChildVode<OuterState> {
     return memo<OuterState>([],
         () => [tag,
             {
-                ...props,
                 onMount: (s: OuterState, container: Element) => {
-                    app<InnerState>(container, state, View, ...initialPatches);
+                    app<InnerState>(container, state, View);
                     if (props.onMount) props.onMount(s, container);
                 }
             }
@@ -352,6 +356,7 @@ export function IsolatedVodeApp<OuterState, InnerState>(
 ```
 The `empty memo` prevents further render calls from the outer app
 so rendering of the subtree inside is controlled by the inner app.
+Take note of the fact that the top-level element of the inner app refers to the surrounding element and will change its state accordingly.
 
 ### state & patch
 The state object you pass to [`app`](#app) can be updated directly or via `patch`. 
@@ -405,7 +410,7 @@ s.patch(null);
 // setting a property in a patch to undefined deletes it from the state object
 s.patch({ pointing: undefined });
 
-//❌ it is discouraged to patch inside the render step 💩
+// ❌ it is discouraged to patch inside the render step 💩
 const ComponentEwww = (s) => {
     if(!s.isLoading)
         s.patch(() => startLoading());
@@ -419,7 +424,7 @@ To optimize performance, you can use `memo(Array, Component | PropsFactory)` to 
 This is useful when the component does not depend on the state or when the creation of the vode is expensive.
 You can also pass a function that returns the Props object to memoize the attributes.
 
-```ts
+```typescript
 const CompMemoFooBar = (s) => 
     [DIV, { class: "container" }, 
         [H1, "Hello World"], 
@@ -443,15 +448,36 @@ const CompMemoFooBar = (s) =>
     ];
 ```
 
-### Access to DOM elements
+### helper functions
 
-You can use the `hydrate(Element | Text)` function to convert existing DOM tree into a vode structure.
+The library provides some helper functions to help with certain situations.
+
+```typescript
+import { tag, props, children, mergeClass, hydrate } from '@ryupold/vode';
+
+// Merge class props intelligently
+mergeClass('foo', ['baz', 'bar']);  // 'foo bar baz'
+mergeClass(['foo'], { bar: true }); // { foo: true, bar: true }
+
+const myVode = [DIV, { class: 'foo' }, [SPAN, 'hello'], [STRONG, 'world']];
+
+// access parts of a vode
+tag(myVode);        // 'div'
+props(myVode);      // { class: 'foo' }
+children(myVode);   // [[SPAN, 'hello'], [STRONG, 'world']]
+
+// get existing DOM element as a vode (can be helpful for analyzing/debugging)
+const asVode = hydrate(document.getElementById('my-element'));
+```
 
 Additionally to the standard HTML attributes, you can define 2 special event attributes: 
 `onMount(State, Element)` and `onUnmount(State, Element)` in the vode props. 
 These are called when the element is created or removed during rendering. 
 They receive the `State` as the first argument and the DOM element as the second argument.
 Like the other events they can be patches too. 
+> Be aware that `onMount/onUnmount` are only called when a element 
+> is actually created/removed which might not always be the case during 
+> rendering, as only a diff of the virtual DOM is applied.
 
 ## Contributing
 
