@@ -1,4 +1,4 @@
-// src/vode.js
+// src/vode.ts
 function vode(tag, props, ...children) {
   if (!tag)
     throw new Error("tag must be a string or vode");
@@ -104,23 +104,24 @@ function app(container, state, dom, ...initialPatches) {
   _vode.q = null;
   const root = container;
   root._vode = _vode;
-  _vode.vode = render(state, _vode.patch, container.parentElement, Array.from(container.parentElement.children).indexOf(container), hydrate(container), dom(state));
+  _vode.vode = render(state, _vode.patch, container.parentElement, Array.from(container.parentElement.children).indexOf(container), hydrate(container, true), dom(state));
   for (const effect of initialPatches) {
     _vode.patch(effect);
   }
   return _vode.patch;
 }
-function hydrate(element) {
+function hydrate(element, prepareForRender) {
   if (element?.nodeType === Node.TEXT_NODE) {
     if (element.nodeValue?.trim() !== "")
-      return element;
+      return prepareForRender ? element : element.nodeValue;
     return;
   } else if (element.nodeType === Node.COMMENT_NODE) {
     return;
   } else if (element.nodeType === Node.ELEMENT_NODE) {
     const tag = element.tagName.toLowerCase();
     const root = [tag];
-    root.node = element;
+    if (prepareForRender)
+      root.node = element;
     if (element?.hasAttributes()) {
       const props = {};
       const attr = element.attributes;
@@ -132,10 +133,10 @@ function hydrate(element) {
     if (element.hasChildNodes()) {
       const remove = [];
       for (let child of element.childNodes) {
-        const wet = child && hydrate(child);
+        const wet = child && hydrate(child, prepareForRender);
         if (wet)
           root.push(wet);
-        else if (child)
+        else if (child && prepareForRender)
           remove.push(child);
       }
       for (let child of remove) {
@@ -451,7 +452,10 @@ function patchProperty(patch, node, key, oldValue, newValue, isSvg) {
   if (key === "style") {
     if (!newValue) {
       node.style.cssText = "";
-    } else if (oldValue) {
+    } else if (typeof newValue === "string") {
+      if (oldValue !== newValue)
+        node.style.cssText = newValue;
+    } else if (oldValue && typeof oldValue === "object") {
       for (let k in { ...oldValue, ...newValue }) {
         if (!oldValue || newValue[k] !== oldValue[k]) {
           node.style[k] = newValue[k];
@@ -518,7 +522,7 @@ function classString(classProp) {
   else
     return "";
 }
-// src/vode-tags.js
+// src/vode-tags.ts
 var A = "a";
 var ABBR = "abbr";
 var ADDRESS = "address";
