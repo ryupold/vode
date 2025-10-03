@@ -234,7 +234,7 @@ export function hydrate<S = unknown>(element: Element | Text, prepareForRender?:
         const tag: Tag = (<Element>element).tagName.toLowerCase();
         const root: Vode<S> = [tag];
 
-        if(prepareForRender) (<AttachedVode<S>>root).node = element;
+        if (prepareForRender) (<AttachedVode<S>>root).node = element;
         if ((element as HTMLElement)?.hasAttributes()) {
             const props: Props<S> = {};
             const attr = (<HTMLElement>element).attributes;
@@ -643,7 +643,7 @@ function patchProperty<S>(patch: Dispatch<S>, node: ChildNode, key: string | key
             (node as HTMLElement).style.cssText = "";
         } else if (typeof newValue === "string") {
             if (oldValue !== newValue) (node as HTMLElement).style.cssText = newValue;
-        } else if (oldValue) {
+        } else if (oldValue && typeof oldValue === "object") {
             for (let k in { ...(oldValue as Props<S>), ...(newValue as Props<S>) }) {
                 if (!oldValue || newValue[k as keyof PropertyValue<S>] !== oldValue[k as keyof PropertyValue<S>]) {
                     (node as HTMLElement).style[k as keyof PropertyValue<S>] = newValue[k as keyof PropertyValue<S>];
