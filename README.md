@@ -4,7 +4,7 @@
 [![Dependencies](https://img.shields.io/badge/dependencies-0-success)](package.json)
 [![NPM](https://badge.fury.io/js/%40ryupold%2Fvode.svg)](https://www.npmjs.com/package/@ryupold/vode)
 [![NPM Downloads](https://img.shields.io/npm/dm/@ryupold/vode)](https://www.npmjs.com/package/@ryupold/vode)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
 A small web framework for a minimalistic development flow. Zero dependencies, no build step except for typescript compilation, and a simple virtual DOM implementation that is easy to understand and use. Autocompletion out of the box due to binding to `lib.dom.d.ts`.
 
@@ -321,7 +321,16 @@ const state = {
     title: '',
     body: '',
 };
-const patch = app(containerNode, state, (s) => CompFooBar(s));
+
+const patch = app(
+    containerNode, 
+    state, 
+    (s) => 
+        [DIV, 
+            [P, { style: { color: 'red' } }, `${s.counter}`],
+            [BUTTON, { onclick: () => ({ counter: s.counter + 1 }) }, 'Click me'],    
+        ]
+    );
 ```
 
 It will analyse the current structure of the given `containerNode` and adjust its structure in the first render. 
@@ -333,7 +342,7 @@ You can have multiple isolated vode app instances on a page, each with its own s
 The returned patch function from `app` can be used to synchronize the state between them.
 
 #### nested vode-app
-It is possible to nest vode-apps inside vode-apps, but the library is not opionated on how you do that. 
+It is possible to nest vode-apps inside vode-apps, but the library is not opinionated on how you do that. 
 One can imagine this type of component:
 
 ```typescript
@@ -347,7 +356,6 @@ export function IsolatedVodeApp<OuterState, InnerState>(
             {
                 onMount: (s: OuterState, container: Element) => {
                     app<InnerState>(container, state, View);
-                    if (props.onMount) props.onMount(s, container);
                 }
             }
         ]
@@ -456,8 +464,8 @@ The library provides some helper functions to help with certain situations.
 import { tag, props, children, mergeClass, hydrate } from '@ryupold/vode';
 
 // Merge class props intelligently
-mergeClass('foo', ['baz', 'bar']);  // 'foo bar baz'
-mergeClass(['foo'], { bar: true }); // { foo: true, bar: true }
+mergeClass('foo', ['baz', 'bar']);  // -> 'foo bar baz'
+mergeClass(['foo'], { bar: true, baz: false }); // -> 'foo bar'
 
 const myVode = [DIV, { class: 'foo' }, [SPAN, 'hello'], [STRONG, 'world']];
 
@@ -475,19 +483,24 @@ Additionally to the standard HTML attributes, you can define 2 special event att
 These are called when the element is created or removed during rendering. 
 They receive the `State` as the first argument and the DOM element as the second argument.
 Like the other events they can be patches too. 
-> Be aware that `onMount/onUnmount` are only called when a element 
+> Be aware that `onMount/onUnmount` are only called when an element 
 > is actually created/removed which might not always be the case during 
 > rendering, as only a diff of the virtual DOM is applied.
 
+### performance
+
+The library is optimized for small to medium sized applications. In my own tests it could easily handle sites with tens of thousands of elements. Smart usage of `memo` can help to optimize performance further. You can find a comparison of the performance with other libraries [here](https://krausest.github.io/js-framework-benchmark/current.html).
+
+This being said, the library does not focus on performance. It is designed to feel nice while coding, by providing a primitive that is simple to bent & form. I want the mental model to be easy to grasp and the API surface to be small so that a developer can focus on building a web application instead of learning the framework and get to a flow state as quick as possible.
+
 ## Contributing
 
-I was delighted by the simplicity of [hyperapp](https://github.com/jorgebucaran/hyperapp), 
-which inspired me to create this library. 
+The simplicity of [hyperapp](https://github.com/jorgebucaran/hyperapp) demonstrated that powerful frameworks don't require complexity, which inspired this library's design philosophy.
 
-Not planning to add more features, just keeping it simple and easy.
+Not planning to add more features, just keeping it simple and easy (and hopefully bug free).
 
 But if you find bugs or have suggestions, 
 feel free to open an [issue](https://github.com/ryupold/vode/issues) or a pull request.
 
 ## License
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
