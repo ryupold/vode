@@ -228,7 +228,8 @@ type Component<S> = (s: S) => ChildVode<S>;
 ```
 
 A `Component<State>` is a function that takes a state object and returns a `Vode<State>`. 
-It is used to render the UI based on the current state.
+It is used to render the UI based on the current state. 
+A new **vode** must be created on each render, otherwise it would be skipped which could lead to unexpected results. If you seek to improve render performance have a look at the [`memo`](#memoization) function.
 
 ```typescript
 // A full vode has a tag, properties, and children. props and children are optional.
@@ -312,6 +313,7 @@ const CompBar = (s) => [DIV, { class: "container" },
 ### app
 
 `app` is a function that takes a HTML node, a state object, and a render function (`Component<State>`).  
+
 ```typescript
 const containerNode = document.getElementById('ANY-ELEMENT');
 const state = {
@@ -489,11 +491,35 @@ Like the other events they can be patches too.
 
 ### performance
 
+There are some metrics available on the appNode. 
+They are updated on each render.
+
+```typescript
+app<State>(appNode, state, (s) => ...);
+
+console.log(appNode._vode.stats);
+```
+
+```javascript
+{
+    // number of patches applied to the state overall
+    patchCount: 100,
+    // number of render-patches (objects) overall
+    renderPatchCount: 50,
+    // number of renders performed overall
+    renderCount: 40,
+    // number active (async) running patches (effects)
+    liveEffectCount: 0,
+    // time the last render took in milliseconds
+    lastRenderTime: 1,
+}
+```
+
 The library is optimized for small to medium sized applications. In my own tests it could easily handle sites with tens of thousands of elements. Smart usage of `memo` can help to optimize performance further. You can find a comparison of the performance with other libraries [here](https://krausest.github.io/js-framework-benchmark/current.html).
 
 This being said, the library does not focus on performance. It is designed to feel nice while coding, by providing a primitive that is simple to bent & form. I want the mental model to be easy to grasp and the API surface to be small so that a developer can focus on building a web application instead of learning the framework and get to a flow state as quick as possible.
 
-## Contributing
+## Thanks
 
 The simplicity of [hyperapp](https://github.com/jorgebucaran/hyperapp) demonstrated that powerful frameworks don't require complexity, which inspired this library's design philosophy.
 
