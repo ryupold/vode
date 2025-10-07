@@ -100,7 +100,8 @@ export type ContainerNode<S> = HTMLElement & {
  * - identity: `vode(["div", ["span", "bar"]])` => `["div", ["span", "bar"]]` --*rendered*-> `<div><span>bar</span></div>`
  */
 export function vode<S extends object | unknown>(tag: Tag | Vode<S>, props?: Props<S> | ChildVode<S>, ...children: ChildVode<S>[]): Vode<S> {
-    if (!tag) throw new Error("tag must be a string or vode");
+    if (!tag) throw new Error("first argument to vode() must be a tag name or a vode");
+
     if (Array.isArray(tag)) return tag;
     else if (props) return [tag, props as Props<S>, ...children];
     else return [tag, ...children];
@@ -114,9 +115,9 @@ export function vode<S extends object | unknown>(tag: Tag | Vode<S>, props?: Pro
  * @returns a patch function that can be used to update the state
  */
 export function app<S extends object | unknown>(container: Element, state: Omit<S, "patch">, dom: (s: S) => Vode<S>, ...initialPatches: Patch<S>[]) {
-    if (!container?.parentElement) throw new Error("container must be a valid HTMLElement inside the <html></html> document");
-    if (!state || typeof state !== "object") throw new Error("given state must be an object");
-    if (typeof dom !== "function") throw new Error("dom must be a function that returns a vode");
+    if (!container?.parentElement) throw new Error("first argument to app() must be a valid HTMLElement inside the <html></html> document");
+    if (!state || typeof state !== "object") throw new Error("second argument to app() must be a state object");
+    if (typeof dom !== "function") throw new Error("third argument to app() must be a function that returns a vode");
 
     const _vode = {} as ContainerNode<S>["_vode"];
     _vode.stats = { lastRenderTime: 0, renderCount: 0, liveEffectCount: 0, patchCount: 0, renderPatchCount: 0 };
@@ -263,12 +264,19 @@ export function hydrate<S = unknown>(element: Element | Text, prepareForRender?:
 /** memoizes the resulting component or props by comparing element by element (===) with the
  * `compare` of the previous render. otherwise skips the render step (not calling `componentOrProps`)*/
 export function memo<S>(compare: any[], componentOrProps: Component<S> | ((s: S) => Props<S>)): typeof componentOrProps extends ((s: S) => Props<S>) ? ((s: S) => Props<S>) : Component<S> {
+    if (!compare || !Array.isArray(compare)) throw new Error("first argument to memo() must be an array of values to compare");
+    if(typeof componentOrProps !== "function") throw new Error("second argument to memo() must be a function that returns a vode or props object");
+
     (<any>componentOrProps).__memo = compare;
     return componentOrProps as typeof componentOrProps extends ((s: S) => Props<S>) ? ((s: S) => Props<S>) : Component<S>;
 }
 
 /** create a state object used as state for `app()`. it is updated with `PatchableState.patch()` using `merge()` */
-export function createState<S extends object | unknown>(state: S): PatchableState<S> { return state as PatchableState<S>; }
+export function createState<S extends object | unknown>(state: S): PatchableState<S> { 
+    if (!state || typeof state !== "object") throw new Error("createState() must be called with a state object");
+
+    return state as PatchableState<S>; 
+}
 
 /** type safe way to create a patch. useful for type inference and autocompletion. */
 export function createPatch<S extends object | unknown>(p: DeepPartial<S> | Effect<S> | IgnoredPatch): typeof p { return p; }
