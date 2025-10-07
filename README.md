@@ -23,7 +23,7 @@ It can be used to create single page applications or isolated components with co
 <body>
     <div id="app"></div>
     <script type="module">
-        import { app, createState, BR, DIV, INPUT, SPAN } from 'https://unpkg.com/@ryupold/vode/dist/vode.min.mjs';
+        import { app, BR, DIV, INPUT, SPAN } from 'https://unpkg.com/@ryupold/vode/dist/vode.min.mjs';
 
         const appNode = document.getElementById('app');
 
@@ -339,40 +339,12 @@ It will analyse the current structure of the given `containerNode` and adjust it
 When render-patches are applied to the `patch` function or via yield/return of events, 
 the `containerNode` is updated to match the vode structure 1:1. 
 
-#### isolated state
-You can have multiple isolated vode app instances on a page, each with its own state and render function.
-The returned patch function from `app` can be used to synchronize the state between them.
-
-#### nested vode-app
-It is possible to nest vode-apps inside vode-apps, but the library is not opinionated on how you do that. 
-One can imagine this type of component:
-
-```typescript
-export function IsolatedVodeApp<OuterState, InnerState>(
-    tag: Tag,
-    state: InnerState,
-    View: (ins: InnerState) => Vode<InnerState>,
-): ChildVode<OuterState> {
-    return memo<OuterState>([],
-        () => [tag,
-            {
-                onMount: (s: OuterState, container: Element) => {
-                    app<InnerState>(container, state, View);
-                }
-            }
-        ]
-    );
-}
-```
-The `empty memo` prevents further render calls from the outer app
-so rendering of the subtree inside is controlled by the inner app.
-Take note of the fact that the top-level element of the inner app refers to the surrounding element and will change its state accordingly.
-
 ### state & patch
 The state object you pass to [`app`](#app) can be updated directly or via `patch`. 
 During the call to `app`, the state object is bound to the vode app instance and becomes a singleton from its perspective. 
 Also a `patch` function is added to the state object; it is the same function that is also returned by `app`.
 A re-render happens when a patch object is supplied to the `patch` function or via event.
+When an object is passed to `patch`, its properties are incrementally deep merged onto the state object.
 
 ```js
 const s = {
@@ -386,7 +358,7 @@ const s = {
 app(appNode, s, s => AppView(s)); 
 // after calling app(), the state object is bound to the appNode
 
-// update state directly as it is a singleton (silent patch)
+// update state directly as it is a singleton (silent patch, no render)
 s.title = 'Hello World';
 
 // render patch
@@ -406,7 +378,7 @@ s.patch(async (s) => {
     return { title: result.title, body: result.body, loading: false };
 }); 
 
-// patch with a generator function that yields patches
+// patch with an async generator function that yields patches
 s.patch(async function*(s){
     yield { loading: true };
     const result = await apiCall();
@@ -430,12 +402,12 @@ const ComponentEwww = (s) => {
 ```
 
 ### memoization
-To optimize performance, you can use `memo(Array, Component | PropsFactory)` to cache the result of a component function. 
-This is useful when the component does not depend on the state or when the creation of the vode is expensive.
-You can also pass a function that returns the Props object to memoize the attributes.
+To optimize performance, you can use `memo(depsArray, Component | PropsFactory)` to cache the result of a component function. If the array of dependencies does not change (shallow compare), the component function is not called again, indicating for the render to skip this node and all its children.
+This is useful when the creation of the vode is expensive or the rendering of it takes a significant amount of time.
+
 
 ```typescript
-const CompMemoFooBar = (s) => 
+const CompMemoList = (s) => 
     [DIV, { class: "container" }, 
         [H1, "Hello World"], 
         [BR], 
@@ -456,6 +428,18 @@ const CompMemoFooBar = (s) =>
             },
         )
     ];
+```
+Passing an empty dependency array means the component is only rendered once and then ignored.
+
+You can also pass a function that returns the Props object to memoize the attributes.
+
+```typescript
+const CompMemoProps = (s) => [DIV, 
+    memo([s.isActive], (s) => ({ 
+        class: s.isActive ? 'active' : 'inactive' 
+    })),
+    "Content"
+];
 ```
 
 ### helper functions
@@ -489,6 +473,37 @@ Like the other events they can be patches too.
 > is actually created/removed which might not always be the case during 
 > rendering, as only a diff of the virtual DOM is applied.
 
+### advanced usage
+
+#### isolated state
+You can have multiple isolated vode app instances on a page, each with its own state and render function.
+The returned patch function from `app` can be used to synchronize the state between them.
+
+#### nested vode-app
+It is possible to nest vode-apps inside vode-apps, but the library is not opinionated on how you do that. 
+One can imagine this type of component:
+
+```typescript
+export function IsolatedVodeApp<OuterState, InnerState>(
+    tag: Tag,
+    state: InnerState,
+    View: (ins: InnerState) => Vode<InnerState>,
+): ChildVode<OuterState> {
+    return memo<OuterState>([],
+        () => [tag,
+            {
+                onMount: (s: OuterState, container: Element) => {
+                    app<InnerState>(container, state, View);
+                }
+            }
+        ]
+    );
+}
+```
+The memo with empty dependency array prevents further render calls from the outer app
+so rendering of the subtree inside is controlled by the inner app.
+Take note of the fact that the top-level element of the inner app refers to the surrounding element and will change its state accordingly.
+
 ### performance
 
 There are some metrics available on the appNode. 
@@ -508,7 +523,7 @@ console.log(appNode._vode.stats);
     renderPatchCount: 50,
     // number of renders performed overall
     renderCount: 40,
-    // number active (async) running patches (effects)
+    // number of active (async) running patches (effects)
     liveEffectCount: 0,
     // time the last render took in milliseconds
     lastRenderTime: 1,

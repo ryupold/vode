@@ -235,17 +235,24 @@ var V = (() => {
     vode: () => vode
   });
 
-  // src/vode.ts
+  // src/vode.js
   function vode(tag2, props2, ...children2) {
-    if (!tag2) throw new Error("tag must be a string or vode");
-    if (Array.isArray(tag2)) return tag2;
-    else if (props2) return [tag2, props2, ...children2];
-    else return [tag2, ...children2];
+    if (!tag2)
+      throw new Error("first argument to vode() must be a tag name or a vode");
+    if (Array.isArray(tag2))
+      return tag2;
+    else if (props2)
+      return [tag2, props2, ...children2];
+    else
+      return [tag2, ...children2];
   }
   function app(container, state, dom, ...initialPatches) {
-    if (!container?.parentElement) throw new Error("container must be a valid HTMLElement inside the <html></html> document");
-    if (!state || typeof state !== "object") throw new Error("given state must be an object");
-    if (typeof dom !== "function") throw new Error("dom must be a function that returns a vode");
+    if (!container?.parentElement)
+      throw new Error("first argument to app() must be a valid HTMLElement inside the <html></html> document");
+    if (!state || typeof state !== "object")
+      throw new Error("second argument to app() must be a state object");
+    if (typeof dom !== "function")
+      throw new Error("third argument to app() must be a function that returns a vode");
     const _vode = {};
     _vode.stats = { lastRenderTime: 0, renderCount: 0, liveEffectCount: 0, patchCount: 0, renderPatchCount: 0 };
     Object.defineProperty(state, "patch", {
@@ -253,7 +260,8 @@ var V = (() => {
       configurable: true,
       writable: false,
       value: async (action) => {
-        if (!action || typeof action !== "function" && typeof action !== "object") return;
+        if (!action || typeof action !== "function" && typeof action !== "object")
+          return;
         _vode.stats.patchCount++;
         if (action?.next) {
           const generator = action;
@@ -285,7 +293,8 @@ var V = (() => {
           if (typeof action[0] === "function") {
             if (action.length > 1)
               _vode.patch(action[0](_vode.state, ...action.slice(1)));
-            else _vode.patch(action[0](_vode.state));
+            else
+              _vode.patch(action[0](_vode.state));
           } else {
             _vode.stats.patchCount--;
           }
@@ -294,7 +303,8 @@ var V = (() => {
         } else {
           _vode.stats.renderPatchCount++;
           _vode.q = mergeState(_vode.q || {}, action, false);
-          if (!_vode.isRendering) _vode.render();
+          if (!_vode.isRendering)
+            _vode.render();
         }
       }
     });
@@ -303,7 +313,8 @@ var V = (() => {
       configurable: true,
       writable: false,
       value: () => requestAnimationFrame(() => {
-        if (_vode.isRendering || !_vode.q) return;
+        if (_vode.isRendering || !_vode.q)
+          return;
         _vode.isRendering = true;
         const sw = Date.now();
         try {
@@ -330,14 +341,7 @@ var V = (() => {
     _vode.q = null;
     const root = container;
     root._vode = _vode;
-    _vode.vode = render(
-      state,
-      _vode.patch,
-      container.parentElement,
-      Array.from(container.parentElement.children).indexOf(container),
-      hydrate(container, true),
-      dom(state)
-    );
+    _vode.vode = render(state, _vode.patch, container.parentElement, Array.from(container.parentElement.children).indexOf(container), hydrate(container, true), dom(state));
     for (const effect of initialPatches) {
       _vode.patch(effect);
     }
@@ -353,7 +357,8 @@ var V = (() => {
     } else if (element.nodeType === Node.ELEMENT_NODE) {
       const tag2 = element.tagName.toLowerCase();
       const root = [tag2];
-      if (prepareForRender) root.node = element;
+      if (prepareForRender)
+        root.node = element;
       if (element?.hasAttributes()) {
         const props2 = {};
         const attr = element.attributes;
@@ -366,8 +371,10 @@ var V = (() => {
         const remove = [];
         for (let child2 of element.childNodes) {
           const wet = child2 && hydrate(child2, prepareForRender);
-          if (wet) root.push(wet);
-          else if (child2 && prepareForRender) remove.push(child2);
+          if (wet)
+            root.push(wet);
+          else if (child2 && prepareForRender)
+            remove.push(child2);
         }
         for (let child2 of remove) {
           child2.remove();
@@ -379,10 +386,16 @@ var V = (() => {
     }
   }
   function memo(compare, componentOrProps) {
+    if (!compare || !Array.isArray(compare))
+      throw new Error("first argument to memo() must be an array of values to compare");
+    if (typeof componentOrProps !== "function")
+      throw new Error("second argument to memo() must be a function that returns a vode or props object");
     componentOrProps.__memo = compare;
     return componentOrProps;
   }
   function createState(state) {
+    if (!state || typeof state !== "object")
+      throw new Error("createState() must be called with a state object");
     return state;
   }
   function createPatch(p) {
@@ -400,8 +413,10 @@ var V = (() => {
     return void 0;
   }
   function mergeClass(a, b) {
-    if (!a) return b;
-    if (!b) return a;
+    if (!a)
+      return b;
+    if (!b)
+      return a;
     if (typeof a === "string" && typeof b === "string") {
       const aSplit = a.split(" ");
       const bSplit = b.split(" ");
@@ -457,7 +472,8 @@ var V = (() => {
     return props(vode2) ? 2 : 1;
   }
   function mergeState(target, source, allowDeletion) {
-    if (!source) return target;
+    if (!source)
+      return target;
     for (const key in source) {
       const value = source[key];
       if (value && typeof value === "object") {
@@ -468,9 +484,12 @@ var V = (() => {
           } else if (value instanceof Date && targetValue !== value) {
             target[key] = new Date(value);
           } else {
-            if (Array.isArray(targetValue)) target[key] = mergeState({}, value, allowDeletion);
-            else if (typeof targetValue === "object") mergeState(target[key], value, allowDeletion);
-            else target[key] = mergeState({}, value, allowDeletion);
+            if (Array.isArray(targetValue))
+              target[key] = mergeState({}, value, allowDeletion);
+            else if (typeof targetValue === "object")
+              mergeState(target[key], value, allowDeletion);
+            else
+              target[key] = mergeState({}, value, allowDeletion);
           }
         } else if (Array.isArray(value)) {
           target[key] = [...value];
@@ -627,7 +646,8 @@ var V = (() => {
           break;
         }
       }
-      if (same) return past;
+      if (same)
+        return past;
     }
     const newRender = unwrap(present, state);
     if (typeof newRender === "object") {
@@ -643,14 +663,17 @@ var V = (() => {
     }
   }
   function patchProperties(patch, node, oldProps, newProps, isSvg) {
-    if (!newProps && !oldProps) return;
+    if (!newProps && !oldProps)
+      return;
     if (oldProps) {
       for (const key in oldProps) {
         const oldValue = oldProps[key];
         const newValue = newProps?.[key];
         if (oldValue !== newValue) {
-          if (newProps) newProps[key] = patchProperty(patch, node, key, oldValue, newValue, isSvg);
-          else patchProperty(patch, node, key, oldValue, void 0, isSvg);
+          if (newProps)
+            newProps[key] = patchProperty(patch, node, key, oldValue, newValue, isSvg);
+          else
+            patchProperty(patch, node, key, oldValue, void 0, isSvg);
         }
       }
     }
@@ -673,7 +696,8 @@ var V = (() => {
       if (!newValue) {
         node.style.cssText = "";
       } else if (typeof newValue === "string") {
-        if (oldValue !== newValue) node.style.cssText = newValue;
+        if (oldValue !== newValue)
+          node.style.cssText = newValue;
       } else if (oldValue && typeof oldValue === "object") {
         for (let k in { ...oldValue, ...newValue }) {
           if (!oldValue || newValue[k] !== oldValue[k]) {
@@ -742,7 +766,7 @@ var V = (() => {
       return "";
   }
 
-  // src/vode-tags.ts
+  // src/vode-tags.js
   var A = "a";
   var ABBR = "abbr";
   var ADDRESS = "address";

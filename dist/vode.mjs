@@ -1,7 +1,7 @@
-// src/vode.ts
+// src/vode.js
 function vode(tag, props, ...children) {
   if (!tag)
-    throw new Error("tag must be a string or vode");
+    throw new Error("first argument to vode() must be a tag name or a vode");
   if (Array.isArray(tag))
     return tag;
   else if (props)
@@ -11,11 +11,11 @@ function vode(tag, props, ...children) {
 }
 function app(container, state, dom, ...initialPatches) {
   if (!container?.parentElement)
-    throw new Error("container must be a valid HTMLElement inside the <html></html> document");
+    throw new Error("first argument to app() must be a valid HTMLElement inside the <html></html> document");
   if (!state || typeof state !== "object")
-    throw new Error("given state must be an object");
+    throw new Error("second argument to app() must be a state object");
   if (typeof dom !== "function")
-    throw new Error("dom must be a function that returns a vode");
+    throw new Error("third argument to app() must be a function that returns a vode");
   const _vode = {};
   _vode.stats = { lastRenderTime: 0, renderCount: 0, liveEffectCount: 0, patchCount: 0, renderPatchCount: 0 };
   Object.defineProperty(state, "patch", {
@@ -149,10 +149,16 @@ function hydrate(element, prepareForRender) {
   }
 }
 function memo(compare, componentOrProps) {
+  if (!compare || !Array.isArray(compare))
+    throw new Error("first argument to memo() must be an array of values to compare");
+  if (typeof componentOrProps !== "function")
+    throw new Error("second argument to memo() must be a function that returns a vode or props object");
   componentOrProps.__memo = compare;
   return componentOrProps;
 }
 function createState(state) {
+  if (!state || typeof state !== "object")
+    throw new Error("createState() must be called with a state object");
   return state;
 }
 function createPatch(p) {
@@ -522,7 +528,7 @@ function classString(classProp) {
   else
     return "";
 }
-// src/vode-tags.ts
+// src/vode-tags.js
 var A = "a";
 var ABBR = "abbr";
 var ADDRESS = "address";
