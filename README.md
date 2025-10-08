@@ -1,4 +1,4 @@
-# ![vode-logo](./logo.svg)
+# ![vode-logo](./logo.webp)
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-100%25-blue?logo=typescript)](https://www.typescriptlang.org/)
 [![Dependencies](https://img.shields.io/badge/dependencies-0-success)](package.json)

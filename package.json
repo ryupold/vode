@@ -4,6 +4,7 @@
     "description": "Small web framework for minimal websites",
     "author": "Michael Scherbakow (ryupold)",
     "license": "MIT",
+    "icon": "icon.webp",
     "keywords": [
         "web",
         "frontend",
