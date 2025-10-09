@@ -265,17 +265,17 @@ export function hydrate<S = unknown>(element: Element | Text, prepareForRender?:
  * `compare` of the previous render. otherwise skips the render step (not calling `componentOrProps`)*/
 export function memo<S>(compare: any[], componentOrProps: Component<S> | ((s: S) => Props<S>)): typeof componentOrProps extends ((s: S) => Props<S>) ? ((s: S) => Props<S>) : Component<S> {
     if (!compare || !Array.isArray(compare)) throw new Error("first argument to memo() must be an array of values to compare");
-    if(typeof componentOrProps !== "function") throw new Error("second argument to memo() must be a function that returns a vode or props object");
+    if (typeof componentOrProps !== "function") throw new Error("second argument to memo() must be a function that returns a vode or props object");
 
     (<any>componentOrProps).__memo = compare;
     return componentOrProps as typeof componentOrProps extends ((s: S) => Props<S>) ? ((s: S) => Props<S>) : Component<S>;
 }
 
 /** create a state object used as state for `app()`. it is updated with `PatchableState.patch()` using `merge()` */
-export function createState<S extends object | unknown>(state: S): PatchableState<S> { 
+export function createState<S extends object | unknown>(state: S): PatchableState<S> {
     if (!state || typeof state !== "object") throw new Error("createState() must be called with a state object");
 
-    return state as PatchableState<S>; 
+    return state as PatchableState<S>;
 }
 
 /** type safe way to create a patch. useful for type inference and autocompletion. */
@@ -414,7 +414,7 @@ function mergeState(target: any, source: any, allowDeletion: boolean) {
     return target;
 };
 
-function render<S>(state: S, patch: Dispatch<S>, parent: Element, childIndex: number, oldVode: AttachedVode<S> | undefined, newVode: ChildVode<S>, svg?: boolean): AttachedVode<S> | undefined {
+function render<S>(state: S, patch: Dispatch<S>, parent: Element, childIndex: number, oldVode: AttachedVode<S> | undefined, newVode: ChildVode<S>, xmlns?: string): AttachedVode<S> | undefined {
     // unwrap component if it is memoized
     newVode = remember(state, newVode, oldVode) as ChildVode<S>;
 
@@ -473,20 +473,21 @@ function render<S>(state: S, patch: Dispatch<S>, parent: Element, childIndex: nu
     // falsy|text|element(A) -> element(B) 
     if (
         (isNode && (!oldNode || oldIsText || (<Vode<S>>oldVode)[0] !== (<Vode<S>>newVode)[0]))
-    ) {
-        svg = svg || (<Vode<S>>newVode)[0] === "svg";
-        const newNode: ChildNode = svg
-            ? document.createElementNS("http://www.w3.org/2000/svg", (<Vode<S>>newVode)[0])
-            : document.createElement((<Vode<S>>newVode)[0]);
-        (<AttachedVode<S>>newVode).node = newNode;
-
+    ) {        
         const newvode = <Vode<S>>newVode;
         if (1 in newvode) {
             newvode[1] = remember(state, newvode[1], undefined) as Vode<S>;
         }
-
+        
         const properties = props(newVode);
-        patchProperties(patch, newNode, undefined, properties, svg);
+
+        xmlns = properties?.xmlns as string || xmlns;
+        const newNode: ChildNode = xmlns
+            ? document.createElementNS(xmlns, (<Vode<S>>newVode)[0])
+            : document.createElement((<Vode<S>>newVode)[0]);
+        (<AttachedVode<S>>newVode).node = newNode;
+
+        patchProperties(patch, newNode, undefined, properties);
 
         if (oldNode) {
             (<any>oldNode).onUnmount && patch((<any>oldNode).onUnmount(oldNode));
@@ -503,7 +504,7 @@ function render<S>(state: S, patch: Dispatch<S>, parent: Element, childIndex: nu
         if (newChildren) {
             for (let i = 0; i < newChildren.length; i++) {
                 const child = newChildren[i];
-                const attached = render(state, patch, newNode as Element, i, undefined, child, svg);
+                const attached = render(state, patch, newNode as Element, i, undefined, child, xmlns);
                 (<Vode<S>>newVode!)[properties ? i + 2 : i + 1] = <Vode<S>>attached;
             }
         }
@@ -514,7 +515,6 @@ function render<S>(state: S, patch: Dispatch<S>, parent: Element, childIndex: nu
 
     //element(A) -> element(A) 
     if (!oldIsText && isNode && (<Vode<S>>oldVode)[0] === (<Vode<S>>newVode)[0]) {
-        svg = svg || (<Vode<S>>newVode)[0] === "svg";
         (<AttachedVode<S>>newVode).node = oldNode;
 
         const newvode = <Vode<S>>newVode;
@@ -526,13 +526,13 @@ function render<S>(state: S, patch: Dispatch<S>, parent: Element, childIndex: nu
             newvode[1] = remember(state, newvode[1], oldvode[1]) as Vode<S>;
             if (prev !== newvode[1]) {
                 const properties = props(newVode);
-                patchProperties(patch, oldNode!, props(oldVode), properties, svg);
+                patchProperties(patch, oldNode!, props(oldVode), properties);
                 hasProps = !!properties;
             }
         }
         else {
             const properties = props(newVode);
-            patchProperties(patch, oldNode!, props(oldVode), properties, svg);
+            patchProperties(patch, oldNode!, props(oldVode), properties);
             hasProps = !!properties;
         }
 
@@ -543,7 +543,7 @@ function render<S>(state: S, patch: Dispatch<S>, parent: Element, childIndex: nu
                 const child = newKids[i];
                 const oldChild = oldKids && oldKids[i];
 
-                const attached = render(state, patch, oldNode as Element, i, oldChild, child, svg);
+                const attached = render(state, patch, oldNode as Element, i, oldChild, child, xmlns);
                 if (attached) {
                     (<Vode<S>>newVode)[hasProps ? i + 2 : i + 1] = <Vode<S>>attached;
                 }
@@ -611,7 +611,7 @@ function unwrap<S>(c: Component<S> | ChildVode<S>, s: S): ChildVode<S> {
     }
 }
 
-function patchProperties<S>(patch: Dispatch<S>, node: ChildNode, oldProps?: Props<S>, newProps?: Props<S>, isSvg?: boolean) {
+function patchProperties<S>(patch: Dispatch<S>, node: ChildNode, oldProps?: Props<S>, newProps?: Props<S>) {
     if (!newProps && !oldProps) return;
 
     // match existing properties
@@ -621,8 +621,8 @@ function patchProperties<S>(patch: Dispatch<S>, node: ChildNode, oldProps?: Prop
             const newValue = newProps?.[key as keyof Props<S>] as PropertyValue<S>;
 
             if (oldValue !== newValue) {
-                if (newProps) newProps[key as keyof Props<S>] = patchProperty(patch, node, key, oldValue, newValue, isSvg);
-                else patchProperty(patch, node, key, oldValue, undefined, isSvg);
+                if (newProps) newProps[key as keyof Props<S>] = patchProperty(patch, node, key, oldValue, newValue);
+                else patchProperty(patch, node, key, oldValue, undefined);
             }
         }
     }
@@ -632,7 +632,7 @@ function patchProperties<S>(patch: Dispatch<S>, node: ChildNode, oldProps?: Prop
         for (const key in newProps) {
             if (!(key in oldProps)) {
                 const newValue = newProps[key as keyof Props<S>] as PropertyValue<S>;
-                newProps[key as keyof Props<S>] = patchProperty(patch, <Element>node, key, undefined, newValue, isSvg);
+                newProps[key as keyof Props<S>] = patchProperty(patch, <Element>node, key, undefined, newValue);
             }
         }
     }
@@ -640,12 +640,12 @@ function patchProperties<S>(patch: Dispatch<S>, node: ChildNode, oldProps?: Prop
     else if (newProps) {
         for (const key in newProps) {
             const newValue = newProps[key as keyof Props<S>] as PropertyValue<S>;
-            newProps[key as keyof Props<S>] = patchProperty(patch, <Element>node, key, undefined, newValue, isSvg);
+            newProps[key as keyof Props<S>] = patchProperty(patch, <Element>node, key, undefined, newValue);
         }
     }
 }
 
-function patchProperty<S>(patch: Dispatch<S>, node: ChildNode, key: string | keyof ElementEventMap, oldValue?: PropertyValue<S>, newValue?: PropertyValue<S>, isSvg?: boolean) {
+function patchProperty<S>(patch: Dispatch<S>, node: ChildNode, key: string | keyof ElementEventMap, oldValue?: PropertyValue<S>, newValue?: PropertyValue<S>) {
     if (key === "style") {
         if (!newValue) {
             (node as HTMLElement).style.cssText = "";
@@ -666,20 +666,10 @@ function patchProperty<S>(patch: Dispatch<S>, node: ChildNode, key: string | key
             }
         }
     } else if (key === "class") {
-        if (isSvg) {
-            if (newValue) {
-                const newClass = classString(newValue as ClassProp);
-                (<SVGSVGElement>node).classList.value = newClass;
-            } else {
-                (<SVGSVGElement>node).classList.value = '';
-            }
+        if (newValue) {
+            (<HTMLElement>node).setAttribute("class", classString(newValue as ClassProp));
         } else {
-            if (newValue) {
-                const newClass = classString(newValue as ClassProp);
-                (<HTMLElement>node).className = newClass;
-            } else {
-                (<HTMLElement>node).className = '';
-            }
+            (<HTMLElement>node).removeAttribute("class");
         }
     } else if (key[0] === "o" && key[1] === "n") {
         if (newValue) {
@@ -721,5 +711,5 @@ function classString(classProp: ClassProp): string {
     else if (typeof classProp === "object")
         return Object.keys(classProp!).filter(k => classProp![k]).join(" ");
     else
-        return "";
+        return '';
 }

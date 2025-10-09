@@ -269,7 +269,7 @@ function mergeState(target, source, allowDeletion) {
   }
   return target;
 }
-function render(state, patch, parent, childIndex, oldVode, newVode, svg) {
+function render(state, patch, parent, childIndex, oldVode, newVode, xmlns) {
   newVode = remember(state, newVode, oldVode);
   const isNoVode = !newVode || typeof newVode === "number" || typeof newVode === "boolean";
   if (newVode === oldVode || !oldVode && isNoVode) {
@@ -313,15 +313,15 @@ function render(state, patch, parent, childIndex, oldVode, newVode, svg) {
     return text;
   }
   if (isNode && (!oldNode || oldIsText || oldVode[0] !== newVode[0])) {
-    svg = svg || newVode[0] === "svg";
-    const newNode = svg ? document.createElementNS("http://www.w3.org/2000/svg", newVode[0]) : document.createElement(newVode[0]);
-    newVode.node = newNode;
     const newvode = newVode;
     if (1 in newvode) {
       newvode[1] = remember(state, newvode[1], undefined);
     }
     const properties = props(newVode);
-    patchProperties(patch, newNode, undefined, properties, svg);
+    xmlns = properties?.xmlns || xmlns;
+    const newNode = xmlns ? document.createElementNS(xmlns, newVode[0]) : document.createElement(newVode[0]);
+    newVode.node = newNode;
+    patchProperties(patch, newNode, undefined, properties);
     if (oldNode) {
       oldNode.onUnmount && patch(oldNode.onUnmount(oldNode));
       oldNode.replaceWith(newNode);
@@ -336,7 +336,7 @@ function render(state, patch, parent, childIndex, oldVode, newVode, svg) {
     if (newChildren) {
       for (let i = 0;i < newChildren.length; i++) {
         const child2 = newChildren[i];
-        const attached = render(state, patch, newNode, i, undefined, child2, svg);
+        const attached = render(state, patch, newNode, i, undefined, child2, xmlns);
         newVode[properties ? i + 2 : i + 1] = attached;
       }
     }
@@ -344,7 +344,6 @@ function render(state, patch, parent, childIndex, oldVode, newVode, svg) {
     return newVode;
   }
   if (!oldIsText && isNode && oldVode[0] === newVode[0]) {
-    svg = svg || newVode[0] === "svg";
     newVode.node = oldNode;
     const newvode = newVode;
     const oldvode = oldVode;
@@ -354,12 +353,12 @@ function render(state, patch, parent, childIndex, oldVode, newVode, svg) {
       newvode[1] = remember(state, newvode[1], oldvode[1]);
       if (prev !== newvode[1]) {
         const properties = props(newVode);
-        patchProperties(patch, oldNode, props(oldVode), properties, svg);
+        patchProperties(patch, oldNode, props(oldVode), properties);
         hasProps = !!properties;
       }
     } else {
       const properties = props(newVode);
-      patchProperties(patch, oldNode, props(oldVode), properties, svg);
+      patchProperties(patch, oldNode, props(oldVode), properties);
       hasProps = !!properties;
     }
     const newKids = children(newVode);
@@ -368,7 +367,7 @@ function render(state, patch, parent, childIndex, oldVode, newVode, svg) {
       for (let i = 0;i < newKids.length; i++) {
         const child2 = newKids[i];
         const oldChild = oldKids && oldKids[i];
-        const attached = render(state, patch, oldNode, i, oldChild, child2, svg);
+        const attached = render(state, patch, oldNode, i, oldChild, child2, xmlns);
         if (attached) {
           newVode[hasProps ? i + 2 : i + 1] = attached;
         }
@@ -425,7 +424,7 @@ function unwrap(c, s) {
     return c;
   }
 }
-function patchProperties(patch, node, oldProps, newProps, isSvg) {
+function patchProperties(patch, node, oldProps, newProps) {
   if (!newProps && !oldProps)
     return;
   if (oldProps) {
@@ -434,9 +433,9 @@ function patchProperties(patch, node, oldProps, newProps, isSvg) {
       const newValue = newProps?.[key];
       if (oldValue !== newValue) {
         if (newProps)
-          newProps[key] = patchProperty(patch, node, key, oldValue, newValue, isSvg);
+          newProps[key] = patchProperty(patch, node, key, oldValue, newValue);
         else
-          patchProperty(patch, node, key, oldValue, undefined, isSvg);
+          patchProperty(patch, node, key, oldValue, undefined);
       }
     }
   }
@@ -444,17 +443,17 @@ function patchProperties(patch, node, oldProps, newProps, isSvg) {
     for (const key in newProps) {
       if (!(key in oldProps)) {
         const newValue = newProps[key];
-        newProps[key] = patchProperty(patch, node, key, undefined, newValue, isSvg);
+        newProps[key] = patchProperty(patch, node, key, undefined, newValue);
       }
     }
   } else if (newProps) {
     for (const key in newProps) {
       const newValue = newProps[key];
-      newProps[key] = patchProperty(patch, node, key, undefined, newValue, isSvg);
+      newProps[key] = patchProperty(patch, node, key, undefined, newValue);
     }
   }
 }
-function patchProperty(patch, node, key, oldValue, newValue, isSvg) {
+function patchProperty(patch, node, key, oldValue, newValue) {
   if (key === "style") {
     if (!newValue) {
       node.style.cssText = "";
@@ -475,20 +474,10 @@ function patchProperty(patch, node, key, oldValue, newValue, isSvg) {
       }
     }
   } else if (key === "class") {
-    if (isSvg) {
-      if (newValue) {
-        const newClass = classString(newValue);
-        node.classList.value = newClass;
-      } else {
-        node.classList.value = "";
-      }
+    if (newValue) {
+      node.setAttribute("class", classString(newValue));
     } else {
-      if (newValue) {
-        const newClass = classString(newValue);
-        node.className = newClass;
-      } else {
-        node.className = "";
-      }
+      node.removeAttribute("class");
     }
   } else if (key[0] === "o" && key[1] === "n") {
     if (newValue) {
@@ -612,6 +601,7 @@ var RUBY = "ruby";
 var S = "s";
 var SAMP = "samp";
 var SCRIPT = "script";
+var SEARCH = "search";
 var SECTION = "section";
 var SELECT = "select";
 var SLOT = "slot";
@@ -637,6 +627,7 @@ var TR = "tr";
 var TRACK = "track";
 var U = "u";
 var UL = "ul";
+var VAR = "var";
 var VIDEO = "video";
 var WBR = "wbr";
 var ANIMATE = "animate";
@@ -745,6 +736,7 @@ export {
   WBR,
   VIEW,
   VIDEO,
+  VAR,
   USE,
   UL,
   U,
@@ -780,6 +772,7 @@ export {
   SEMANTICS,
   SELECT,
   SECTION,
+  SEARCH,
   SCRIPT,
   SAMP,
   S,

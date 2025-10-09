@@ -6,9 +6,9 @@
 [![NPM Downloads](https://img.shields.io/npm/dm/@ryupold/vode)](https://www.npmjs.com/package/@ryupold/vode)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
-A small web framework for a minimalistic development flow. Zero dependencies, no build step except for typescript compilation, and a simple virtual DOM implementation that is easy to understand and use. Autocompletion out of the box due to binding to `lib.dom.d.ts`.
+A compact web framework for minimalist developers. Zero dependencies, no build step except for typescript compilation, and a simple virtual DOM implementation that is easy to understand and use. Autocompletion out of the box thanks to `lib.dom.d.ts`.
 
-It can be used to create single page applications or isolated components with complex state. The usage of arrays gives flexibility in composition and makes refactoring easy.
+It brings a primitive building block to the table that gives flexibility in composition and makes refactoring easy. Usecases can be single page applications or isolated components with complex state.
 
 ## Usage
 
@@ -116,7 +116,7 @@ const state = createState({
 
 type State = typeof state;
 
-const appNode = document.getElementById('app');
+const appNode = document.getElementById('app')!;
 
 app<State>(appNode, state,
     (s: State) => [DIV,
@@ -472,6 +472,30 @@ Like the other events they can be patches too.
 > Be aware that `onMount/onUnmount` are only called when an element 
 > is actually created/removed which might not always be the case during 
 > rendering, as only a diff of the virtual DOM is applied.
+
+### SVG & MathML
+SVG and MathML elements are supported but need the namespace defined in properties.
+
+```typescript
+import { SVG, CIRCLE } from '@ryupold/vode';
+
+const CompSVG = (s) => 
+    [SVG, { xmlns: 'http://www.w3.org/2000/svg', width: 100, height: 100 },
+        [CIRCLE, { cx: 50, cy: 50, r: 40, stroke: 'green', 'stroke-width': 4, fill: 'yellow' }]
+    ];
+```
+
+```typescript
+import { MATH, MSUP, MI, MN } from '@ryupold/vode';
+
+const CompMathML = (s) => 
+    [MATH, { xmlns: 'http://www.w3.org/1998/Math/MathML' },
+        [MSUP, 
+            [MI, 'x'], 
+            [MN, '2']
+        ]
+    ];
+```
 
 ### advanced usage
 

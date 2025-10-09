@@ -182,6 +182,7 @@ var V = (() => {
     S: () => S,
     SAMP: () => SAMP,
     SCRIPT: () => SCRIPT,
+    SEARCH: () => SEARCH,
     SECTION: () => SECTION,
     SELECT: () => SELECT,
     SEMANTICS: () => SEMANTICS,
@@ -217,6 +218,7 @@ var V = (() => {
     U: () => U,
     UL: () => UL,
     USE: () => USE,
+    VAR: () => VAR,
     VIDEO: () => VIDEO,
     VIEW: () => VIEW,
     WBR: () => WBR,
@@ -506,7 +508,7 @@ var V = (() => {
     }
     return target;
   }
-  function render(state, patch, parent, childIndex, oldVode, newVode, svg) {
+  function render(state, patch, parent, childIndex, oldVode, newVode, xmlns) {
     newVode = remember(state, newVode, oldVode);
     const isNoVode = !newVode || typeof newVode === "number" || typeof newVode === "boolean";
     if (newVode === oldVode || !oldVode && isNoVode) {
@@ -550,15 +552,15 @@ var V = (() => {
       return text;
     }
     if (isNode && (!oldNode || oldIsText || oldVode[0] !== newVode[0])) {
-      svg = svg || newVode[0] === "svg";
-      const newNode = svg ? document.createElementNS("http://www.w3.org/2000/svg", newVode[0]) : document.createElement(newVode[0]);
-      newVode.node = newNode;
       const newvode = newVode;
       if (1 in newvode) {
         newvode[1] = remember(state, newvode[1], void 0);
       }
       const properties = props(newVode);
-      patchProperties(patch, newNode, void 0, properties, svg);
+      xmlns = properties?.xmlns || xmlns;
+      const newNode = xmlns ? document.createElementNS(xmlns, newVode[0]) : document.createElement(newVode[0]);
+      newVode.node = newNode;
+      patchProperties(patch, newNode, void 0, properties);
       if (oldNode) {
         oldNode.onUnmount && patch(oldNode.onUnmount(oldNode));
         oldNode.replaceWith(newNode);
@@ -573,7 +575,7 @@ var V = (() => {
       if (newChildren) {
         for (let i = 0; i < newChildren.length; i++) {
           const child2 = newChildren[i];
-          const attached = render(state, patch, newNode, i, void 0, child2, svg);
+          const attached = render(state, patch, newNode, i, void 0, child2, xmlns);
           newVode[properties ? i + 2 : i + 1] = attached;
         }
       }
@@ -581,7 +583,6 @@ var V = (() => {
       return newVode;
     }
     if (!oldIsText && isNode && oldVode[0] === newVode[0]) {
-      svg = svg || newVode[0] === "svg";
       newVode.node = oldNode;
       const newvode = newVode;
       const oldvode = oldVode;
@@ -591,12 +592,12 @@ var V = (() => {
         newvode[1] = remember(state, newvode[1], oldvode[1]);
         if (prev !== newvode[1]) {
           const properties = props(newVode);
-          patchProperties(patch, oldNode, props(oldVode), properties, svg);
+          patchProperties(patch, oldNode, props(oldVode), properties);
           hasProps = !!properties;
         }
       } else {
         const properties = props(newVode);
-        patchProperties(patch, oldNode, props(oldVode), properties, svg);
+        patchProperties(patch, oldNode, props(oldVode), properties);
         hasProps = !!properties;
       }
       const newKids = children(newVode);
@@ -605,7 +606,7 @@ var V = (() => {
         for (let i = 0; i < newKids.length; i++) {
           const child2 = newKids[i];
           const oldChild = oldKids && oldKids[i];
-          const attached = render(state, patch, oldNode, i, oldChild, child2, svg);
+          const attached = render(state, patch, oldNode, i, oldChild, child2, xmlns);
           if (attached) {
             newVode[hasProps ? i + 2 : i + 1] = attached;
           }
@@ -662,7 +663,7 @@ var V = (() => {
       return c;
     }
   }
-  function patchProperties(patch, node, oldProps, newProps, isSvg) {
+  function patchProperties(patch, node, oldProps, newProps) {
     if (!newProps && !oldProps)
       return;
     if (oldProps) {
@@ -671,9 +672,9 @@ var V = (() => {
         const newValue = newProps?.[key];
         if (oldValue !== newValue) {
           if (newProps)
-            newProps[key] = patchProperty(patch, node, key, oldValue, newValue, isSvg);
+            newProps[key] = patchProperty(patch, node, key, oldValue, newValue);
           else
-            patchProperty(patch, node, key, oldValue, void 0, isSvg);
+            patchProperty(patch, node, key, oldValue, void 0);
         }
       }
     }
@@ -681,17 +682,17 @@ var V = (() => {
       for (const key in newProps) {
         if (!(key in oldProps)) {
           const newValue = newProps[key];
-          newProps[key] = patchProperty(patch, node, key, void 0, newValue, isSvg);
+          newProps[key] = patchProperty(patch, node, key, void 0, newValue);
         }
       }
     } else if (newProps) {
       for (const key in newProps) {
         const newValue = newProps[key];
-        newProps[key] = patchProperty(patch, node, key, void 0, newValue, isSvg);
+        newProps[key] = patchProperty(patch, node, key, void 0, newValue);
       }
     }
   }
-  function patchProperty(patch, node, key, oldValue, newValue, isSvg) {
+  function patchProperty(patch, node, key, oldValue, newValue) {
     if (key === "style") {
       if (!newValue) {
         node.style.cssText = "";
@@ -712,20 +713,10 @@ var V = (() => {
         }
       }
     } else if (key === "class") {
-      if (isSvg) {
-        if (newValue) {
-          const newClass = classString(newValue);
-          node.classList.value = newClass;
-        } else {
-          node.classList.value = "";
-        }
+      if (newValue) {
+        node.setAttribute("class", classString(newValue));
       } else {
-        if (newValue) {
-          const newClass = classString(newValue);
-          node.className = newClass;
-        } else {
-          node.className = "";
-        }
+        node.removeAttribute("class");
       }
     } else if (key[0] === "o" && key[1] === "n") {
       if (newValue) {
@@ -850,6 +841,7 @@ var V = (() => {
   var S = "s";
   var SAMP = "samp";
   var SCRIPT = "script";
+  var SEARCH = "search";
   var SECTION = "section";
   var SELECT = "select";
   var SLOT = "slot";
@@ -875,6 +867,7 @@ var V = (() => {
   var TRACK = "track";
   var U = "u";
   var UL = "ul";
+  var VAR = "var";
   var VIDEO = "video";
   var WBR = "wbr";
   var ANIMATE = "animate";
