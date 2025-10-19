@@ -12,12 +12,12 @@ export type Component<S> = (s: S) => ChildVode<S>;
 export type Patch<S> =
     | IgnoredPatch // ignored
     | RenderPatch<S> // updates state, causes render
-    | MiddlewarePatch // update vode middleware
+    | MiddlewarePatch<keyof Middleware> // update vode middleware
     | Promise<Patch<S>> | Effect<S>; // is executed, awaited, results in patches
 
 export type IgnoredPatch = undefined | null | number | boolean | bigint | string | symbol | void;
 export type RenderPatch<S> = {} | DeepPartial<S>;
-export type MiddlewarePatch = [middleware: string, options: any];
+export type MiddlewarePatch<K extends keyof Middleware> = [middleware: K, options: Middleware[K]];
 export type DeepPartial<S> = { [P in keyof S]?: S[P] extends Array<infer I> ? Array<DeepPartial<I>> : DeepPartial<S[P]> };
 
 export type Effect<S> =
@@ -72,6 +72,8 @@ export type PropertyValue<S> =
 export type Dispatch<S> = (action: Patch<S>) => void;
 export type PatchableState<S> = S & { patch: Dispatch<S> };
 
+export type Middleware = { renderFunction: keyof typeof renderFunctions };
+
 export const renderFunctions = {
     requestAnimationFrame: !!window.requestAnimationFrame ? window.requestAnimationFrame.bind(window) : ((cb: () => void) => cb()),
     startViewTransition: !!document.startViewTransition ? document.startViewTransition.bind(document) : !!window.requestAnimationFrame ? window.requestAnimationFrame.bind(window) : ((cb: () => void) => cb()),
@@ -87,7 +89,7 @@ export type ContainerNode<S> = HTMLElement & {
         patch: Dispatch<S>,
         render: () => Promise<unknown>,
         q: {} | undefined | null,  // next patch aggregate to be applied
-        middleware: { renderFunction: keyof typeof renderFunctions },
+        middleware: Middleware,
         isRendering: boolean,
         /** stats about the overall patches & last render time */
         stats: {
