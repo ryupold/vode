@@ -233,11 +233,16 @@ var V = (() => {
     memo: () => memo,
     mergeClass: () => mergeClass,
     props: () => props,
+    renderFunctions: () => renderFunctions,
     tag: () => tag,
     vode: () => vode
   });
 
   // src/vode.js
+  var renderFunctions = {
+    requestAnimationFrame: !!window.requestAnimationFrame ? window.requestAnimationFrame.bind(window) : ((cb) => cb()),
+    startViewTransition: !!document.startViewTransition ? document.startViewTransition.bind(document) : !!window.requestAnimationFrame ? window.requestAnimationFrame.bind(window) : ((cb) => cb())
+  };
   function vode(tag2, props2, ...children2) {
     if (!tag2)
       throw new Error("first argument to vode() must be a tag name or a vode");
@@ -255,7 +260,11 @@ var V = (() => {
       throw new Error("second argument to app() must be a state object");
     if (typeof dom !== "function")
       throw new Error("third argument to app() must be a function that returns a vode");
-    const _vode = {};
+    const _vode = {
+      middleware: {
+        renderFunction: "requestAnimationFrame"
+      }
+    };
     _vode.stats = { lastRenderTime: 0, renderCount: 0, liveEffectCount: 0, patchCount: 0, renderPatchCount: 0 };
     Object.defineProperty(state, "patch", {
       enumerable: false,
@@ -297,6 +306,8 @@ var V = (() => {
               _vode.patch(action[0](_vode.state, ...action.slice(1)));
             else
               _vode.patch(action[0](_vode.state));
+          } else if (typeof action[0] === "string") {
+            _vode.middleware[action[0]] = action[1];
           } else {
             _vode.stats.patchCount--;
           }
@@ -306,7 +317,7 @@ var V = (() => {
           _vode.stats.renderPatchCount++;
           _vode.q = mergeState(_vode.q || {}, action, false);
           if (!_vode.isRendering)
-            _vode.render();
+            await _vode.render();
         }
       }
     });
@@ -314,29 +325,46 @@ var V = (() => {
       enumerable: false,
       configurable: true,
       writable: false,
-      value: () => requestAnimationFrame(() => {
+      value: async () => {
         if (_vode.isRendering || !_vode.q)
           return;
         _vode.isRendering = true;
+        const isAsync = _vode.middleware?.renderFunction === "startViewTransition" && !!document.startViewTransition && !document.hidden;
+        _vode.state = mergeState(_vode.state, _vode.q, true);
+        _vode.q = null;
         const sw = Date.now();
-        try {
-          _vode.state = mergeState(_vode.state, _vode.q, true);
-          _vode.q = null;
-          const vom = dom(_vode.state);
-          _vode.vode = render(_vode.state, _vode.patch, container.parentElement, 0, _vode.vode, vom);
-          if (container.tagName.toUpperCase() !== vom[0].toUpperCase()) {
-            container = _vode.vode.node;
-            container._vode = _vode;
+        const task = (renderFunctions[_vode.middleware?.renderFunction] || renderFunctions.requestAnimationFrame)(() => {
+          try {
+            const vom = dom(_vode.state);
+            _vode.vode = render(_vode.state, _vode.patch, container.parentElement, 0, _vode.vode, vom);
+            if (container.tagName.toUpperCase() !== vom[0].toUpperCase()) {
+              container = _vode.vode.node;
+              container._vode = _vode;
+            }
+          } finally {
+            if (!isAsync) {
+              _vode.isRendering = false;
+              _vode.stats.renderCount++;
+              _vode.stats.lastRenderTime = Date.now() - sw;
+              if (_vode.q) {
+                _vode.render();
+              }
+            }
           }
-        } finally {
-          _vode.isRendering = false;
-          _vode.stats.renderCount++;
-          _vode.stats.lastRenderTime = Date.now() - sw;
-          if (_vode.q) {
-            _vode.render();
+        });
+        if (task && isAsync) {
+          try {
+            await task.finished;
+          } finally {
+            _vode.isRendering = false;
+            _vode.stats.renderCount++;
+            _vode.stats.lastRenderTime = Date.now() - sw;
+            if (_vode.q) {
+              _vode.render();
+            }
           }
         }
-      })
+      }
     });
     _vode.patch = state.patch;
     _vode.state = state;
