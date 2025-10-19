@@ -12,10 +12,12 @@ export type Component<S> = (s: S) => ChildVode<S>;
 export type Patch<S> =
     | IgnoredPatch // ignored
     | RenderPatch<S> // updates state, causes render
+    | MiddlewarePatch // update vode middleware
     | Promise<Patch<S>> | Effect<S>; // is executed, awaited, results in patches
 
 export type IgnoredPatch = undefined | null | number | boolean | bigint | string | symbol | void;
 export type RenderPatch<S> = {} | DeepPartial<S>;
+export type MiddlewarePatch = [middleware: string, options: any];
 export type DeepPartial<S> = { [P in keyof S]?: S[P] extends Array<infer I> ? Array<DeepPartial<I>> : DeepPartial<S[P]> };
 
 export type Effect<S> =
@@ -70,6 +72,11 @@ export type PropertyValue<S> =
 export type Dispatch<S> = (action: Patch<S>) => void;
 export type PatchableState<S> = S & { patch: Dispatch<S> };
 
+export const renderFunctions = {
+    requestAnimationFrame: !!window.requestAnimationFrame ? window.requestAnimationFrame.bind(window) : ((cb: () => void) => cb()),
+    startViewTransition: !!document.startViewTransition ? document.startViewTransition.bind(document) : !!window.requestAnimationFrame ? window.requestAnimationFrame.bind(window) : ((cb: () => void) => cb()),
+};
+
 export type ContainerNode<S> = HTMLElement & {
     /** the `_vode` property is added to the container in `app()`.
      * it contains all necessary stuff for the vode app to function.
@@ -78,8 +85,9 @@ export type ContainerNode<S> = HTMLElement & {
         state: PatchableState<S>,
         vode: AttachedVode<S>,
         patch: Dispatch<S>,
-        render: () => void,
-        q: object | null,  // next patch aggregate to be applied
+        render: () => Promise<unknown>,
+        q: {} | undefined | null,  // next patch aggregate to be applied
+        middleware: { renderFunction: keyof typeof renderFunctions },
         isRendering: boolean,
         /** stats about the overall patches & last render time */
         stats: {
@@ -119,7 +127,11 @@ export function app<S extends object | unknown>(container: Element, state: Omit<
     if (!state || typeof state !== "object") throw new Error("second argument to app() must be a state object");
     if (typeof dom !== "function") throw new Error("third argument to app() must be a function that returns a vode");
 
-    const _vode = {} as ContainerNode<S>["_vode"];
+    const _vode = {
+        middleware: {
+            renderFunction: "requestAnimationFrame",
+        }
+    } as ContainerNode<S>["_vode"];
     _vode.stats = { lastRenderTime: 0, renderCount: 0, liveEffectCount: 0, patchCount: 0, renderPatchCount: 0 };
 
     Object.defineProperty(state, "patch", {
@@ -159,7 +171,10 @@ export function app<S extends object | unknown>(container: Element, state: Omit<
                     if (action.length > 1)
                         _vode.patch!(action[0](_vode.state!, ...(action as any[]).slice(1)));
                     else _vode.patch!(action[0](_vode.state!));
-                } else {
+                } else if (typeof action[0] === "string") {
+                    (_vode.middleware as any)[action[0]] = action[1];
+                }
+                else {
                     _vode.stats.patchCount--;
                 }
             } else if (typeof action === "function") {
@@ -167,35 +182,55 @@ export function app<S extends object | unknown>(container: Element, state: Omit<
             } else {
                 _vode.stats.renderPatchCount++;
                 _vode.q = mergeState(_vode.q || {}, action, false);
-                if (!_vode.isRendering) _vode.render!();
+                if (!_vode.isRendering) await _vode.render!();
             }
         }
     });
 
     Object.defineProperty(_vode, "render", {
         enumerable: false, configurable: true,
-        writable: false, value: () => requestAnimationFrame(() => {
+        writable: false, value: async () => {
             if (_vode.isRendering || !_vode.q) return;
             _vode.isRendering = true;
+
+            const isAsync = _vode.middleware?.renderFunction === "startViewTransition" && !!document.startViewTransition && !document.hidden;
+
+            _vode.state = mergeState(_vode.state, _vode.q, true);
+            _vode.q = null;
+
             const sw = Date.now();
-            try {
-                _vode.state = mergeState(_vode.state, _vode.q, true);
-                _vode.q = null;
-                const vom = dom(_vode.state);
-                _vode.vode = render(_vode.state, _vode.patch, container.parentElement as Element, 0, _vode.vode, vom)!;
-                if ((<ContainerNode<S>>container).tagName.toUpperCase() !== (vom[0] as Tag).toUpperCase()) { //the tag name was changed during render -> update reference to vode-app-root 
-                    container = _vode.vode.node as Element;
-                    (<ContainerNode<S>>container)._vode = _vode
+            const task = (renderFunctions[_vode.middleware?.renderFunction] || renderFunctions.requestAnimationFrame)(() => {
+                try {
+                    const vom = dom(_vode.state);
+                    _vode.vode = render(_vode.state, _vode.patch, container.parentElement as Element, 0, _vode.vode, vom)!;
+                    if ((<ContainerNode<S>>container).tagName.toUpperCase() !== (vom[0] as Tag).toUpperCase()) { //the tag name was changed during render -> update reference to vode-app-root 
+                        container = _vode.vode.node as Element;
+                        (<ContainerNode<S>>container)._vode = _vode
+                    }
+                } finally {
+                    if (!isAsync) {
+                        _vode.isRendering = false;
+                        _vode.stats.renderCount++;
+                        _vode.stats.lastRenderTime = Date.now() - sw;
+                        if (_vode.q) {
+                            _vode.render();
+                        }
+                    }
                 }
-            } finally {
-                _vode.isRendering = false;
-                _vode.stats.renderCount++;
-                _vode.stats.lastRenderTime = Date.now() - sw;
-                if (_vode.q) {
-                    _vode.render();
+            }) as any;
+            if (task && isAsync) {
+                try {
+                    await task.finished;
+                } finally {
+                    _vode.isRendering = false;
+                    _vode.stats.renderCount++;
+                    _vode.stats.lastRenderTime = Date.now() - sw;
+                    if (_vode.q) {
+                        _vode.render();
+                    }
                 }
             }
-        })
+        }
     });
 
     _vode.patch = (<PatchableState<S>>state).patch;
@@ -473,12 +508,12 @@ function render<S>(state: S, patch: Dispatch<S>, parent: Element, childIndex: nu
     // falsy|text|element(A) -> element(B) 
     if (
         (isNode && (!oldNode || oldIsText || (<Vode<S>>oldVode)[0] !== (<Vode<S>>newVode)[0]))
-    ) {        
+    ) {
         const newvode = <Vode<S>>newVode;
         if (1 in newvode) {
             newvode[1] = remember(state, newvode[1], undefined) as Vode<S>;
         }
-        
+
         const properties = props(newVode);
 
         xmlns = properties?.xmlns as string || xmlns;
