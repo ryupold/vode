@@ -12,27 +12,25 @@ export type Component<S> = (s: S) => ChildVode<S>;
 export type Patch<S> =
     | IgnoredPatch // ignored
     | RenderPatch<S> // updates state, causes render
-    | MiddlewarePatch<keyof Middleware> // update vode middleware
     | Promise<Patch<S>> | Effect<S>; // is executed, awaited, results in patches
 
 export type IgnoredPatch = undefined | null | number | boolean | bigint | string | symbol | void;
 export type RenderPatch<S> = {} | DeepPartial<S>;
-export type MiddlewarePatch<K extends keyof Middleware> = [middleware: K, options: Middleware[K]];
+export type AsyncPatch<S> = Array<Patch<S>>;
 export type DeepPartial<S> = { [P in keyof S]?: S[P] extends Array<infer I> ? Array<DeepPartial<I>> : DeepPartial<S[P]> };
 
 export type Effect<S> =
     | (() => Patch<S>)
-    | EffectFunction<S>
-    | [effect: EffectFunction<S>, ...args: any[]]
-    | Generator<Patch<S>, unknown, void>
-    | AsyncGenerator<Patch<S>, unknown, void>;
+    | EventFunction<S>
+    | Generator<Patch<S>>
+    | AsyncGenerator<Patch<S>>;
 
-export type EffectFunction<S> = (state: S, ...args: any[]) => Patch<S>;
+export type EventFunction<S> = (state: S, evt: Event) => Patch<S>;
 
 export type Props<S> = Partial<
     Omit<HTMLElement,
         keyof (DocumentFragment & ElementCSSInlineStyle & GlobalEventHandlers)> &
-    { [K in keyof EventsMap]: ((state: S, evt: Event) => Patch<S>) | Patch<S> } // all on* events
+    { [K in keyof EventsMap]: EventFunction<S> | Patch<S> } // all on* events
 > & {
     [_: string]: unknown,
     class?: ClassProp,
@@ -87,10 +85,11 @@ export type ContainerNode<S> = HTMLElement & {
         state: PatchableState<S>,
         vode: AttachedVode<S>,
         patch: Dispatch<S>,
-        render: () => Promise<unknown>,
+        render: (animate: boolean | undefined) => Promise<unknown>,
         q: {} | undefined | null,  // next patch aggregate to be applied
-        middleware: Middleware,
+        qAnimate: {} | undefined | null,  // next patch aggregate to be applied animated
         isRendering: boolean,
+        isRenderingAsync: boolean,
         /** stats about the overall patches & last render time */
         stats: {
             patchCount: number,
@@ -129,34 +128,30 @@ export function app<S extends object | unknown>(container: Element, state: Omit<
     if (!state || typeof state !== "object") throw new Error("second argument to app() must be a state object");
     if (typeof dom !== "function") throw new Error("third argument to app() must be a function that returns a vode");
 
-    const _vode = {
-        middleware: {
-            renderFunction: "requestAnimationFrame",
-        }
-    } as ContainerNode<S>["_vode"];
+    const _vode = {} as ContainerNode<S>["_vode"] & { patch: (action: Patch<S>, animate?: boolean) => void };
     _vode.stats = { lastRenderTime: 0, renderCount: 0, liveEffectCount: 0, patchCount: 0, renderPatchCount: 0 };
 
     Object.defineProperty(state, "patch", {
         enumerable: false, configurable: true,
-        writable: false, value: async (action: Patch<S>) => {
+        writable: false, value: async (action: Patch<S>, animate?: boolean) => {
             if (!action || (typeof action !== "function" && typeof action !== "object")) return;
             _vode.stats.patchCount++;
 
-            if ((action as AsyncGenerator<Patch<S>, unknown, void>)?.next) {
-                const generator = action as AsyncGenerator<Patch<S>, unknown, void>;
+            if ((action as AsyncGenerator<Patch<S>>)?.next) {
+                const generator = action as AsyncGenerator<Patch<S>>;
                 _vode.stats.liveEffectCount++;
                 try {
                     let v = await generator.next();
                     while (v.done === false) {
                         _vode.stats.liveEffectCount++;
                         try {
-                            _vode.patch!(v.value);
+                            _vode.patch!(v.value, animate);
                             v = await generator.next();
                         } finally {
                             _vode.stats.liveEffectCount--;
                         }
                     }
-                    _vode.patch!(v.value as Patch<S>);
+                    _vode.patch!(v.value as Patch<S>, animate);
                 } finally {
                     _vode.stats.liveEffectCount--;
                 }
@@ -164,72 +159,68 @@ export function app<S extends object | unknown>(container: Element, state: Omit<
                 _vode.stats.liveEffectCount++;
                 try {
                     const nextState = await (action as Promise<S>);
-                    _vode.patch!(<Patch<S>>nextState);
+                    _vode.patch!(<Patch<S>>nextState, animate);
                 } finally {
                     _vode.stats.liveEffectCount--;
                 }
             } else if (Array.isArray(action)) {
-                if (typeof action[0] === "function") {
-                    if (action.length > 1)
-                        _vode.patch!(action[0](_vode.state!, ...(action as any[]).slice(1)));
-                    else _vode.patch!(action[0](_vode.state!));
-                } else if (typeof action[0] === "string") {
-                    (_vode.middleware as any)[action[0]] = action[1];
-                }
-                else {
-                    _vode.stats.patchCount--;
+                _vode.stats.patchCount++;
+                for (const p of action) {
+                    _vode.patch(p, true);
                 }
             } else if (typeof action === "function") {
-                _vode.patch!((<EffectFunction<S>>action)(_vode.state));
+                _vode.patch!((<(s: S) => unknown>action)(_vode.state), animate);
             } else {
                 _vode.stats.renderPatchCount++;
-                _vode.q = mergeState(_vode.q || {}, action, false);
-                if (!_vode.isRendering) await _vode.render!();
+                if (animate) _vode.qAnimate = mergeState(_vode.qAnimate || {}, action, false);
+                else _vode.q = mergeState(_vode.q || {}, action, false);
+                if (!_vode.isRendering) await _vode.render!(animate);
             }
         }
     });
 
     Object.defineProperty(_vode, "render", {
         enumerable: false, configurable: true,
-        writable: false, value: async () => {
-            if (_vode.isRendering || !_vode.q) return;
-            _vode.isRendering = true;
+        writable: false, value: async (animate: boolean | undefined) => {
+            if ((!animate && (_vode.isRendering || !_vode.q)) || (animate && (_vode.isRenderingAsync || !_vode.qAnimate))) return;
 
-            const isAsync = _vode.middleware?.renderFunction === "startViewTransition" && !!document.startViewTransition && !document.hidden;
+            if (animate) _vode.isRenderingAsync = true;
+            else _vode.isRendering = true;
 
-            _vode.state = mergeState(_vode.state, _vode.q, true);
-            _vode.q = null;
+            _vode.state = mergeState(_vode.state, animate ? _vode.qAnimate : _vode.q, true);
+            if (animate) _vode.qAnimate = null; else _vode.q = null;
 
-            const sw = Date.now();
-            const task = (renderFunctions[_vode.middleware?.renderFunction] || renderFunctions.requestAnimationFrame)(() => {
+            let sw = 0;
+            const task = (animate && !document.hidden
+                ? renderFunctions.startViewTransition
+                : renderFunctions.requestAnimationFrame
+            )(() => {
                 try {
+                    sw = Date.now();
+
                     const vom = dom(_vode.state);
                     _vode.vode = render(_vode.state, _vode.patch, container.parentElement as Element, 0, _vode.vode, vom)!;
+
                     if ((<ContainerNode<S>>container).tagName.toUpperCase() !== (vom[0] as Tag).toUpperCase()) { //the tag name was changed during render -> update reference to vode-app-root 
                         container = _vode.vode.node as Element;
                         (<ContainerNode<S>>container)._vode = _vode
                     }
+
+                    _vode.stats.lastRenderTime = Date.now() - sw;
+                    _vode.stats.renderCount++;
                 } finally {
-                    if (!isAsync) {
+                    if (!animate) {
                         _vode.isRendering = false;
-                        _vode.stats.renderCount++;
-                        _vode.stats.lastRenderTime = Date.now() - sw;
-                        if (_vode.q) {
-                            _vode.render();
-                        }
+                        if (_vode.q) _vode.render(animate);
                     }
                 }
-            }) as any;
-            if (task && isAsync) {
+            }) as ViewTransition | undefined;
+            if (animate) {
                 try {
-                    await task.finished;
+                    await task?.finished;
                 } finally {
-                    _vode.isRendering = false;
-                    _vode.stats.renderCount++;
-                    _vode.stats.lastRenderTime = Date.now() - sw;
-                    if (_vode.q) {
-                        _vode.render();
-                    }
+                    _vode.isRenderingAsync = false;
+                    if (_vode.qAnimate) _vode.render(animate);
                 }
             }
         }
@@ -524,7 +515,7 @@ function render<S>(state: S, patch: Dispatch<S>, parent: Element, childIndex: nu
             : document.createElement((<Vode<S>>newVode)[0]);
         (<AttachedVode<S>>newVode).node = newNode;
 
-        patchProperties(patch, newNode, undefined, properties);
+        patchProperties(state, patch, newNode, undefined, properties);
 
         if (oldNode) {
             (<any>oldNode).onUnmount && patch((<any>oldNode).onUnmount(oldNode));
@@ -563,13 +554,13 @@ function render<S>(state: S, patch: Dispatch<S>, parent: Element, childIndex: nu
             newvode[1] = remember(state, newvode[1], oldvode[1]) as Vode<S>;
             if (prev !== newvode[1]) {
                 const properties = props(newVode);
-                patchProperties(patch, oldNode!, props(oldVode), properties);
+                patchProperties(state, patch, oldNode!, props(oldVode), properties);
                 hasProps = !!properties;
             }
         }
         else {
             const properties = props(newVode);
-            patchProperties(patch, oldNode!, props(oldVode), properties);
+            patchProperties(state, patch, oldNode!, props(oldVode), properties);
             hasProps = !!properties;
         }
 
@@ -648,7 +639,7 @@ function unwrap<S>(c: Component<S> | ChildVode<S>, s: S): ChildVode<S> {
     }
 }
 
-function patchProperties<S>(patch: Dispatch<S>, node: ChildNode, oldProps?: Props<S>, newProps?: Props<S>) {
+function patchProperties<S>(s: S, patch: Dispatch<S>, node: ChildNode, oldProps?: Props<S>, newProps?: Props<S>) {
     if (!newProps && !oldProps) return;
 
     // match existing properties
@@ -658,8 +649,8 @@ function patchProperties<S>(patch: Dispatch<S>, node: ChildNode, oldProps?: Prop
             const newValue = newProps?.[key as keyof Props<S>] as PropertyValue<S>;
 
             if (oldValue !== newValue) {
-                if (newProps) newProps[key as keyof Props<S>] = patchProperty(patch, node, key, oldValue, newValue);
-                else patchProperty(patch, node, key, oldValue, undefined);
+                if (newProps) newProps[key as keyof Props<S>] = patchProperty(s, patch, node, key, oldValue, newValue);
+                else patchProperty(s, patch, node, key, oldValue, undefined);
             }
         }
     }
@@ -669,7 +660,7 @@ function patchProperties<S>(patch: Dispatch<S>, node: ChildNode, oldProps?: Prop
         for (const key in newProps) {
             if (!(key in oldProps)) {
                 const newValue = newProps[key as keyof Props<S>] as PropertyValue<S>;
-                newProps[key as keyof Props<S>] = patchProperty(patch, <Element>node, key, undefined, newValue);
+                newProps[key as keyof Props<S>] = patchProperty(s, patch, <Element>node, key, undefined, newValue);
             }
         }
     }
@@ -677,12 +668,12 @@ function patchProperties<S>(patch: Dispatch<S>, node: ChildNode, oldProps?: Prop
     else if (newProps) {
         for (const key in newProps) {
             const newValue = newProps[key as keyof Props<S>] as PropertyValue<S>;
-            newProps[key as keyof Props<S>] = patchProperty(patch, <Element>node, key, undefined, newValue);
+            newProps[key as keyof Props<S>] = patchProperty(s, patch, <Element>node, key, undefined, newValue);
         }
     }
 }
 
-function patchProperty<S>(patch: Dispatch<S>, node: ChildNode, key: string | keyof ElementEventMap, oldValue?: PropertyValue<S>, newValue?: PropertyValue<S>) {
+function patchProperty<S>(s: S, patch: Dispatch<S>, node: ChildNode, key: string | keyof ElementEventMap, oldValue?: PropertyValue<S>, newValue?: PropertyValue<S>) {
     if (key === "style") {
         if (!newValue) {
             (node as HTMLElement).style.cssText = "";
@@ -712,17 +703,8 @@ function patchProperty<S>(patch: Dispatch<S>, node: ChildNode, key: string | key
         if (newValue) {
             let eventHandler: Function | null = null;
             if (typeof newValue === "function") {
-                const action = newValue as EffectFunction<S>;
-                eventHandler = (evt: Event) => patch([action, evt]);
-            } else if (Array.isArray(newValue)) {
-                const arr = (newValue as Array<any>);
-                const action = newValue[0] as EffectFunction<S>;
-                if (arr.length > 1) {
-                    eventHandler = () => patch([action, ...arr.slice(1)]);
-                }
-                else {
-                    eventHandler = (evt: Event) => patch([action, evt]);
-                }
+                const action = newValue as EventFunction<S>;
+                eventHandler = (evt: Event) => patch(action(s, evt));
             } else if (typeof newValue === "object") {
                 eventHandler = () => patch(newValue as Patch<S>);
             }
