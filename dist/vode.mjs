@@ -20,17 +20,13 @@ function app(container, state, dom, ...initialPatches) {
     throw new Error("second argument to app() must be a state object");
   if (typeof dom !== "function")
     throw new Error("third argument to app() must be a function that returns a vode");
-  const _vode = {
-    middleware: {
-      renderFunction: "requestAnimationFrame"
-    }
-  };
+  const _vode = {};
   _vode.stats = { lastRenderTime: 0, renderCount: 0, liveEffectCount: 0, patchCount: 0, renderPatchCount: 0 };
   Object.defineProperty(state, "patch", {
     enumerable: false,
     configurable: true,
     writable: false,
-    value: async (action) => {
+    value: async (action, animate) => {
       if (!action || typeof action !== "function" && typeof action !== "object")
         return;
       _vode.stats.patchCount++;
@@ -42,13 +38,13 @@ function app(container, state, dom, ...initialPatches) {
           while (v.done === false) {
             _vode.stats.liveEffectCount++;
             try {
-              _vode.patch(v.value);
+              _vode.patch(v.value, animate);
               v = await generator.next();
             } finally {
               _vode.stats.liveEffectCount--;
             }
           }
-          _vode.patch(v.value);
+          _vode.patch(v.value, animate);
         } finally {
           _vode.stats.liveEffectCount--;
         }
@@ -56,28 +52,25 @@ function app(container, state, dom, ...initialPatches) {
         _vode.stats.liveEffectCount++;
         try {
           const nextState = await action;
-          _vode.patch(nextState);
+          _vode.patch(nextState, animate);
         } finally {
           _vode.stats.liveEffectCount--;
         }
       } else if (Array.isArray(action)) {
-        if (typeof action[0] === "function") {
-          if (action.length > 1)
-            _vode.patch(action[0](_vode.state, ...action.slice(1)));
-          else
-            _vode.patch(action[0](_vode.state));
-        } else if (typeof action[0] === "string") {
-          _vode.middleware[action[0]] = action[1];
-        } else {
-          _vode.stats.patchCount--;
+        _vode.stats.patchCount++;
+        for (const p of action) {
+          _vode.patch(p, true);
         }
       } else if (typeof action === "function") {
-        _vode.patch(action(_vode.state));
+        _vode.patch(action(_vode.state), animate);
       } else {
         _vode.stats.renderPatchCount++;
-        _vode.q = mergeState(_vode.q || {}, action, false);
+        if (animate)
+          _vode.qAnimate = mergeState(_vode.qAnimate || {}, action, false);
+        else
+          _vode.q = mergeState(_vode.q || {}, action, false);
         if (!_vode.isRendering)
-          await _vode.render();
+          await _vode.render(animate);
       }
     }
   });
@@ -85,43 +78,45 @@ function app(container, state, dom, ...initialPatches) {
     enumerable: false,
     configurable: true,
     writable: false,
-    value: async () => {
-      if (_vode.isRendering || !_vode.q)
+    value: async (animate) => {
+      if (!animate && (_vode.isRendering || !_vode.q) || animate && (_vode.isAnimating || !_vode.qAnimate))
         return;
-      _vode.isRendering = true;
-      const isAsync = _vode.middleware?.renderFunction === "startViewTransition" && !!document.startViewTransition && !document.hidden;
-      _vode.state = mergeState(_vode.state, _vode.q, true);
-      _vode.q = null;
-      const sw = Date.now();
-      const task = (renderFunctions[_vode.middleware?.renderFunction] || renderFunctions.requestAnimationFrame)(() => {
+      if (animate)
+        _vode.isAnimating = true;
+      else
+        _vode.isRendering = true;
+      _vode.state = mergeState(_vode.state, animate ? _vode.qAnimate : _vode.q, true);
+      if (animate)
+        _vode.qAnimate = null;
+      else
+        _vode.q = null;
+      let sw = 0;
+      const task = (animate && !document.hidden ? renderFunctions.startViewTransition : renderFunctions.requestAnimationFrame)(() => {
         try {
+          sw = Date.now();
           const vom = dom(_vode.state);
           _vode.vode = render(_vode.state, _vode.patch, container.parentElement, 0, _vode.vode, vom);
           if (container.tagName.toUpperCase() !== vom[0].toUpperCase()) {
             container = _vode.vode.node;
             container._vode = _vode;
           }
+          _vode.stats.lastRenderTime = Date.now() - sw;
+          _vode.stats.renderCount++;
         } finally {
-          if (!isAsync) {
+          if (!animate) {
             _vode.isRendering = false;
-            _vode.stats.renderCount++;
-            _vode.stats.lastRenderTime = Date.now() - sw;
-            if (_vode.q) {
-              _vode.render();
-            }
+            if (_vode.q)
+              _vode.render(animate);
           }
         }
       });
-      if (task && isAsync) {
+      if (animate) {
         try {
-          await task.finished;
+          await task?.finished;
         } finally {
-          _vode.isRendering = false;
-          _vode.stats.renderCount++;
-          _vode.stats.lastRenderTime = Date.now() - sw;
-          if (_vode.q) {
-            _vode.render();
-          }
+          _vode.isAnimating = false;
+          if (_vode.qAnimate)
+            _vode.render(animate);
         }
       }
     }
@@ -348,7 +343,7 @@ function render(state, patch, parent, childIndex, oldVode, newVode, xmlns) {
     xmlns = properties?.xmlns || xmlns;
     const newNode = xmlns ? document.createElementNS(xmlns, newVode[0]) : document.createElement(newVode[0]);
     newVode.node = newNode;
-    patchProperties(patch, newNode, undefined, properties);
+    patchProperties(state, patch, newNode, undefined, properties);
     if (oldNode) {
       oldNode.onUnmount && patch(oldNode.onUnmount(oldNode));
       oldNode.replaceWith(newNode);
@@ -380,12 +375,12 @@ function render(state, patch, parent, childIndex, oldVode, newVode, xmlns) {
       newvode[1] = remember(state, newvode[1], oldvode[1]);
       if (prev !== newvode[1]) {
         const properties = props(newVode);
-        patchProperties(patch, oldNode, props(oldVode), properties);
+        patchProperties(state, patch, oldNode, props(oldVode), properties);
         hasProps = !!properties;
       }
     } else {
       const properties = props(newVode);
-      patchProperties(patch, oldNode, props(oldVode), properties);
+      patchProperties(state, patch, oldNode, props(oldVode), properties);
       hasProps = !!properties;
     }
     const newKids = children(newVode);
@@ -451,7 +446,7 @@ function unwrap(c, s) {
     return c;
   }
 }
-function patchProperties(patch, node, oldProps, newProps) {
+function patchProperties(s, patch, node, oldProps, newProps) {
   if (!newProps && !oldProps)
     return;
   if (oldProps) {
@@ -460,9 +455,9 @@ function patchProperties(patch, node, oldProps, newProps) {
       const newValue = newProps?.[key];
       if (oldValue !== newValue) {
         if (newProps)
-          newProps[key] = patchProperty(patch, node, key, oldValue, newValue);
+          newProps[key] = patchProperty(s, patch, node, key, oldValue, newValue);
         else
-          patchProperty(patch, node, key, oldValue, undefined);
+          patchProperty(s, patch, node, key, oldValue, undefined);
       }
     }
   }
@@ -470,17 +465,17 @@ function patchProperties(patch, node, oldProps, newProps) {
     for (const key in newProps) {
       if (!(key in oldProps)) {
         const newValue = newProps[key];
-        newProps[key] = patchProperty(patch, node, key, undefined, newValue);
+        newProps[key] = patchProperty(s, patch, node, key, undefined, newValue);
       }
     }
   } else if (newProps) {
     for (const key in newProps) {
       const newValue = newProps[key];
-      newProps[key] = patchProperty(patch, node, key, undefined, newValue);
+      newProps[key] = patchProperty(s, patch, node, key, undefined, newValue);
     }
   }
 }
-function patchProperty(patch, node, key, oldValue, newValue) {
+function patchProperty(s, patch, node, key, oldValue, newValue) {
   if (key === "style") {
     if (!newValue) {
       node.style.cssText = "";
@@ -511,15 +506,7 @@ function patchProperty(patch, node, key, oldValue, newValue) {
       let eventHandler = null;
       if (typeof newValue === "function") {
         const action = newValue;
-        eventHandler = (evt) => patch([action, evt]);
-      } else if (Array.isArray(newValue)) {
-        const arr = newValue;
-        const action = newValue[0];
-        if (arr.length > 1) {
-          eventHandler = () => patch([action, ...arr.slice(1)]);
-        } else {
-          eventHandler = (evt) => patch([action, evt]);
-        }
+        eventHandler = (evt) => patch(action(s, evt));
       } else if (typeof newValue === "object") {
         eventHandler = () => patch(newValue);
       }
