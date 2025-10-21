@@ -16,7 +16,7 @@ export type Patch<S> =
 
 export type IgnoredPatch = undefined | null | number | boolean | bigint | string | symbol | void;
 export type RenderPatch<S> = {} | DeepPartial<S>;
-export type AsyncPatch<S> = Array<Patch<S>>;
+export type AnimatedPatch<S> = Array<Patch<S>>;
 export type DeepPartial<S> = { [P in keyof S]?: S[P] extends Array<infer I> ? Array<DeepPartial<I>> : DeepPartial<S[P]> };
 
 export type Effect<S> =
@@ -70,8 +70,6 @@ export type PropertyValue<S> =
 export type Dispatch<S> = (action: Patch<S>) => void;
 export type PatchableState<S> = S & { patch: Dispatch<S> };
 
-export type Middleware = { renderFunction: keyof typeof renderFunctions };
-
 export const renderFunctions = {
     requestAnimationFrame: !!window.requestAnimationFrame ? window.requestAnimationFrame.bind(window) : ((cb: () => void) => cb()),
     startViewTransition: !!document.startViewTransition ? document.startViewTransition.bind(document) : !!window.requestAnimationFrame ? window.requestAnimationFrame.bind(window) : ((cb: () => void) => cb()),
@@ -89,7 +87,7 @@ export type ContainerNode<S> = HTMLElement & {
         q: {} | undefined | null,  // next patch aggregate to be applied
         qAnimate: {} | undefined | null,  // next patch aggregate to be applied animated
         isRendering: boolean,
-        isRenderingAsync: boolean,
+        isAnimating: boolean,
         /** stats about the overall patches & last render time */
         stats: {
             patchCount: number,
@@ -182,9 +180,9 @@ export function app<S extends object | unknown>(container: Element, state: Omit<
     Object.defineProperty(_vode, "render", {
         enumerable: false, configurable: true,
         writable: false, value: async (animate: boolean | undefined) => {
-            if ((!animate && (_vode.isRendering || !_vode.q)) || (animate && (_vode.isRenderingAsync || !_vode.qAnimate))) return;
+            if ((!animate && (_vode.isRendering || !_vode.q)) || (animate && (_vode.isAnimating || !_vode.qAnimate))) return;
 
-            if (animate) _vode.isRenderingAsync = true;
+            if (animate) _vode.isAnimating = true;
             else _vode.isRendering = true;
 
             _vode.state = mergeState(_vode.state, animate ? _vode.qAnimate : _vode.q, true);
@@ -219,7 +217,7 @@ export function app<S extends object | unknown>(container: Element, state: Omit<
                 try {
                     await task?.finished;
                 } finally {
-                    _vode.isRenderingAsync = false;
+                    _vode.isAnimating = false;
                     if (_vode.qAnimate) _vode.render(animate);
                 }
             }
