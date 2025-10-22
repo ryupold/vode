@@ -68,14 +68,14 @@ export type PropertyValue<S> =
     | Patch<S>;
 
 export type Dispatch<S> = (action: Patch<S>) => void;
-export type PatchableState<S> = S & { patch: Dispatch<S> };
+export type PatchableState<S = object> = S & { patch: Dispatch<S> };
 
 export const renderFunctions = {
     requestAnimationFrame: !!window.requestAnimationFrame ? window.requestAnimationFrame.bind(window) : ((cb: () => void) => cb()),
     startViewTransition: !!document.startViewTransition ? document.startViewTransition.bind(document) : !!window.requestAnimationFrame ? window.requestAnimationFrame.bind(window) : ((cb: () => void) => cb()),
 };
 
-export type ContainerNode<S> = HTMLElement & {
+export type ContainerNode<S = PatchableState> = HTMLElement & {
     /** the `_vode` property is added to the container in `app()`.
      * it contains all necessary stuff for the vode app to function.
      * delete it to clear all resources of the vode app, or remove the container itself */
@@ -106,7 +106,7 @@ export type ContainerNode<S> = HTMLElement & {
  * - tag, props and children: `vode("div", { class: "foo" }, ["span", "bar"])` => `["div", { class: "foo" }, ["span", "bar"]]` --*rendered*-> `<div class="foo"><span>bar</span></div>`
  * - identity: `vode(["div", ["span", "bar"]])` => `["div", ["span", "bar"]]` --*rendered*-> `<div><span>bar</span></div>`
  */
-export function vode<S extends object | unknown>(tag: Tag | Vode<S>, props?: Props<S> | ChildVode<S>, ...children: ChildVode<S>[]): Vode<S> {
+export function vode<S = PatchableState>(tag: Tag | Vode<S>, props?: Props<S> | ChildVode<S>, ...children: ChildVode<S>[]): Vode<S> {
     if (!tag) throw new Error("first argument to vode() must be a tag name or a vode");
 
     if (Array.isArray(tag)) return tag;
@@ -121,7 +121,7 @@ export function vode<S extends object | unknown>(tag: Tag | Vode<S>, props?: Pro
  * @param initialPatches variadic list of patches that are applied after the first render
  * @returns a patch function that can be used to update the state
  */
-export function app<S extends object | unknown>(container: Element, state: Omit<S, "patch">, dom: (s: S) => Vode<S>, ...initialPatches: Patch<S>[]) {
+export function app<S = PatchableState>(container: Element, state: Omit<S, "patch">, dom: (s: S) => Vode<S>, ...initialPatches: Patch<S>[]) {
     if (!container?.parentElement) throw new Error("first argument to app() must be a valid HTMLElement inside the <html></html> document");
     if (!state || typeof state !== "object") throw new Error("second argument to app() must be a state object");
     if (typeof dom !== "function") throw new Error("third argument to app() must be a function that returns a vode");
@@ -248,7 +248,7 @@ export function app<S extends object | unknown>(container: Element, state: Omit<
 }
 
 /** return vode representation of given DOM node */
-export function hydrate<S = unknown>(element: Element | Text, prepareForRender?: boolean): Vode<S> | string | AttachedVode<S> | undefined {
+export function hydrate<S = PatchableState>(element: Element | Text, prepareForRender?: boolean): Vode<S> | string | AttachedVode<S> | undefined {
     if ((element as Text)?.nodeType === Node.TEXT_NODE) {
         if ((element as Text).nodeValue?.trim() !== "")
             return prepareForRender ? element as Text : (element as Text).nodeValue!;
@@ -289,7 +289,7 @@ export function hydrate<S = unknown>(element: Element | Text, prepareForRender?:
 
 /** memoizes the resulting component or props by comparing element by element (===) with the
  * `compare` of the previous render. otherwise skips the render step (not calling `componentOrProps`)*/
-export function memo<S>(compare: any[], componentOrProps: Component<S> | ((s: S) => Props<S>)): typeof componentOrProps extends ((s: S) => Props<S>) ? ((s: S) => Props<S>) : Component<S> {
+export function memo<S = PatchableState>(compare: any[], componentOrProps: Component<S> | ((s: S) => Props<S>)): typeof componentOrProps extends ((s: S) => Props<S>) ? ((s: S) => Props<S>) : Component<S> {
     if (!compare || !Array.isArray(compare)) throw new Error("first argument to memo() must be an array of values to compare");
     if (typeof componentOrProps !== "function") throw new Error("second argument to memo() must be a function that returns a vode or props object");
 
@@ -298,17 +298,17 @@ export function memo<S>(compare: any[], componentOrProps: Component<S> | ((s: S)
 }
 
 /** create a state object used as state for `app()`. it is updated with `PatchableState.patch()` using `merge()` */
-export function createState<S extends object | unknown>(state: S): PatchableState<S> {
+export function createState<S = PatchableState>(state: S): PatchableState<S> {
     if (!state || typeof state !== "object") throw new Error("createState() must be called with a state object");
 
     return state as PatchableState<S>;
 }
 
 /** type safe way to create a patch. useful for type inference and autocompletion. */
-export function createPatch<S extends object | unknown>(p: DeepPartial<S> | Effect<S> | IgnoredPatch): typeof p { return p; }
+export function createPatch<S = PatchableState>(p: DeepPartial<S> | Effect<S> | IgnoredPatch): typeof p { return p; }
 
 /** html tag of the vode or `#text` if it is a text node */
-export function tag<S>(v: Vode<S> | TextVode | NoVode | AttachedVode<S>): Tag | "#text" | undefined {
+export function tag<S = PatchableState>(v: Vode<S> | TextVode | NoVode | AttachedVode<S>): Tag | "#text" | undefined {
     return !!v ? (Array.isArray(v)
         ? v[0] : (typeof v === "string" || (<any>v).nodeType === Node.TEXT_NODE)
             ? "#text" : undefined) as Tag
@@ -316,7 +316,7 @@ export function tag<S>(v: Vode<S> | TextVode | NoVode | AttachedVode<S>): Tag | 
 }
 
 /** get properties object of a vode, if there is any */
-export function props<S>(vode: ChildVode<S> | AttachedVode<S>): Props<S> | undefined {
+export function props<S = PatchableState>(vode: ChildVode<S> | AttachedVode<S>): Props<S> | undefined {
     if (Array.isArray(vode)
         && vode.length > 1
         && vode[1]
@@ -333,59 +333,8 @@ export function props<S>(vode: ChildVode<S> | AttachedVode<S>): Props<S> | undef
     return undefined;
 }
 
-/** merge `ClassProp`s regardless of structure */
-export function mergeClass(a: ClassProp, b: ClassProp): ClassProp {
-    if (!a) return b;
-    if (!b) return a;
-
-    if (typeof a === "string" && typeof b === "string") {
-        const aSplit = a.split(" ");
-        const bSplit = b.split(" ");
-        const classSet = new Set([...aSplit, ...bSplit]);
-        return Array.from(classSet).join(" ").trim();
-    }
-    else if (typeof a === "string" && Array.isArray(b)) {
-        const classSet = new Set([...b, ...a.split(" ")]);
-        return Array.from(classSet).join(" ").trim();
-    }
-    else if (Array.isArray(a) && typeof b === "string") {
-        const classSet = new Set([...a, ...b.split(" ")]);
-        return Array.from(classSet).join(" ").trim();
-    }
-    else if (Array.isArray(a) && Array.isArray(b)) {
-        const classSet = new Set([...a, ...b]);
-        return Array.from(classSet).join(" ").trim();
-    }
-    else if (typeof a === "string" && typeof b === "object") {
-        return { [a]: true, ...b };
-    }
-    else if (typeof a === "object" && typeof b === "string") {
-        return { ...a, [b]: true };
-    }
-    else if (typeof a === "object" && typeof b === "object") {
-        return { ...a, ...b };
-    } else if (typeof a === "object" && Array.isArray(b)) {
-        const aa = { ...a };
-        for (const item of b as string[]) {
-            (<Record<string, boolean | null | undefined>>aa)[item] = true;
-        }
-        return aa;
-    } else if (Array.isArray(a) && typeof b === "object") {
-        const aa: Record<string, any> = {};
-        for (const item of a as string[]) {
-            aa[item] = true;
-        }
-        for (const bKey of Object.keys(b)) {
-            aa[bKey] = (<Record<string, boolean | null | undefined>>b)[bKey];
-        }
-        return aa;
-    }
-
-    throw new Error(`cannot merge classes of ${a} (${typeof a}) and ${b} (${typeof b})`);
-}
-
 /** get a slice of all children of a vode, if there are any */
-export function children<S>(vode: ChildVode<S> | AttachedVode<S>): ChildVode<S>[] | null {
+export function children<S = PatchableState>(vode: ChildVode<S> | AttachedVode<S>): ChildVode<S>[] | null {
     const start = childrenStart(vode);
     if (start > 0) {
         return (<Vode<S>>vode).slice(start) as Vode<S>[];
@@ -394,14 +343,14 @@ export function children<S>(vode: ChildVode<S> | AttachedVode<S>): ChildVode<S>[
     return null;
 }
 
-export function childCount<S>(vode: Vode<S>) { return vode.length - childrenStart(vode); }
+export function childCount<S = PatchableState>(vode: Vode<S>) { return vode.length - childrenStart(vode); }
 
-export function child<S>(vode: Vode<S>, index: number): ChildVode<S> | undefined {
+export function child<S = PatchableState>(vode: Vode<S>, index: number): ChildVode<S> | undefined {
     return vode[index + childrenStart(vode)] as ChildVode<S>;
 }
 
 /** index in vode at which child-vodes start */
-export function childrenStart<S>(vode: ChildVode<S> | AttachedVode<S>): number {
+export function childrenStart<S = PatchableState>(vode: ChildVode<S> | AttachedVode<S>): number {
     return props(vode) ? 2 : 1;
 }
 
@@ -729,4 +678,55 @@ function classString(classProp: ClassProp): string {
         return Object.keys(classProp!).filter(k => classProp![k]).join(" ");
     else
         return '';
+}
+
+/** merge `ClassProp`s regardless of structure */
+export function mergeClass(a: ClassProp, b: ClassProp): ClassProp {
+    if (!a) return b;
+    if (!b) return a;
+
+    if (typeof a === "string" && typeof b === "string") {
+        const aSplit = a.split(" ");
+        const bSplit = b.split(" ");
+        const classSet = new Set([...aSplit, ...bSplit]);
+        return Array.from(classSet).join(" ").trim();
+    }
+    else if (typeof a === "string" && Array.isArray(b)) {
+        const classSet = new Set([...b, ...a.split(" ")]);
+        return Array.from(classSet).join(" ").trim();
+    }
+    else if (Array.isArray(a) && typeof b === "string") {
+        const classSet = new Set([...a, ...b.split(" ")]);
+        return Array.from(classSet).join(" ").trim();
+    }
+    else if (Array.isArray(a) && Array.isArray(b)) {
+        const classSet = new Set([...a, ...b]);
+        return Array.from(classSet).join(" ").trim();
+    }
+    else if (typeof a === "string" && typeof b === "object") {
+        return { [a]: true, ...b };
+    }
+    else if (typeof a === "object" && typeof b === "string") {
+        return { ...a, [b]: true };
+    }
+    else if (typeof a === "object" && typeof b === "object") {
+        return { ...a, ...b };
+    } else if (typeof a === "object" && Array.isArray(b)) {
+        const aa = { ...a };
+        for (const item of b as string[]) {
+            (<Record<string, boolean | null | undefined>>aa)[item] = true;
+        }
+        return aa;
+    } else if (Array.isArray(a) && typeof b === "object") {
+        const aa: Record<string, any> = {};
+        for (const item of a as string[]) {
+            aa[item] = true;
+        }
+        for (const bKey of Object.keys(b)) {
+            aa[bKey] = (<Record<string, boolean | null | undefined>>b)[bKey];
+        }
+        return aa;
+    }
+
+    throw new Error(`cannot merge classes of ${a} (${typeof a}) and ${b} (${typeof b})`);
 }
