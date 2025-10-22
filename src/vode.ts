@@ -78,23 +78,30 @@ export const renderFunctions = {
 export type ContainerNode<S = PatchableState> = HTMLElement & {
     /** the `_vode` property is added to the container in `app()`.
      * it contains all necessary stuff for the vode app to function.
-     * delete it to clear all resources of the vode app, or remove the container itself */
+     * remove the container node to clear vodes resources */
     _vode: {
         state: PatchableState<S>,
         vode: AttachedVode<S>,
         patch: Dispatch<S>,
-        render: (animate: boolean | undefined) => Promise<unknown>,
-        q: {} | undefined | null,  // next patch aggregate to be applied
-        qAnimate: {} | undefined | null,  // next patch aggregate to be applied animated
+        renderSync: () => void,
+        renderAsync: () => Promise<unknown>,
+        syncRenderer: (cb: () => void) => void,
+        asyncRenderer: (cb: () => void) => ViewTransition,
+        qSync: {} | undefined | null,  // next patch aggregate to be applied
+        qAsync: Array<object>,  // next render-patches to be animated after another
+        qCurrentViewTransition: ViewTransition | null | undefined,
         isRendering: boolean,
         isAnimating: boolean,
         /** stats about the overall patches & last render time */
         stats: {
             patchCount: number,
             liveEffectCount: number,
-            renderPatchCount: number,
-            renderCount: number,
-            lastRenderTime: number,
+            syncRenderPatchCount: number,
+            asyncRenderPatchCount: number,
+            syncRenderCount: number,
+            asyncRenderCount: number,
+            lastSyncRenderTime: number,
+            lastAsyncRenderTime: number,
         },
     }
 };
@@ -127,11 +134,19 @@ export function app<S = PatchableState>(container: Element, state: Omit<S, "patc
     if (typeof dom !== "function") throw new Error("third argument to app() must be a function that returns a vode");
 
     const _vode = {} as ContainerNode<S>["_vode"] & { patch: (action: Patch<S>, animate?: boolean) => void };
-    _vode.stats = { lastRenderTime: 0, renderCount: 0, liveEffectCount: 0, patchCount: 0, renderPatchCount: 0 };
+    _vode.syncRenderer = !!window.requestAnimationFrame
+        ? window.requestAnimationFrame.bind(window)
+        : ((cb: () => void) => cb());
+    _vode.asyncRenderer = !!document.startViewTransition
+        ? document.startViewTransition.bind(document)
+        : _vode.syncRenderer as any
+    _vode.qSync = null;
+    _vode.qAsync = [];
+    _vode.stats = { lastSyncRenderTime: 0, lastAsyncRenderTime: 0, syncRenderCount: 0, asyncRenderCount: 0, liveEffectCount: 0, patchCount: 0, syncRenderPatchCount: 0, asyncRenderPatchCount: 0 };
 
     Object.defineProperty(state, "patch", {
         enumerable: false, configurable: true,
-        writable: false, value: async (action: Patch<S>, animate?: boolean) => {
+        writable: false, value: async (action: Patch<S>, isAsync?: boolean) => {
             if (!action || (typeof action !== "function" && typeof action !== "object")) return;
             _vode.stats.patchCount++;
 
@@ -143,13 +158,13 @@ export function app<S = PatchableState>(container: Element, state: Omit<S, "patc
                     while (v.done === false) {
                         _vode.stats.liveEffectCount++;
                         try {
-                            _vode.patch!(v.value, animate);
+                            _vode.patch!(v.value, isAsync);
                             v = await generator.next();
                         } finally {
                             _vode.stats.liveEffectCount--;
                         }
                     }
-                    _vode.patch!(v.value as Patch<S>, animate);
+                    _vode.patch!(v.value as Patch<S>, isAsync);
                 } finally {
                     _vode.stats.liveEffectCount--;
                 }
@@ -157,45 +172,53 @@ export function app<S = PatchableState>(container: Element, state: Omit<S, "patc
                 _vode.stats.liveEffectCount++;
                 try {
                     const nextState = await (action as Promise<S>);
-                    _vode.patch!(<Patch<S>>nextState, animate);
+                    _vode.patch!(<Patch<S>>nextState, isAsync);
                 } finally {
                     _vode.stats.liveEffectCount--;
                 }
             } else if (Array.isArray(action)) {
-                _vode.stats.patchCount++;
-                for (const p of action) {
-                    _vode.patch(p, true);
+                if (action.length > 0) {
+                    for (const p of action) {
+                        _vode.patch(p, true);
+                    }
+                } else { //when [] is patched: 1. skip current animation 2. merge all queued async patches into synced queue
+                    for (const p of _vode.qAsync) {
+                        _vode.qSync = mergeState(_vode.qSync || {}, p, false);
+                    }
+                    _vode.qAsync = [];
+                    _vode.qCurrentViewTransition?.skipTransition();
+                    _vode.stats.syncRenderPatchCount++;
+                    _vode.renderSync();
                 }
             } else if (typeof action === "function") {
-                _vode.patch!((<(s: S) => unknown>action)(_vode.state), animate);
+                _vode.patch!((<(s: S) => unknown>action)(_vode.state), isAsync);
             } else {
-                _vode.stats.renderPatchCount++;
-                if (animate) _vode.qAnimate = mergeState(_vode.qAnimate || {}, action, false);
-                else _vode.q = mergeState(_vode.q || {}, action, false);
-                if (!_vode.isRendering) await _vode.render!(animate);
+                if (isAsync) {
+                    _vode.stats.asyncRenderPatchCount++;
+                    _vode.qAsync.push(mergeState(_vode.qAsync || {}, action, false));
+                    await _vode.renderAsync();
+                } else {
+                    _vode.stats.syncRenderPatchCount++;
+                    _vode.qSync = mergeState(_vode.qSync || {}, action, false);
+                    _vode.renderSync();
+                }
             }
         }
     });
 
-    Object.defineProperty(_vode, "render", {
+    Object.defineProperty(_vode, "renderSync", {
         enumerable: false, configurable: true,
-        writable: false, value: async (animate: boolean | undefined) => {
-            if ((!animate && (_vode.isRendering || !_vode.q)) || (animate && (_vode.isAnimating || !_vode.qAnimate))) return;
+        writable: false, value: () => {
+            if (_vode.isRendering || !_vode.qSync) return;
 
-            if (animate) _vode.isAnimating = true;
-            else _vode.isRendering = true;
+            _vode.isRendering = true;
 
-            _vode.state = mergeState(_vode.state, animate ? _vode.qAnimate : _vode.q, true);
-            if (animate) _vode.qAnimate = null; else _vode.q = null;
+            _vode.state = mergeState(_vode.state, _vode.qSync, true);
+            _vode.qSync = null;
 
-            let sw = 0;
-            const task = (animate && !document.hidden
-                ? renderFunctions.startViewTransition
-                : renderFunctions.requestAnimationFrame
-            )(() => {
+            _vode.syncRenderer(() => {
                 try {
-                    sw = Date.now();
-
+                    const sw = Date.now();
                     const vom = dom(_vode.state);
                     _vode.vode = render(_vode.state, _vode.patch, container.parentElement as Element, 0, _vode.vode, vom)!;
 
@@ -204,29 +227,53 @@ export function app<S = PatchableState>(container: Element, state: Omit<S, "patc
                         (<ContainerNode<S>>container)._vode = _vode
                     }
 
-                    _vode.stats.lastRenderTime = Date.now() - sw;
-                    _vode.stats.renderCount++;
+                    _vode.stats.lastSyncRenderTime = Date.now() - sw;
+                    _vode.stats.syncRenderCount++;
                 } finally {
-                    if (!animate) {
-                        _vode.isRendering = false;
-                        if (_vode.q) _vode.render(animate);
+                    _vode.isRendering = false;
+                    if (_vode.qSync) _vode.renderSync();
+                }
+            });
+        }
+    });
+
+    Object.defineProperty(_vode, "renderAsync", {
+        enumerable: false, configurable: true,
+        writable: false, value: async () => {
+            if (_vode.isAnimating || _vode.qAsync.length === 0) return;
+            _vode.isAnimating = true;
+            try {
+                while (_vode.qAsync.length > 0) {
+                    for (const p of _vode.qAsync) {
+                        _vode.state = mergeState(_vode.state, p, false);
                     }
+                    _vode.qAsync = [];
+
+                    _vode.qCurrentViewTransition = _vode.asyncRenderer(() => {
+                        const sw = Date.now();
+                        const vom = dom(_vode.state);
+                        _vode.vode = render(_vode.state, _vode.patch, container.parentElement as Element, 0, _vode.vode, vom)!;
+
+                        if ((<ContainerNode<S>>container).tagName.toUpperCase() !== (vom[0] as Tag).toUpperCase()) { //the tag name was changed during render -> update reference to vode-app-root 
+                            container = _vode.vode.node as Element;
+                            (<ContainerNode<S>>container)._vode = _vode
+                        }
+
+                        _vode.stats.lastAsyncRenderTime = Date.now() - sw;
+                        _vode.stats.asyncRenderCount++;
+                    });
+
+                    await _vode.qCurrentViewTransition?.updateCallbackDone;
                 }
-            }) as ViewTransition | undefined;
-            if (animate) {
-                try {
-                    await task?.finished;
-                } finally {
-                    _vode.isAnimating = false;
-                    if (_vode.qAnimate) _vode.render(animate);
-                }
+            } finally {
+                _vode.qCurrentViewTransition = null;
+                _vode.isAnimating = false;
             }
         }
     });
 
     _vode.patch = (<PatchableState<S>>state).patch;
     _vode.state = <PatchableState<S>>state;
-    _vode.q = null;
 
     const root = container as ContainerNode<S>;
     root._vode = _vode;

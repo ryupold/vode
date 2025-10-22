@@ -399,6 +399,16 @@ const ComponentEwww = (s) => {
 
     return [DIV, s.loading ? [PROGRESS] : s.title];
 }
+
+// ✨ patch with a render via view transition
+s.patch([{}, (s) => {/*...*/}]); //all given patches will be part of a view transition
+
+// ✖️ empty array patches command to skip the current view transition
+// and set the queued animated patches until now as current state with a sync patch
+s.patch([]);
+
+// ❗✨ skip current view transition and start this view transition instead
+s.patch([[], { loading: true }]);
 ```
 
 ### memoization
