@@ -452,6 +452,7 @@ import { tag, props, children, mergeClass, hydrate } from '@ryupold/vode';
 // Merge class props intelligently
 mergeClass('foo', ['baz', 'bar']);  // -> 'foo bar baz'
 mergeClass(['foo'], { bar: true, baz: false }); // -> 'foo bar'
+mergeClass({zig: true, zag: false}, 'foo', ['baz', 'bar']);  // -> 'zig foo bar baz'
 
 const myVode = [DIV, { class: 'foo' }, [SPAN, 'hello'], [STRONG, 'world']];
 
