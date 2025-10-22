@@ -61,6 +61,7 @@ var V = (() => {
     DIV: () => DIV,
     DL: () => DL,
     DT: () => DT,
+    DelegateStateContext: () => DelegateStateContext,
     ELLIPSE: () => ELLIPSE,
     EM: () => EM,
     EMBED: () => EMBED,
@@ -115,6 +116,7 @@ var V = (() => {
     INPUT: () => INPUT,
     INS: () => INS,
     KBD: () => KBD,
+    KeyStateContext: () => KeyStateContext,
     LABEL: () => LABEL,
     LEGEND: () => LEGEND,
     LI: () => LI,
@@ -436,49 +438,6 @@ var V = (() => {
       }
     }
     return void 0;
-  }
-  function mergeClass(a, b) {
-    if (!a)
-      return b;
-    if (!b)
-      return a;
-    if (typeof a === "string" && typeof b === "string") {
-      const aSplit = a.split(" ");
-      const bSplit = b.split(" ");
-      const classSet = /* @__PURE__ */ new Set([...aSplit, ...bSplit]);
-      return Array.from(classSet).join(" ").trim();
-    } else if (typeof a === "string" && Array.isArray(b)) {
-      const classSet = /* @__PURE__ */ new Set([...b, ...a.split(" ")]);
-      return Array.from(classSet).join(" ").trim();
-    } else if (Array.isArray(a) && typeof b === "string") {
-      const classSet = /* @__PURE__ */ new Set([...a, ...b.split(" ")]);
-      return Array.from(classSet).join(" ").trim();
-    } else if (Array.isArray(a) && Array.isArray(b)) {
-      const classSet = /* @__PURE__ */ new Set([...a, ...b]);
-      return Array.from(classSet).join(" ").trim();
-    } else if (typeof a === "string" && typeof b === "object") {
-      return { [a]: true, ...b };
-    } else if (typeof a === "object" && typeof b === "string") {
-      return { ...a, [b]: true };
-    } else if (typeof a === "object" && typeof b === "object") {
-      return { ...a, ...b };
-    } else if (typeof a === "object" && Array.isArray(b)) {
-      const aa = { ...a };
-      for (const item of b) {
-        aa[item] = true;
-      }
-      return aa;
-    } else if (Array.isArray(a) && typeof b === "object") {
-      const aa = {};
-      for (const item of a) {
-        aa[item] = true;
-      }
-      for (const bKey of Object.keys(b)) {
-        aa[bKey] = b[bKey];
-      }
-      return aa;
-    }
-    throw new Error(`cannot merge classes of ${a} (${typeof a}) and ${b} (${typeof b})`);
   }
   function children(vode2) {
     const start = childrenStart(vode2);
@@ -974,5 +933,123 @@ var V = (() => {
   var MUNDER = "munder";
   var MUNDEROVER = "munderover";
   var SEMANTICS = "semantics";
+
+  // src/merge-class.js
+  function mergeClass(a, b) {
+    if (!a)
+      return b;
+    if (!b)
+      return a;
+    if (typeof a === "string" && typeof b === "string") {
+      const aSplit = a.split(" ");
+      const bSplit = b.split(" ");
+      const classSet = /* @__PURE__ */ new Set([...aSplit, ...bSplit]);
+      return Array.from(classSet).join(" ").trim();
+    } else if (typeof a === "string" && Array.isArray(b)) {
+      const classSet = /* @__PURE__ */ new Set([...b, ...a.split(" ")]);
+      return Array.from(classSet).join(" ").trim();
+    } else if (Array.isArray(a) && typeof b === "string") {
+      const classSet = /* @__PURE__ */ new Set([...a, ...b.split(" ")]);
+      return Array.from(classSet).join(" ").trim();
+    } else if (Array.isArray(a) && Array.isArray(b)) {
+      const classSet = /* @__PURE__ */ new Set([...a, ...b]);
+      return Array.from(classSet).join(" ").trim();
+    } else if (typeof a === "string" && typeof b === "object") {
+      return { [a]: true, ...b };
+    } else if (typeof a === "object" && typeof b === "string") {
+      return { ...a, [b]: true };
+    } else if (typeof a === "object" && typeof b === "object") {
+      return { ...a, ...b };
+    } else if (typeof a === "object" && Array.isArray(b)) {
+      const aa = { ...a };
+      for (const item of b) {
+        aa[item] = true;
+      }
+      return aa;
+    } else if (Array.isArray(a) && typeof b === "object") {
+      const aa = {};
+      for (const item of a) {
+        aa[item] = true;
+      }
+      for (const bKey of Object.keys(b)) {
+        aa[bKey] = b[bKey];
+      }
+      return aa;
+    }
+    throw new Error(`cannot merge classes of ${a} (${typeof a}) and ${b} (${typeof b})`);
+  }
+
+  // src/state-context.js
+  var KeyStateContext = class {
+    state;
+    path;
+    keys;
+    constructor(state, path) {
+      this.state = state;
+      this.path = path;
+      this.keys = path.split(".");
+    }
+    get() {
+      const keys = this.keys;
+      let raw = this.state ? this.state[keys[0]] : void 0;
+      for (let i = 1; i < keys.length && !!raw; i++) {
+        raw = raw[keys[i]];
+      }
+      return raw;
+    }
+    put(value) {
+      this.putDeep(value, this.state);
+    }
+    patch(value) {
+      if (Array.isArray(value)) {
+        const animation = [];
+        for (const v of value) {
+          animation.push(this.createPatch(v));
+        }
+        this.state.patch(animation);
+      }
+      this.state.patch(this.createPatch(value));
+    }
+    createPatch(value) {
+      const renderPatch = {};
+      this.putDeep(value, renderPatch);
+      return renderPatch;
+    }
+    putDeep(value, target) {
+      const keys = this.keys;
+      if (keys.length > 1) {
+        let i = 0;
+        let raw = target[keys[i]];
+        if (typeof raw !== "object" || raw === null) {
+          target[keys[i]] = raw = {};
+        }
+        for (i = 1; i < keys.length - 1; i++) {
+          const p = raw;
+          raw = raw[keys[i]];
+          if (typeof raw !== "object" || raw === null) {
+            p[keys[i]] = raw = {};
+          }
+        }
+        raw[keys[i]] = value;
+      } else {
+        if (typeof target[keys[0]] === "object" && typeof value === "object")
+          Object.assign(target[keys[0]], value);
+        else
+          target[keys[0]] = value;
+      }
+    }
+  };
+  var DelegateStateContext = class {
+    state;
+    get;
+    put;
+    patch;
+    constructor(state, get, put, patch) {
+      this.state = state;
+      this.get = get;
+      this.put = put;
+      this.patch = patch;
+    }
+  };
   return __toCommonJS(index_exports);
 })();
