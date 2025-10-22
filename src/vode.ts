@@ -75,6 +75,8 @@ export const renderFunctions = {
     startViewTransition: !!document.startViewTransition ? document.startViewTransition.bind(document) : !!window.requestAnimationFrame ? window.requestAnimationFrame.bind(window) : ((cb: () => void) => cb()),
 };
 
+export let currentViewTransition: ViewTransition | null | undefined;
+
 export type ContainerNode<S = PatchableState> = HTMLElement & {
     /** the `_vode` property is added to the container in `app()`.
      * it contains all necessary stuff for the vode app to function.
@@ -88,8 +90,7 @@ export type ContainerNode<S = PatchableState> = HTMLElement & {
         syncRenderer: (cb: () => void) => void,
         asyncRenderer: (cb: () => void) => ViewTransition,
         qSync: {} | undefined | null,  // next patch aggregate to be applied
-        qAsync: Array<object>,  // next render-patches to be animated after another
-        qCurrentViewTransition: ViewTransition | null | undefined,
+        qAsync: {} | undefined | null,  // next render-patches to be animated after another
         isRendering: boolean,
         isAnimating: boolean,
         /** stats about the overall patches & last render time */
@@ -141,7 +142,7 @@ export function app<S = PatchableState>(container: Element, state: Omit<S, "patc
         ? document.startViewTransition.bind(document)
         : _vode.syncRenderer as any
     _vode.qSync = null;
-    _vode.qAsync = [];
+    _vode.qAsync = null;
     _vode.stats = { lastSyncRenderTime: 0, lastAsyncRenderTime: 0, syncRenderCount: 0, asyncRenderCount: 0, liveEffectCount: 0, patchCount: 0, syncRenderPatchCount: 0, asyncRenderPatchCount: 0 };
 
     Object.defineProperty(state, "patch", {
@@ -182,11 +183,9 @@ export function app<S = PatchableState>(container: Element, state: Omit<S, "patc
                         _vode.patch(p, true);
                     }
                 } else { //when [] is patched: 1. skip current animation 2. merge all queued async patches into synced queue
-                    for (const p of _vode.qAsync) {
-                        _vode.qSync = mergeState(_vode.qSync || {}, p, false);
-                    }
-                    _vode.qAsync = [];
-                    _vode.qCurrentViewTransition?.skipTransition();
+                    _vode.qSync = mergeState(_vode.qSync || {}, _vode.qAsync, false);
+                    _vode.qAsync = null;
+                    currentViewTransition?.skipTransition();
                     _vode.stats.syncRenderPatchCount++;
                     _vode.renderSync();
                 }
@@ -195,7 +194,7 @@ export function app<S = PatchableState>(container: Element, state: Omit<S, "patc
             } else {
                 if (isAsync) {
                     _vode.stats.asyncRenderPatchCount++;
-                    _vode.qAsync.push(mergeState(_vode.qAsync || {}, action, false));
+                    _vode.qAsync = mergeState(_vode.qAsync || {}, action, false);
                     await _vode.renderAsync();
                 } else {
                     _vode.stats.syncRenderPatchCount++;
@@ -205,6 +204,29 @@ export function app<S = PatchableState>(container: Element, state: Omit<S, "patc
             }
         }
     });
+
+    function renderDom(isAsync: boolean) {
+        const sw = Date.now();
+        const vom = dom(_vode.state);
+        _vode.vode = render(_vode.state, _vode.patch, container.parentElement as Element, 0, _vode.vode, vom)!;
+
+        if ((<ContainerNode<S>>container).tagName.toUpperCase() !== (vom[0] as Tag).toUpperCase()) { //the tag name was changed during render -> update reference to vode-app-root 
+            container = _vode.vode.node as Element;
+            (<ContainerNode<S>>container)._vode = _vode
+        }
+
+        if(isAsync){
+            _vode.stats.lastAsyncRenderTime = Date.now() - sw;
+            _vode.stats.asyncRenderCount++;
+        } else {
+            _vode.stats.lastSyncRenderTime = Date.now() - sw;
+            _vode.stats.syncRenderCount++;
+            _vode.isRendering = false;
+            if(_vode.qSync) _vode.renderSync();
+        }
+    }
+    const sr = renderDom.bind(null, false);
+    const ar = renderDom.bind(null, true);
 
     Object.defineProperty(_vode, "renderSync", {
         enumerable: false, configurable: true,
@@ -216,59 +238,29 @@ export function app<S = PatchableState>(container: Element, state: Omit<S, "patc
             _vode.state = mergeState(_vode.state, _vode.qSync, true);
             _vode.qSync = null;
 
-            _vode.syncRenderer(() => {
-                try {
-                    const sw = Date.now();
-                    const vom = dom(_vode.state);
-                    _vode.vode = render(_vode.state, _vode.patch, container.parentElement as Element, 0, _vode.vode, vom)!;
-
-                    if ((<ContainerNode<S>>container).tagName.toUpperCase() !== (vom[0] as Tag).toUpperCase()) { //the tag name was changed during render -> update reference to vode-app-root 
-                        container = _vode.vode.node as Element;
-                        (<ContainerNode<S>>container)._vode = _vode
-                    }
-
-                    _vode.stats.lastSyncRenderTime = Date.now() - sw;
-                    _vode.stats.syncRenderCount++;
-                } finally {
-                    _vode.isRendering = false;
-                    if (_vode.qSync) _vode.renderSync();
-                }
-            });
+            _vode.syncRenderer(sr);
         }
     });
 
     Object.defineProperty(_vode, "renderAsync", {
         enumerable: false, configurable: true,
         writable: false, value: async () => {
-            if (_vode.isAnimating || _vode.qAsync.length === 0) return;
+            if (_vode.isAnimating || !_vode.qAsync) return;
+            await currentViewTransition?.updateCallbackDone; //sandwich
+            if (_vode.isAnimating || !_vode.qAsync) return;
+
             _vode.isAnimating = true;
             try {
-                while (_vode.qAsync.length > 0) {
-                    for (const p of _vode.qAsync) {
-                        _vode.state = mergeState(_vode.state, p, false);
-                    }
-                    _vode.qAsync = [];
+                _vode.state = mergeState(_vode.state, _vode.qAsync, true);
+                _vode.qAsync = null;
 
-                    _vode.qCurrentViewTransition = (!!document.hidden ? _vode.syncRenderer : _vode.asyncRenderer)(() => {
-                        const sw = Date.now();
-                        const vom = dom(_vode.state);
-                        _vode.vode = render(_vode.state, _vode.patch, container.parentElement as Element, 0, _vode.vode, vom)!;
+                currentViewTransition = (!!document.hidden ? _vode.syncRenderer : _vode.asyncRenderer)(ar) as ViewTransition | undefined;
 
-                        if ((<ContainerNode<S>>container).tagName.toUpperCase() !== (vom[0] as Tag).toUpperCase()) { //the tag name was changed during render -> update reference to vode-app-root 
-                            container = _vode.vode.node as Element;
-                            (<ContainerNode<S>>container)._vode = _vode
-                        }
-
-                        _vode.stats.lastAsyncRenderTime = Date.now() - sw;
-                        _vode.stats.asyncRenderCount++;
-                    }) as ViewTransition | undefined;
-
-                    await _vode.qCurrentViewTransition?.updateCallbackDone;
-                }
+                await currentViewTransition?.updateCallbackDone;
             } finally {
-                _vode.qCurrentViewTransition = null;
                 _vode.isAnimating = false;
             }
+            if(_vode.qAsync) _vode.renderAsync();
         }
     });
 
