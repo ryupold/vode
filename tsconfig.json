@@ -24,7 +24,6 @@
   },
   "include": [
     "./index.ts",
-    "./src/vode.ts",
-    "./src/vode-tags.ts",
+    "./src/*.ts",
   ]
 }
