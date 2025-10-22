@@ -249,7 +249,7 @@ export function app<S = PatchableState>(container: Element, state: Omit<S, "patc
                     }
                     _vode.qAsync = [];
 
-                    _vode.qCurrentViewTransition = _vode.asyncRenderer(() => {
+                    _vode.qCurrentViewTransition = (!!document.hidden ? _vode.syncRenderer : _vode.asyncRenderer)(() => {
                         const sw = Date.now();
                         const vom = dom(_vode.state);
                         _vode.vode = render(_vode.state, _vode.patch, container.parentElement as Element, 0, _vode.vode, vom)!;
@@ -261,7 +261,7 @@ export function app<S = PatchableState>(container: Element, state: Omit<S, "patc
 
                         _vode.stats.lastAsyncRenderTime = Date.now() - sw;
                         _vode.stats.asyncRenderCount++;
-                    });
+                    }) as ViewTransition | undefined;
 
                     await _vode.qCurrentViewTransition?.updateCallbackDone;
                 }
