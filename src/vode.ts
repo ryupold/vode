@@ -1,8 +1,8 @@
-export type Vode<S> = FullVode<S> | JustTagVode | NoPropsVode<S>;
-export type FullVode<S> = [tag: Tag, props: Props<S>, ...children: ChildVode<S>[]];
-export type NoPropsVode<S> = [tag: Tag, ...children: ChildVode<S>[]] | (TextVode[]);
+export type Vode<S = PatchableState> = FullVode<S> | JustTagVode | NoPropsVode<S>;
+export type FullVode<S = PatchableState> = [tag: Tag, props: Props<S>, ...children: ChildVode<S>[]];
+export type NoPropsVode<S = PatchableState> = [tag: Tag, ...children: ChildVode<S>[]] | (TextVode[]);
 export type JustTagVode = [tag: Tag];
-export type ChildVode<S> = Vode<S> | TextVode | NoVode | Component<S>;
+export type ChildVode<S = PatchableState> = Vode<S> | TextVode | NoVode | Component<S>;
 export type TextVode = string & {};
 export type NoVode = undefined | null | number | boolean | bigint | void;
 export type AttachedVode<S> = Vode<S> & { node: ChildNode } | Text & { node?: never };
