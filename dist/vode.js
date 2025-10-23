@@ -231,19 +231,20 @@ var V = (() => {
     childrenStart: () => childrenStart,
     createPatch: () => createPatch,
     createState: () => createState,
+    globals: () => globals,
     hydrate: () => hydrate,
     memo: () => memo,
     mergeClass: () => mergeClass,
     props: () => props,
-    renderFunctions: () => renderFunctions,
     tag: () => tag,
     vode: () => vode
   });
 
   // src/vode.js
-  var renderFunctions = {
+  var globals = {
+    currentViewTransition: void 0,
     requestAnimationFrame: !!window.requestAnimationFrame ? window.requestAnimationFrame.bind(window) : ((cb) => cb()),
-    startViewTransition: !!document.startViewTransition ? document.startViewTransition.bind(document) : !!window.requestAnimationFrame ? window.requestAnimationFrame.bind(window) : ((cb) => cb())
+    startViewTransition: !!document.startViewTransition ? document.startViewTransition.bind(document) : null
   };
   function vode(tag2, props2, ...children2) {
     if (!tag2)
@@ -263,12 +264,16 @@ var V = (() => {
     if (typeof dom !== "function")
       throw new Error("third argument to app() must be a function that returns a vode");
     const _vode = {};
-    _vode.stats = { lastRenderTime: 0, renderCount: 0, liveEffectCount: 0, patchCount: 0, renderPatchCount: 0 };
+    _vode.syncRenderer = globals.requestAnimationFrame;
+    _vode.asyncRenderer = globals.startViewTransition;
+    _vode.qSync = null;
+    _vode.qAsync = null;
+    _vode.stats = { lastSyncRenderTime: 0, lastAsyncRenderTime: 0, syncRenderCount: 0, asyncRenderCount: 0, liveEffectCount: 0, patchCount: 0, syncRenderPatchCount: 0, asyncRenderPatchCount: 0 };
     Object.defineProperty(state, "patch", {
       enumerable: false,
       configurable: true,
       writable: false,
-      value: async (action, animate) => {
+      value: async (action, isAsync) => {
         if (!action || typeof action !== "function" && typeof action !== "object")
           return;
         _vode.stats.patchCount++;
@@ -280,13 +285,13 @@ var V = (() => {
             while (v.done === false) {
               _vode.stats.liveEffectCount++;
               try {
-                _vode.patch(v.value, animate);
+                _vode.patch(v.value, isAsync);
                 v = await generator.next();
               } finally {
                 _vode.stats.liveEffectCount--;
               }
             }
-            _vode.patch(v.value, animate);
+            _vode.patch(v.value, isAsync);
           } finally {
             _vode.stats.liveEffectCount--;
           }
@@ -294,78 +299,96 @@ var V = (() => {
           _vode.stats.liveEffectCount++;
           try {
             const nextState = await action;
-            _vode.patch(nextState, animate);
+            _vode.patch(nextState, isAsync);
           } finally {
             _vode.stats.liveEffectCount--;
           }
         } else if (Array.isArray(action)) {
-          _vode.stats.patchCount++;
-          for (const p of action) {
-            _vode.patch(p, true);
+          if (action.length > 0) {
+            for (const p of action) {
+              _vode.patch(p, !document.hidden && !!_vode.asyncRenderer);
+            }
+          } else {
+            _vode.qSync = mergeState(_vode.qSync || {}, _vode.qAsync, false);
+            _vode.qAsync = null;
+            globals.currentViewTransition?.skipTransition();
+            _vode.stats.syncRenderPatchCount++;
+            _vode.renderSync();
           }
         } else if (typeof action === "function") {
-          _vode.patch(action(_vode.state), animate);
+          _vode.patch(action(_vode.state), isAsync);
         } else {
-          _vode.stats.renderPatchCount++;
-          if (animate)
-            _vode.qAnimate = mergeState(_vode.qAnimate || {}, action, false);
-          else
-            _vode.q = mergeState(_vode.q || {}, action, false);
-          if (!_vode.isRendering)
-            await _vode.render(animate);
+          if (isAsync) {
+            _vode.stats.asyncRenderPatchCount++;
+            _vode.qAsync = mergeState(_vode.qAsync || {}, action, false);
+            await _vode.renderAsync();
+          } else {
+            _vode.stats.syncRenderPatchCount++;
+            _vode.qSync = mergeState(_vode.qSync || {}, action, false);
+            _vode.renderSync();
+          }
         }
       }
     });
-    Object.defineProperty(_vode, "render", {
+    function renderDom(isAsync) {
+      const sw = Date.now();
+      const vom = dom(_vode.state);
+      _vode.vode = render(_vode.state, _vode.patch, container.parentElement, 0, _vode.vode, vom);
+      if (container.tagName.toUpperCase() !== vom[0].toUpperCase()) {
+        container = _vode.vode.node;
+        container._vode = _vode;
+      }
+      if (!isAsync) {
+        _vode.stats.lastSyncRenderTime = Date.now() - sw;
+        _vode.stats.syncRenderCount++;
+        _vode.isRendering = false;
+        if (_vode.qSync)
+          _vode.renderSync();
+      }
+    }
+    const sr = renderDom.bind(null, false);
+    const ar = renderDom.bind(null, true);
+    Object.defineProperty(_vode, "renderSync", {
       enumerable: false,
       configurable: true,
       writable: false,
-      value: async (animate) => {
-        if (!animate && (_vode.isRendering || !_vode.q) || animate && (_vode.isAnimating || !_vode.qAnimate))
+      value: () => {
+        if (_vode.isRendering || !_vode.qSync)
           return;
-        if (animate)
-          _vode.isAnimating = true;
-        else
-          _vode.isRendering = true;
-        _vode.state = mergeState(_vode.state, animate ? _vode.qAnimate : _vode.q, true);
-        if (animate)
-          _vode.qAnimate = null;
-        else
-          _vode.q = null;
-        let sw = 0;
-        const task = (animate && !document.hidden ? renderFunctions.startViewTransition : renderFunctions.requestAnimationFrame)(() => {
-          try {
-            sw = Date.now();
-            const vom = dom(_vode.state);
-            _vode.vode = render(_vode.state, _vode.patch, container.parentElement, 0, _vode.vode, vom);
-            if (container.tagName.toUpperCase() !== vom[0].toUpperCase()) {
-              container = _vode.vode.node;
-              container._vode = _vode;
-            }
-            _vode.stats.lastRenderTime = Date.now() - sw;
-            _vode.stats.renderCount++;
-          } finally {
-            if (!animate) {
-              _vode.isRendering = false;
-              if (_vode.q)
-                _vode.render(animate);
-            }
-          }
-        });
-        if (animate) {
-          try {
-            await task?.finished;
-          } finally {
-            _vode.isAnimating = false;
-            if (_vode.qAnimate)
-              _vode.render(animate);
-          }
+        _vode.isRendering = true;
+        _vode.state = mergeState(_vode.state, _vode.qSync, true);
+        _vode.qSync = null;
+        _vode.syncRenderer(sr);
+      }
+    });
+    Object.defineProperty(_vode, "renderAsync", {
+      enumerable: false,
+      configurable: true,
+      writable: false,
+      value: async () => {
+        if (_vode.isAnimating || !_vode.qAsync)
+          return;
+        await globals.currentViewTransition?.updateCallbackDone;
+        if (_vode.isAnimating || !_vode.qAsync || document.hidden)
+          return;
+        _vode.isAnimating = true;
+        const sw = Date.now();
+        try {
+          _vode.state = mergeState(_vode.state, _vode.qAsync, true);
+          _vode.qAsync = null;
+          globals.currentViewTransition = _vode.asyncRenderer(ar);
+          await globals.currentViewTransition?.updateCallbackDone;
+        } finally {
+          _vode.stats.lastAsyncRenderTime = Date.now() - sw;
+          _vode.stats.asyncRenderCount++;
+          _vode.isAnimating = false;
         }
+        if (_vode.qAsync)
+          _vode.renderAsync();
       }
     });
     _vode.patch = state.patch;
     _vode.state = state;
-    _vode.q = null;
     const root = container;
     root._vode = _vode;
     _vode.vode = render(state, _vode.patch, container.parentElement, Array.from(container.parentElement.children).indexOf(container), hydrate(container, true), dom(state));
@@ -935,48 +958,57 @@ var V = (() => {
   var SEMANTICS = "semantics";
 
   // src/merge-class.js
-  function mergeClass(a, b) {
-    if (!a)
-      return b;
-    if (!b)
-      return a;
-    if (typeof a === "string" && typeof b === "string") {
-      const aSplit = a.split(" ");
-      const bSplit = b.split(" ");
-      const classSet = /* @__PURE__ */ new Set([...aSplit, ...bSplit]);
-      return Array.from(classSet).join(" ").trim();
-    } else if (typeof a === "string" && Array.isArray(b)) {
-      const classSet = /* @__PURE__ */ new Set([...b, ...a.split(" ")]);
-      return Array.from(classSet).join(" ").trim();
-    } else if (Array.isArray(a) && typeof b === "string") {
-      const classSet = /* @__PURE__ */ new Set([...a, ...b.split(" ")]);
-      return Array.from(classSet).join(" ").trim();
-    } else if (Array.isArray(a) && Array.isArray(b)) {
-      const classSet = /* @__PURE__ */ new Set([...a, ...b]);
-      return Array.from(classSet).join(" ").trim();
-    } else if (typeof a === "string" && typeof b === "object") {
-      return { [a]: true, ...b };
-    } else if (typeof a === "object" && typeof b === "string") {
-      return { ...a, [b]: true };
-    } else if (typeof a === "object" && typeof b === "object") {
-      return { ...a, ...b };
-    } else if (typeof a === "object" && Array.isArray(b)) {
-      const aa = { ...a };
-      for (const item of b) {
-        aa[item] = true;
-      }
-      return aa;
-    } else if (Array.isArray(a) && typeof b === "object") {
-      const aa = {};
-      for (const item of a) {
-        aa[item] = true;
-      }
-      for (const bKey of Object.keys(b)) {
-        aa[bKey] = b[bKey];
-      }
-      return aa;
+  function mergeClass(...classes) {
+    if (!classes || classes.length === 0)
+      return null;
+    if (classes.length === 1)
+      return classes[0];
+    let finalClass = classes[0];
+    for (let index = 1; index < classes.length; index++) {
+      const a = finalClass, b = classes[index];
+      if (!a) {
+        finalClass = b;
+      } else if (!b) {
+        continue;
+      } else if (typeof a === "string" && typeof b === "string") {
+        const aSplit = a.split(" ");
+        const bSplit = b.split(" ");
+        const classSet = /* @__PURE__ */ new Set([...aSplit, ...bSplit]);
+        finalClass = Array.from(classSet).join(" ").trim();
+      } else if (typeof a === "string" && Array.isArray(b)) {
+        const classSet = /* @__PURE__ */ new Set([...b, ...a.split(" ")]);
+        finalClass = Array.from(classSet).join(" ").trim();
+      } else if (Array.isArray(a) && typeof b === "string") {
+        const classSet = /* @__PURE__ */ new Set([...a, ...b.split(" ")]);
+        finalClass = Array.from(classSet).join(" ").trim();
+      } else if (Array.isArray(a) && Array.isArray(b)) {
+        const classSet = /* @__PURE__ */ new Set([...a, ...b]);
+        finalClass = Array.from(classSet).join(" ").trim();
+      } else if (typeof a === "string" && typeof b === "object") {
+        finalClass = { [a]: true, ...b };
+      } else if (typeof a === "object" && typeof b === "string") {
+        finalClass = { ...a, [b]: true };
+      } else if (typeof a === "object" && typeof b === "object") {
+        finalClass = { ...a, ...b };
+      } else if (typeof a === "object" && Array.isArray(b)) {
+        const aa = { ...a };
+        for (const item of b) {
+          aa[item] = true;
+        }
+        finalClass = aa;
+      } else if (Array.isArray(a) && typeof b === "object") {
+        const aa = {};
+        for (const item of a) {
+          aa[item] = true;
+        }
+        for (const bKey of Object.keys(b)) {
+          aa[bKey] = b[bKey];
+        }
+        finalClass = aa;
+      } else
+        throw new Error(`cannot merge classes of ${a} (${typeof a}) and ${b} (${typeof b})`);
     }
-    throw new Error(`cannot merge classes of ${a} (${typeof a}) and ${b} (${typeof b})`);
+    return finalClass;
   }
 
   // src/state-context.js
