@@ -1,4 +1,4 @@
-// src/vode.js
+// src/vode.ts
 var globals = {
   currentViewTransition: undefined,
   requestAnimationFrame: window.requestAnimationFrame ? window.requestAnimationFrame.bind(window) : (cb) => cb(),
@@ -511,7 +511,7 @@ function classString(classProp) {
   else
     return "";
 }
-// src/vode-tags.js
+// src/vode-tags.ts
 var A = "a";
 var ABBR = "abbr";
 var ADDRESS = "address";
@@ -713,7 +713,7 @@ var MTR = "mtr";
 var MUNDER = "munder";
 var MUNDEROVER = "munderover";
 var SEMANTICS = "semantics";
-// src/merge-class.js
+// src/merge-class.ts
 function mergeClass(...classes) {
   if (!classes || classes.length === 0)
     return null;
@@ -766,7 +766,7 @@ function mergeClass(...classes) {
   }
   return finalClass;
 }
-// src/state-context.js
+// src/state-context.ts
 class KeyStateContext {
   state;
   path;
@@ -794,8 +794,9 @@ class KeyStateContext {
         animation.push(this.createPatch(v));
       }
       this.state.patch(animation);
+    } else {
+      this.state.patch(this.createPatch(value));
     }
-    this.state.patch(this.createPatch(value));
   }
   createPatch(value) {
     const renderPatch = {};

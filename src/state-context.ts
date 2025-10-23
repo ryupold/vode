@@ -104,7 +104,7 @@ export interface SubStateContext<SubState> {
  * app(element, state, (s) => [DIV]);
  * 
  * // Create a context for the nested settings
- * const settingsCtx = new StateContext(state, 'user.profile.settings');
+ * const settingsCtx = new KeyStateContext(state, 'user.profile.settings');
  * 
  * // Read current value
  * const settings = settingsCtx.get(); // { theme: 'dark', lang: 'en' }
@@ -147,12 +147,14 @@ export class KeyStateContext<S extends PatchableState, SubState>
     patch(value: SubState | DeepPartial<SubState> | Array<DeepPartial<SubState>> | undefined | null) {
         if (Array.isArray(value)) {
             const animation: AnimatedPatch<S> = [];
-            for(const v of value){
+            for (const v of value) {
                 animation.push(this.createPatch(v));
             }
             this.state.patch(animation);
         }
-        this.state.patch(this.createPatch(value as DeepPartial<SubState>));
+        else {
+            this.state.patch(this.createPatch(value as DeepPartial<SubState>));
+        }
     }
 
     /**
@@ -160,7 +162,7 @@ export class KeyStateContext<S extends PatchableState, SubState>
      * 
      * @example
      * ```typescript
-     * const ctx = new StateContext(state, 'user.profile.settings');
+     * const ctx = new KeyStateContext(state, 'user.profile.settings');
      * const patch = ctx.createPatch({ theme: 'light' });
      * // patch is { user: { profile: { settings: { theme: 'light' } } } }
      * ```
