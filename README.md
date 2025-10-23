@@ -400,14 +400,15 @@ const ComponentEwww = (s) => {
     return [DIV, s.loading ? [PROGRESS] : s.title];
 }
 
-// ✨ patch with a render via view transition
+// ✨ experimental view transitions support ✨
+// patch with a render via view transition
 s.patch([{}, (s) => {/*...*/}]); //all given patches will be part of a view transition
 
-// ✖️ empty array patches command to skip the current view transition
+// empty array patches command to skip the current view transition
 // and set the queued animated patches until now as current state with a sync patch
 s.patch([]);
 
-// ❗✨ skip current view transition and start this view transition instead
+// skip current view transition and start this view transition instead
 s.patch([[], { loading: true }]);
 ```
 
@@ -538,6 +539,24 @@ export function IsolatedVodeApp<OuterState, InnerState>(
 The memo with empty dependency array prevents further render calls from the outer app
 so rendering of the subtree inside is controlled by the inner app.
 Take note of the fact that the top-level element of the inner app refers to the surrounding element and will change its state accordingly.
+
+#### view transitions
+The library has experimental support for [View Transitions API](https://developer.mozilla.org/en-US/docs/Web/API/View_Transition_API).
+You can pass an array of patches to the `patch` function where each patch will be applied with the next available view transition.
+
+Patching an empty array `[]` will skip the current view transition and set the queued animated patches until now as current state with a sync patch. 
+> Keep in mind that view transitions are not supported in all browsers yet and only one active transition can happen at a time. This feature may change significantly in the future, so do not rely on it heavily.
+
+Scheduling behaviour can in theory be overridden with `containerNode._vode.asyncRenderer`.
+
+```js
+// or globally disable view transitions for the vode framework
+import { globals } from '@ryupold/vode';
+globals.startViewTransition = null;
+
+// set to disable view transitions for specific vode-app
+containerNode._vode.asyncRenderer = null;
+```
 
 ### performance
 
