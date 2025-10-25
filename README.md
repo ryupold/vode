@@ -511,6 +511,65 @@ const CompMathML = (s) =>
 
 ### advanced usage
 
+#### state context
+
+The state context utilities can help creating shareable type safe components.
+
+```typescript
+
+type Settings = { theme: string, lang: string };
+type StateType = {
+    user: {
+        profile: { settings: Settings }
+    }
+};
+
+const state = createState<StateType>({
+    user: {
+        profile: {
+            settings: { theme: 'dark', lang: 'en' }
+        }
+    }
+});
+
+// Create a context for the nested settings
+const settingsCtx = new KeyStateContext<typeof state, Settings>(state, 'user.profile.settings');
+
+const element = document.getElementById('app')!;
+app(element, state,
+    (s) => [DIV,
+        [H1, "Settings"],
+        SettingsForm(settingsCtx),
+    ]
+);
+
+function SettingsForm(ctx: SubStateContext<Settings>) {
+    const settings = ctx.get()!; // { theme: 'dark', lang: 'en' }
+
+    return <Vode>[FORM,
+        [P, "current theme:", settings.theme],
+        [SELECT,
+            {
+                class: 'theme-select',
+                onchange: (s: PatchableState, e: Event) => ctx.patch({ theme: (<HTMLSelectElement>e.target).value }),
+            },
+            [OPTION, { value: 'light', selected: settings.theme === 'light' ? '' : null }, 'light'],
+            [OPTION, { value: 'dark', selected: settings.theme === 'dark' ? '' : null }, 'dark'],
+        ],
+        [P, "current lang:", settings.lang],
+        [SELECT, {
+            class: 'lang-select',
+            onchange: (s: PatchableState, e: Event) => ctx.patch({ lang: (<HTMLSelectElement>e.target).value }),
+        },
+            [OPTION, { value: 'en', selected: settings.lang === 'en' ? '' : null }, 'en'],
+            [OPTION, { value: 'de', selected: settings.lang === 'de' ? '' : null }, 'de'],
+            [OPTION, { value: 'es', selected: settings.lang === 'es' ? '' : null }, 'es'],
+            [OPTION, { value: 'fr', selected: settings.lang === 'fr' ? '' : null }, 'fr'],
+        ],
+    ];
+}
+```
+
 #### isolated state
 You can have multiple isolated vode app instances on a page, each with its own state and render function.
 The returned patch function from `app` can be used to synchronize the state between them.
@@ -574,13 +633,19 @@ console.log(appNode._vode.stats);
     // number of patches applied to the state overall
     patchCount: 100,
     // number of render-patches (objects) overall
-    renderPatchCount: 50,
+    syncRenderPatchCount: 55,
+    // number of view transition render-patches (arrays) overall
+    asyncRenderPatchCount: 3,
     // number of renders performed overall
-    renderCount: 40,
-    // number of active (async) running patches (effects)
-    liveEffectCount: 0,
+    syncRenderCount: 43,
+    // number of renders performed overall
+    asyncRenderCount: 2,
     // time the last render took in milliseconds
-    lastRenderTime: 1,
+    lastSyncRenderTime: 2,
+    // time the last view transition took in milliseconds
+    lastAsyncRenderTime: 21,
+    // number of active async running effects (function based patches)
+    liveEffectCount: 0,
 }
 ```
 
