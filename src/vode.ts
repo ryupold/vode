@@ -385,7 +385,12 @@ export function child<S = PatchableState>(vode: Vode<S>, index: number): ChildVo
 
 /** index in vode at which child-vodes start */
 export function childrenStart<S = PatchableState>(vode: ChildVode<S> | AttachedVode<S>): number {
-    return props(vode) ? 2 : 1;
+    if (Array.isArray(vode) && vode.length > 0) {
+        if (!!vode[1] && !Array.isArray(vode[1]) && typeof vode[1] === "object") 
+            return 2;
+        else return 1;
+    }
+    else return 0;
 }
 
 function mergeState(target: any, source: any, allowDeletion: boolean) {
