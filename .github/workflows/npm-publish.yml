@@ -21,7 +21,14 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - run: npm ci
       - run: bun run release
-      - run: npm publish --access public
+      - run: |
+          npm publish --access public | grep "📦  @ryupold/vode@" > version.txt
+          NEWVERSION=$(cat version.txt)
+          if [[ $NEWVERSION == *"vode"* ]]; then
+            echo "...success: $NEWVERSION"
+          else
+            echo "...failed to publish"
+          fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - uses: actions/setup-node@v6
