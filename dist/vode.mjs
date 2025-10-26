@@ -234,7 +234,13 @@ function child(vode2, index) {
   return vode2[index + childrenStart(vode2)];
 }
 function childrenStart(vode2) {
-  return props(vode2) ? 2 : 1;
+  if (Array.isArray(vode2) && vode2.length > 0) {
+    if (!!vode2[1] && !Array.isArray(vode2[1]) && typeof vode2[1] === "object")
+      return 2;
+    else
+      return 1;
+  } else
+    return 0;
 }
 function mergeState(target, source, allowDeletion) {
   if (!source)
