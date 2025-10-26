@@ -240,22 +240,29 @@ var V = (() => {
     vode: () => vode
   });
 
-  // src/vode.ts
+  // src/vode.js
   var globals = {
     currentViewTransition: void 0,
     requestAnimationFrame: !!window.requestAnimationFrame ? window.requestAnimationFrame.bind(window) : ((cb) => cb()),
     startViewTransition: !!document.startViewTransition ? document.startViewTransition.bind(document) : null
   };
   function vode(tag2, props2, ...children2) {
-    if (!tag2) throw new Error("first argument to vode() must be a tag name or a vode");
-    if (Array.isArray(tag2)) return tag2;
-    else if (props2) return [tag2, props2, ...children2];
-    else return [tag2, ...children2];
+    if (!tag2)
+      throw new Error("first argument to vode() must be a tag name or a vode");
+    if (Array.isArray(tag2))
+      return tag2;
+    else if (props2)
+      return [tag2, props2, ...children2];
+    else
+      return [tag2, ...children2];
   }
   function app(container, state, dom, ...initialPatches) {
-    if (!container?.parentElement) throw new Error("first argument to app() must be a valid HTMLElement inside the <html></html> document");
-    if (!state || typeof state !== "object") throw new Error("second argument to app() must be a state object");
-    if (typeof dom !== "function") throw new Error("third argument to app() must be a function that returns a vode");
+    if (!container?.parentElement)
+      throw new Error("first argument to app() must be a valid HTMLElement inside the <html></html> document");
+    if (!state || typeof state !== "object")
+      throw new Error("second argument to app() must be a state object");
+    if (typeof dom !== "function")
+      throw new Error("third argument to app() must be a function that returns a vode");
     const _vode = {};
     _vode.syncRenderer = globals.requestAnimationFrame;
     _vode.asyncRenderer = globals.startViewTransition;
@@ -267,7 +274,8 @@ var V = (() => {
       configurable: true,
       writable: false,
       value: async (action, isAsync) => {
-        if (!action || typeof action !== "function" && typeof action !== "object") return;
+        if (!action || typeof action !== "function" && typeof action !== "object")
+          return;
         _vode.stats.patchCount++;
         if (action?.next) {
           const generator = action;
@@ -334,7 +342,8 @@ var V = (() => {
         _vode.stats.lastSyncRenderTime = Date.now() - sw;
         _vode.stats.syncRenderCount++;
         _vode.isRendering = false;
-        if (_vode.qSync) _vode.renderSync();
+        if (_vode.qSync)
+          _vode.renderSync();
       }
     }
     const sr = renderDom.bind(null, false);
@@ -344,7 +353,8 @@ var V = (() => {
       configurable: true,
       writable: false,
       value: () => {
-        if (_vode.isRendering || !_vode.qSync) return;
+        if (_vode.isRendering || !_vode.qSync)
+          return;
         _vode.isRendering = true;
         _vode.state = mergeState(_vode.state, _vode.qSync, true);
         _vode.qSync = null;
@@ -356,9 +366,11 @@ var V = (() => {
       configurable: true,
       writable: false,
       value: async () => {
-        if (_vode.isAnimating || !_vode.qAsync) return;
+        if (_vode.isAnimating || !_vode.qAsync)
+          return;
         await globals.currentViewTransition?.updateCallbackDone;
-        if (_vode.isAnimating || !_vode.qAsync || document.hidden) return;
+        if (_vode.isAnimating || !_vode.qAsync || document.hidden)
+          return;
         _vode.isAnimating = true;
         const sw = Date.now();
         try {
@@ -371,21 +383,15 @@ var V = (() => {
           _vode.stats.asyncRenderCount++;
           _vode.isAnimating = false;
         }
-        if (_vode.qAsync) _vode.renderAsync();
+        if (_vode.qAsync)
+          _vode.renderAsync();
       }
     });
     _vode.patch = state.patch;
     _vode.state = state;
     const root = container;
     root._vode = _vode;
-    _vode.vode = render(
-      state,
-      _vode.patch,
-      container.parentElement,
-      Array.from(container.parentElement.children).indexOf(container),
-      hydrate(container, true),
-      dom(state)
-    );
+    _vode.vode = render(state, _vode.patch, container.parentElement, Array.from(container.parentElement.children).indexOf(container), hydrate(container, true), dom(state));
     for (const effect of initialPatches) {
       _vode.patch(effect);
     }
@@ -401,7 +407,8 @@ var V = (() => {
     } else if (element.nodeType === Node.ELEMENT_NODE) {
       const tag2 = element.tagName.toLowerCase();
       const root = [tag2];
-      if (prepareForRender) root.node = element;
+      if (prepareForRender)
+        root.node = element;
       if (element?.hasAttributes()) {
         const props2 = {};
         const attr = element.attributes;
@@ -414,8 +421,10 @@ var V = (() => {
         const remove = [];
         for (let child2 of element.childNodes) {
           const wet = child2 && hydrate(child2, prepareForRender);
-          if (wet) root.push(wet);
-          else if (child2 && prepareForRender) remove.push(child2);
+          if (wet)
+            root.push(wet);
+          else if (child2 && prepareForRender)
+            remove.push(child2);
         }
         for (let child2 of remove) {
           child2.remove();
@@ -427,13 +436,16 @@ var V = (() => {
     }
   }
   function memo(compare, componentOrProps) {
-    if (!compare || !Array.isArray(compare)) throw new Error("first argument to memo() must be an array of values to compare");
-    if (typeof componentOrProps !== "function") throw new Error("second argument to memo() must be a function that returns a vode or props object");
+    if (!compare || !Array.isArray(compare))
+      throw new Error("first argument to memo() must be an array of values to compare");
+    if (typeof componentOrProps !== "function")
+      throw new Error("second argument to memo() must be a function that returns a vode or props object");
     componentOrProps.__memo = compare;
     return componentOrProps;
   }
   function createState(state) {
-    if (!state || typeof state !== "object") throw new Error("createState() must be called with a state object");
+    if (!state || typeof state !== "object")
+      throw new Error("createState() must be called with a state object");
     return state;
   }
   function createPatch(p) {
@@ -458,20 +470,24 @@ var V = (() => {
     return null;
   }
   function childCount(vode2) {
-    return vode2.length - childrenStart(vode2);
+    const start = childrenStart(vode2);
+    if (start < 0)
+      return 0;
+    return vode2.length - start;
   }
   function child(vode2, index) {
-    return vode2[index + childrenStart(vode2)];
+    const start = childrenStart(vode2);
+    if (start > 0)
+      return vode2[index + start];
+    else
+      return void 0;
   }
   function childrenStart(vode2) {
-    if (Array.isArray(vode2) && vode2.length > 0) {
-      if (!!vode2[1] && !Array.isArray(vode2[1]) && typeof vode2[1] === "object")
-        return 2;
-      else return 1;
-    } else return 0;
+    return props(vode2) ? vode2.length > 2 ? 2 : -1 : Array.isArray(vode2) && vode2.length > 1 ? 1 : -1;
   }
   function mergeState(target, source, allowDeletion) {
-    if (!source) return target;
+    if (!source)
+      return target;
     for (const key in source) {
       const value = source[key];
       if (value && typeof value === "object") {
@@ -482,9 +498,12 @@ var V = (() => {
           } else if (value instanceof Date && targetValue !== value) {
             target[key] = new Date(value);
           } else {
-            if (Array.isArray(targetValue)) target[key] = mergeState({}, value, allowDeletion);
-            else if (typeof targetValue === "object") mergeState(target[key], value, allowDeletion);
-            else target[key] = mergeState({}, value, allowDeletion);
+            if (Array.isArray(targetValue))
+              target[key] = mergeState({}, value, allowDeletion);
+            else if (typeof targetValue === "object")
+              mergeState(target[key], value, allowDeletion);
+            else
+              target[key] = mergeState({}, value, allowDeletion);
           }
         } else if (Array.isArray(value)) {
           target[key] = [...value];
@@ -640,7 +659,8 @@ var V = (() => {
           break;
         }
       }
-      if (same) return past;
+      if (same)
+        return past;
     }
     const newRender = unwrap(present, state);
     if (typeof newRender === "object") {
@@ -656,14 +676,17 @@ var V = (() => {
     }
   }
   function patchProperties(s, patch, node, oldProps, newProps) {
-    if (!newProps && !oldProps) return;
+    if (!newProps && !oldProps)
+      return;
     if (oldProps) {
       for (const key in oldProps) {
         const oldValue = oldProps[key];
         const newValue = newProps?.[key];
         if (oldValue !== newValue) {
-          if (newProps) newProps[key] = patchProperty(s, patch, node, key, oldValue, newValue);
-          else patchProperty(s, patch, node, key, oldValue, void 0);
+          if (newProps)
+            newProps[key] = patchProperty(s, patch, node, key, oldValue, newValue);
+          else
+            patchProperty(s, patch, node, key, oldValue, void 0);
         }
       }
     }
@@ -686,7 +709,8 @@ var V = (() => {
       if (!newValue) {
         node.style.cssText = "";
       } else if (typeof newValue === "string") {
-        if (oldValue !== newValue) node.style.cssText = newValue;
+        if (oldValue !== newValue)
+          node.style.cssText = newValue;
       } else if (oldValue && typeof oldValue === "object") {
         for (let k in { ...oldValue, ...newValue }) {
           if (!oldValue || newValue[k] !== oldValue[k]) {
@@ -737,7 +761,7 @@ var V = (() => {
       return "";
   }
 
-  // src/vode-tags.ts
+  // src/vode-tags.js
   var A = "a";
   var ABBR = "abbr";
   var ADDRESS = "address";
@@ -940,10 +964,12 @@ var V = (() => {
   var MUNDEROVER = "munderover";
   var SEMANTICS = "semantics";
 
-  // src/merge-class.ts
+  // src/merge-class.js
   function mergeClass(...classes) {
-    if (!classes || classes.length === 0) return null;
-    if (classes.length === 1) return classes[0];
+    if (!classes || classes.length === 0)
+      return null;
+    if (classes.length === 1)
+      return classes[0];
     let finalClass = classes[0];
     for (let index = 1; index < classes.length; index++) {
       const a = finalClass, b = classes[index];
@@ -986,19 +1012,22 @@ var V = (() => {
           aa[bKey] = b[bKey];
         }
         finalClass = aa;
-      } else throw new Error(`cannot merge classes of ${a} (${typeof a}) and ${b} (${typeof b})`);
+      } else
+        throw new Error(`cannot merge classes of ${a} (${typeof a}) and ${b} (${typeof b})`);
     }
     return finalClass;
   }
 
-  // src/state-context.ts
+  // src/state-context.js
   var KeyStateContext = class {
+    state;
+    path;
+    keys;
     constructor(state, path) {
       this.state = state;
       this.path = path;
       this.keys = path.split(".");
     }
-    keys;
     get() {
       const keys = this.keys;
       let raw = this.state ? this.state[keys[0]] : void 0;
@@ -1021,19 +1050,6 @@ var V = (() => {
         this.state.patch(this.createPatch(value));
       }
     }
-    /**
-     * Creates a render-patch for the parent state by setting a nested sub-state value while creating necessary structure. 
-     * 
-     * @example
-     * ```typescript
-     * const ctx = new KeyStateContext(state, 'user.profile.settings');
-     * const patch = ctx.createPatch({ theme: 'light' });
-     * // patch is { user: { profile: { settings: { theme: 'light' } } } }
-     * ```
-     * 
-     * @param value 
-     * @returns {{key-path}:{...: value}} render-patch for the parent state
-     */
     createPatch(value) {
       const renderPatch = {};
       this.putDeep(value, renderPatch);
@@ -1064,6 +1080,10 @@ var V = (() => {
     }
   };
   var DelegateStateContext = class {
+    state;
+    get;
+    put;
+    patch;
     constructor(state, get, put, patch) {
       this.state = state;
       this.get = get;

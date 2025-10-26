@@ -1,4 +1,4 @@
-// src/vode.ts
+// src/vode.js
 var globals = {
   currentViewTransition: undefined,
   requestAnimationFrame: window.requestAnimationFrame ? window.requestAnimationFrame.bind(window) : (cb) => cb(),
@@ -228,19 +228,20 @@ function children(vode2) {
   return null;
 }
 function childCount(vode2) {
-  return vode2.length - childrenStart(vode2);
+  const start = childrenStart(vode2);
+  if (start < 0)
+    return 0;
+  return vode2.length - start;
 }
 function child(vode2, index) {
-  return vode2[index + childrenStart(vode2)];
+  const start = childrenStart(vode2);
+  if (start > 0)
+    return vode2[index + start];
+  else
+    return;
 }
 function childrenStart(vode2) {
-  if (Array.isArray(vode2) && vode2.length > 0) {
-    if (!!vode2[1] && !Array.isArray(vode2[1]) && typeof vode2[1] === "object")
-      return 2;
-    else
-      return 1;
-  } else
-    return 0;
+  return props(vode2) ? vode2.length > 2 ? 2 : -1 : Array.isArray(vode2) && vode2.length > 1 ? 1 : -1;
 }
 function mergeState(target, source, allowDeletion) {
   if (!source)
@@ -517,7 +518,7 @@ function classString(classProp) {
   else
     return "";
 }
-// src/vode-tags.ts
+// src/vode-tags.js
 var A = "a";
 var ABBR = "abbr";
 var ADDRESS = "address";
@@ -719,7 +720,7 @@ var MTR = "mtr";
 var MUNDER = "munder";
 var MUNDEROVER = "munderover";
 var SEMANTICS = "semantics";
-// src/merge-class.ts
+// src/merge-class.js
 function mergeClass(...classes) {
   if (!classes || classes.length === 0)
     return null;
@@ -772,7 +773,7 @@ function mergeClass(...classes) {
   }
   return finalClass;
 }
-// src/state-context.ts
+// src/state-context.js
 class KeyStateContext {
   state;
   path;
