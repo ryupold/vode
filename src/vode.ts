@@ -373,24 +373,24 @@ export function children<S = PatchableState>(vode: ChildVode<S> | AttachedVode<S
     if (start > 0) {
         return (<Vode<S>>vode).slice(start) as Vode<S>[];
     }
-
     return null;
 }
 
-export function childCount<S = PatchableState>(vode: Vode<S>) { return vode.length - childrenStart(vode); }
+export function childCount<S = PatchableState>(vode: Vode<S>) {
+    const start = childrenStart(vode);
+    if (start < 0) return 0;
+    return vode.length - start;
+}
 
 export function child<S = PatchableState>(vode: Vode<S>, index: number): ChildVode<S> | undefined {
-    return vode[index + childrenStart(vode)] as ChildVode<S>;
+    const start = childrenStart(vode);
+    if (start > 0) return vode[index + start] as ChildVode<S>;
+    else return undefined;
 }
 
 /** index in vode at which child-vodes start */
-export function childrenStart<S = PatchableState>(vode: ChildVode<S> | AttachedVode<S>): number {
-    if (Array.isArray(vode) && vode.length > 0) {
-        if (!!vode[1] && !Array.isArray(vode[1]) && typeof vode[1] === "object") 
-            return 2;
-        else return 1;
-    }
-    else return 0;
+export function childrenStart<S = PatchableState>(vode: ChildVode<S> | AttachedVode<S>): 1 | 2 | -1 {
+    return props(vode) ? (<Vode>vode).length > 2 ? 2 : -1 : (Array.isArray(vode) && vode.length > 1 ? 1 : -1);
 }
 
 function mergeState(target: any, source: any, allowDeletion: boolean) {
