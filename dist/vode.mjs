@@ -383,7 +383,8 @@ function render(state, patch, parent, childIndex, oldVode, newVode, xmlns) {
       }
     }
     if (oldKids) {
-      for (let i = newKids?.length || 0;i < oldKids.length; i++) {
+      const newKidsCount = newKids ? newKids.length : 0;
+      for (let i = oldKids.length - 1;i >= newKidsCount; i--) {
         render(state, patch, oldNode, i, oldKids[i], undefined, xmlns);
       }
     }
