@@ -22,7 +22,7 @@ jobs:
       - run: npm ci
       - run: bun run release
       - run: |
-          (npm publish --access public 2> /dev/null) | grep "📦  @ryupold/vode@" > version.txt
+          (npm publish --access public 2> /dev/null) | grep "📦  @ryupold/vode@" > version.txt || echo "...failed to publish"
           NEWVERSION=$(cat version.txt)
           if [[ $NEWVERSION == *"vode"* ]]; then
             echo "...success: $NEWVERSION"
