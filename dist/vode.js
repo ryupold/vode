@@ -623,18 +623,11 @@ var V = (() => {
             newVode[hasProps ? i + 2 : i + 1] = attached;
           }
         }
-        for (let i = newKids.length; oldKids && i < oldKids.length; i++) {
-          if (oldKids[i]?.node)
-            oldKids[i].node.remove();
-          else if (oldKids[i]?.nodeType === Node.TEXT_NODE)
-            oldKids[i].remove();
-        }
       }
-      for (let i = newKids?.length || 0; i < oldKids?.length || 0; i++) {
-        if (oldKids[i]?.node)
-          oldKids[i].node.remove();
-        else if (oldKids[i]?.nodeType === Node.TEXT_NODE)
-          oldKids[i].remove();
+      if (oldKids) {
+        for (let i = newKids?.length || 0; i < oldKids.length; i++) {
+          render(state, patch, oldNode, i, oldKids[i], void 0, xmlns);
+        }
       }
       return newVode;
     }

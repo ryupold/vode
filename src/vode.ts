@@ -562,20 +562,14 @@ function render<S>(state: S, patch: Dispatch<S>, parent: Element, childIndex: nu
                     (<Vode<S>>newVode)[hasProps ? i + 2 : i + 1] = <Vode<S>>attached;
                 }
             }
-            for (let i = newKids.length; oldKids && i < oldKids.length; i++) {
-                if (oldKids[i]?.node)
-                    oldKids[i].node!.remove();
-                else if ((oldKids[i] as Text)?.nodeType === Node.TEXT_NODE)
-                    (oldKids[i] as Text).remove();
+        }
+
+        if (oldKids) {
+            for (let i = newKids?.length || 0; i < oldKids.length; i++) {
+                render(state, patch, oldNode as Element, i, oldKids[i], undefined, xmlns);
             }
         }
 
-        for (let i = newKids?.length || 0; i < oldKids?.length || 0; i++) {
-            if (oldKids[i]?.node)
-                oldKids[i].node!.remove();
-            else if ((oldKids[i] as Text)?.nodeType === Node.TEXT_NODE)
-                (oldKids[i] as Text).remove();
-        }
         return <AttachedVode<S>>newVode;
     }
 
