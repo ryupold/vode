@@ -24,9 +24,9 @@ jobs:
       - run: npm ci
       - run: bun run release
       - run: |
-          (npm publish --access public 2> /dev/null) | grep "previously published versions" > version.txt || echo "...done"
+          ((npm publish --access public 2> /dev/null) | grep "@ryupold/vode@" > version.txt) || echo "...done"
           NEWVERSION=$(cat version.txt)
-          if [[ $NEWVERSION == *"previously published versions"* ]]; then
+          if [[ $NEWVERSION == *"npm error 409 Conflict"* || $NEWVERSION == *"@ryupold/vode@"* ]]; then
             echo "...success: $NEWVERSION"
           else
             echo "...failed to publish"
