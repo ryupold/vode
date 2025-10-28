@@ -180,7 +180,7 @@ export function app<S = PatchableState>(container: Element, state: Omit<S, "patc
                 } else { //when [] is patched: 1. skip current animation 2. merge all queued async patches into synced queue
                     _vode.qSync = mergeState(_vode.qSync || {}, _vode.qAsync, false);
                     _vode.qAsync = null;
-                    globals.currentViewTransition?.skipTransition();
+                    try { globals.currentViewTransition?.skipTransition(); } catch { }
                     _vode.stats.syncRenderPatchCount++;
                     _vode.renderSync();
                 }

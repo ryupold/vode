@@ -651,7 +651,7 @@ console.log(appNode._vode.stats);
 
 The library is optimized for small to medium sized applications. In my own tests it could easily handle sites with tens of thousands of elements. Smart usage of `memo` can help to optimize performance further. You can find a comparison of the performance with other libraries [here](https://krausest.github.io/js-framework-benchmark/current.html).
 
-This being said, the library does not focus on performance. It is designed to feel nice while coding, by providing a primitive that is simple to bent & form. I want the mental model to be easy to grasp and the API surface to be small so that a developer can focus on building a web application instead of learning the framework and get to a flow state as quick as possible.
+This being said, the library does not focus on performance. It is designed to feel nice while coding, by providing a primitive that is simple to bend & form. I want the mental model to be easy to grasp and the API surface to be small so that a developer can focus on building a web application instead of learning the framework and get to a flow state as quick as possible.
 
 ## Thanks
 

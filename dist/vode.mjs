@@ -1,4 +1,4 @@
-// src/vode.js
+// src/vode.ts
 var globals = {
   currentViewTransition: undefined,
   requestAnimationFrame: window.requestAnimationFrame ? window.requestAnimationFrame.bind(window) : (cb) => cb(),
@@ -69,7 +69,9 @@ function app(container, state, dom, ...initialPatches) {
         } else {
           _vode.qSync = mergeState(_vode.qSync || {}, _vode.qAsync, false);
           _vode.qAsync = null;
-          globals.currentViewTransition?.skipTransition();
+          try {
+            globals.currentViewTransition?.skipTransition();
+          } catch {}
           _vode.stats.syncRenderPatchCount++;
           _vode.renderSync();
         }
@@ -512,7 +514,7 @@ function classString(classProp) {
   else
     return "";
 }
-// src/vode-tags.js
+// src/vode-tags.ts
 var A = "a";
 var ABBR = "abbr";
 var ADDRESS = "address";
@@ -714,7 +716,7 @@ var MTR = "mtr";
 var MUNDER = "munder";
 var MUNDEROVER = "munderover";
 var SEMANTICS = "semantics";
-// src/merge-class.js
+// src/merge-class.ts
 function mergeClass(...classes) {
   if (!classes || classes.length === 0)
     return null;
@@ -767,7 +769,7 @@ function mergeClass(...classes) {
   }
   return finalClass;
 }
-// src/state-context.js
+// src/state-context.ts
 class KeyStateContext {
   state;
   path;
