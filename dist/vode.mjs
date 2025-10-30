@@ -1,4 +1,4 @@
-// src/vode.ts
+// src/vode.js
 var globals = {
   currentViewTransition: undefined,
   requestAnimationFrame: window.requestAnimationFrame ? window.requestAnimationFrame.bind(window) : (cb) => cb(),
@@ -156,6 +156,34 @@ function app(container, state, dom, ...initialPatches) {
     _vode.patch(effect);
   }
   return _vode.patch;
+}
+function defuse(container) {
+  if (container?._vode) {
+    let clearEvents = function(av) {
+      if (!av?.node)
+        return;
+      const p = props(av);
+      if (p) {
+        for (const key in p) {
+          if (key[0] === "o" && key[1] === "n") {
+            av.node[key] = null;
+          }
+        }
+      }
+      const kids = children(av);
+      if (kids) {
+        for (let child of kids) {
+          clearEvents(child);
+        }
+      }
+    };
+    const v = container._vode;
+    delete container["_vode"];
+    Object.defineProperty(v.state, "patch", { value: undefined });
+    Object.defineProperty(v, "renderSync", { value: () => {} });
+    Object.defineProperty(v, "renderAsync", { value: () => {} });
+    clearEvents(v.vode);
+  }
 }
 function hydrate(element, prepareForRender) {
   if (element?.nodeType === Node.TEXT_NODE) {
@@ -514,7 +542,7 @@ function classString(classProp) {
   else
     return "";
 }
-// src/vode-tags.ts
+// src/vode-tags.js
 var A = "a";
 var ABBR = "abbr";
 var ADDRESS = "address";
@@ -716,7 +744,7 @@ var MTR = "mtr";
 var MUNDER = "munder";
 var MUNDEROVER = "munderover";
 var SEMANTICS = "semantics";
-// src/merge-class.ts
+// src/merge-class.js
 function mergeClass(...classes) {
   if (!classes || classes.length === 0)
     return null;
@@ -769,7 +797,7 @@ function mergeClass(...classes) {
   }
   return finalClass;
 }
-// src/state-context.ts
+// src/state-context.js
 class KeyStateContext {
   state;
   path;
@@ -851,6 +879,7 @@ export {
   memo,
   hydrate,
   globals,
+  defuse,
   createState,
   createPatch,
   childrenStart,

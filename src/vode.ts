@@ -34,7 +34,7 @@ export type Props<S> = Partial<
 > & {
     [_: string]: unknown,
     class?: ClassProp,
-    style?: StyleProp | string,
+    style?: StyleProp,
     /** called after the element was attached */
     onMount?: MountFunction<S>,
     /** called before the element is detached */
@@ -52,9 +52,9 @@ export type ClassProp =
     | string[] // ["class1", "class2"]
     | Record<string, boolean | undefined | null>; // { class1: true, class2: false }
 
-export type StyleProp = Record<number, never> & {
-    [K in keyof CSSStyleDeclaration]?: CSSStyleDeclaration[K] | null
-};
+export type StyleProp =
+    | (Record<number, never> & { [K in keyof CSSStyleDeclaration]?: CSSStyleDeclaration[K] | null })
+    | string;
 
 export type EventsMap =
     & { [K in keyof HTMLElementEventMap as `on${K}`]: HTMLElementEventMap[K] }
@@ -279,6 +279,41 @@ export function app<S = PatchableState>(container: Element, state: Omit<S, "patc
     }
 
     return _vode.patch;
+}
+
+/** unregister vode app from container and free resources
+ * removes all event listeners registered by vode
+ * removes patch function from state object
+ * leaves the DOM as is
+ */
+export function defuse(container: ContainerNode<any>) {
+    if (container?._vode) {
+        function clearEvents(av: AttachedVode<PatchableState>) {
+            if (!av?.node) return;
+
+            const p = props(av);
+            if (p) {
+                for (const key in p) {
+                    if (key[0] === 'o' && key[1] === 'n') {
+                        (<any>av.node)[key] = null;
+                    }
+                }
+            }
+            const kids = children(av);
+            if (kids) {
+                for (let child of kids) {
+                    clearEvents(child as AttachedVode<PatchableState>);
+                }
+            }
+        }
+
+        const v = container._vode;
+        delete (<any>container)["_vode"];
+        Object.defineProperty(v.state, "patch", { value: undefined });
+        Object.defineProperty(v, "renderSync", { value: () => { } });
+        Object.defineProperty(v, "renderAsync", { value: () => { } });
+        clearEvents(v.vode);
+    }
 }
 
 /** return vode representation of given DOM node */

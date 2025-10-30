@@ -344,6 +344,22 @@ It will analyze the current structure of the given `ContainerNode` and adjust it
 When render-patches are applied to the `patch` function or via yield/return of events, 
 the `ContainerNode` is updated to match the vode structure 1:1. 
 
+#### defuse
+
+To release resources associated with the vode app instance, you can call the `defuse` function on the `ContainerNode` that was passed to `app`.
+
+```typescript
+import { app, defuse } from '@ryupold/vode';
+const containerNode = document.getElementById('ANY-ELEMENT');
+const state = { /* ... */ };
+app(containerNode, state, s => /* ... */ );
+//... later ...
+// when you want to clean up the vode app instance
+defuse(containerNode);
+```
+
+The DOM elements created by the vode app will remain in the `ContainerNode`, but all event listeners and references to the state object will be removed, allowing for proper garbage collection.
+
 ### state & patch
 The state object you pass to [`app`](#app) can be updated directly or via `patch`. 
 During the call to `app`, the state object is bound to the vode app instance and becomes a singleton from its perspective. 
