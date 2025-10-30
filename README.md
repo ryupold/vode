@@ -1,4 +1,4 @@
-# ![vode-logo](./logo.webp)
+# ![vode-logo](https://raw.githubusercontent.com/ryupold/vode/refs/heads/main/logo.webp)
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-100%25-blue?logo=typescript)](https://www.typescriptlang.org/)
 [![Dependencies](https://img.shields.io/badge/dependencies-0-success)](package.json)
@@ -8,7 +8,8 @@
 
 A compact web framework for minimalist developers. Zero dependencies, no build step except for typescript compilation, and a simple virtual DOM implementation that is easy to understand and use. Autocompletion out of the box thanks to `lib.dom.d.ts`.
 
-It brings a primitive building block to the table that gives flexibility in composition and makes refactoring easy. Usecases can be single page applications or isolated components with complex state.
+It brings a primitive building block to the table that gives flexibility in composition and makes refactoring easy. 
+The use cases can be single page applications or isolated components with complex state.
 
 ## Usage
 
@@ -131,7 +132,9 @@ app<State>(appNode, state,
 );
 ```
 
-## vode
+## `[V,{},d,e]`
+
+Lets describe UI as data structures that map 1:1 to DOM elements.
 
 A `vode` is a representation of a virtual DOM node, which is a tree structure of HTML elements. It is written as tuple:
 
@@ -172,7 +175,8 @@ Imagine this HTML:
     </div>
 
     <div class="content">
-      Lorem ipsum dolor sit amet, consectetur adipiscing elit. <a href="?post=vode">vode</a>. <a href="#">#css</a>
+      Lorem ipsum dolor sit amet, consectetur adipiscing elit. 
+      <a href="?post=vode">vode</a>. <a href="#">#css</a>
       <a href="#">#responsive</a>
       <br />
       <time datetime="2025-09-24">10:09 PM - 24 Sep 2025</time>
@@ -181,9 +185,9 @@ Imagine this HTML:
 </div>
 ```
 
-expressed as **"vode"** it would look like this:
+expressed as *vode* it would look like this:
 
-```javascript
+```typescript
 [DIV, { class: 'card' },
     [DIV, { class: 'card-image' },
         [FIGURE, { class: 'image is-4by3' },
@@ -219,17 +223,18 @@ expressed as **"vode"** it would look like this:
 ]
 ```
 
-Viewed alone it does not provide an obvious benefit (apart from looking better imho), 
+Viewed in isolation, it does not provide an obvious benefit (apart from looking better imho), 
 but as the result of a function of state, it can become very useful to express conditional UI this way. 
 
-### Component
+### component
+
 ```typescript
 type Component<S> = (s: S) => ChildVode<S>;
 ```
 
-A `Component<State>` is a function that takes a state object and returns a `Vode<State>`. 
+A `Component<State>` is a function that takes a state object and returns a `Vode<State>` or `string`. 
 It is used to render the UI based on the current state. 
-A new **vode** must be created on each render, otherwise it would be skipped which could lead to unexpected results. If you seek to improve render performance have a look at the [`memo`](#memoization) function.
+A new *vode* must be created on each render, otherwise it would be skipped which could lead to unexpected results. If you seek to improve render performance, have a look at the [`memo`](#memoization) function.
 
 ```typescript
 // A full vode has a tag, properties, and children. props and children are optional.
@@ -295,7 +300,7 @@ const CompBar = (s) => [DIV, { class: "container" },
             return { loading: false };
         },
 
-        // events can be attached condionally
+        // events can be attached conditionally
         ondblclick : s.counter > 20 && (s, evt) => {
             return { counter: s.counter * 2 }; 
         },
@@ -335,16 +340,16 @@ const patch = app(
     );
 ```
 
-It will analyse the current structure of the given `containerNode` and adjust its structure in the first render. 
+It will analyze the current structure of the given `ContainerNode` and adjust its structure in the first render. 
 When render-patches are applied to the `patch` function or via yield/return of events, 
-the `containerNode` is updated to match the vode structure 1:1. 
+the `ContainerNode` is updated to match the vode structure 1:1. 
 
 ### state & patch
 The state object you pass to [`app`](#app) can be updated directly or via `patch`. 
 During the call to `app`, the state object is bound to the vode app instance and becomes a singleton from its perspective. 
 Also a `patch` function is added to the state object; it is the same function that is also returned by `app`.
 A re-render happens when a patch object is supplied to the `patch` function or via event.
-When an object is passed to `patch`, its properties are incrementally deep merged onto the state object.
+When an object is passed to `patch`, its properties are recursively deep merged onto the state object.
 
 ```js
 const s = {
@@ -397,7 +402,7 @@ const ComponentEwww = (s) => {
     if(!s.isLoading)
         s.patch(() => startLoading());
 
-    return [DIV, s.loading ? [PROGRESS] : s.title];
+    return [DIV, s.isLoading ? [PROGRESS] : s.title];
 }
 
 // ✨ experimental view transitions support ✨
@@ -426,7 +431,7 @@ const CompMemoList = (s) =>
         
         // expensive component to render
         memo(
-            // this array is shallow compared to the previous render
+            // dependency array is shallow compared (using === operator) to the previous renders' memo dependencies
             [s.title, s.body], 
             // this is the component function that will be 
             // called only when the array changes
@@ -453,17 +458,19 @@ const CompMemoProps = (s) => [DIV,
 ];
 ```
 
+### defuse
+
 ### helper functions
 
-The library provides some helper functions to help with certain situations.
+The library provides some helper functions for common tasks.
 
 ```typescript
 import { tag, props, children, mergeClass, hydrate } from '@ryupold/vode';
 
 // Merge class props intelligently
-mergeClass('foo', ['baz', 'bar']);  // -> 'foo bar baz'
+mergeClass('foo', ['baz', 'bar']);  // -> 'foo baz bar'
 mergeClass(['foo'], { bar: true, baz: false }); // -> 'foo bar'
-mergeClass({zig: true, zag: false}, 'foo', ['baz', 'bar']);  // -> 'zig foo bar baz'
+mergeClass({zig: true, zag: false}, 'foo', ['baz', 'bar']);  // -> 'zig foo baz bar'
 
 const myVode = [DIV, { class: 'foo' }, [SPAN, 'hello'], [STRONG, 'world']];
 
