@@ -474,8 +474,6 @@ const CompMemoProps = (s) => [DIV,
 ];
 ```
 
-### defuse
-
 ### helper functions
 
 The library provides some helper functions for common tasks.
