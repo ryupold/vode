@@ -36,6 +36,13 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           registry-url: "https://npm.pkg.github.com"
-      - run: npm publish --access public
+      - run: |
+          ((npm publish --access public 2> /dev/null) | grep "@ryupold/vode@" > version.txt) || echo "...done"
+          NEWVERSION=$(cat version.txt)
+          if [[ $NEWVERSION == *"npm error 409 Conflict"* || $NEWVERSION == *"@ryupold/vode@"* ]]; then
+            echo "...success: $NEWVERSION"
+          else
+            echo "...failed to publish"
+          fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
