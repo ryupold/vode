@@ -1,8 +1,8 @@
-name: Publish to https://registry.npmjs.org
+name: Publish release to NPM and GitHub Packages
 
 on:
   release:
-    types: published
+    types: [created]
     branches:
       - "main"
 
@@ -19,7 +19,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v6
         with:
-            registry-url: "https://registry.npmjs.org"
+          registry-url: "https://registry.npmjs.org"
       - uses: oven-sh/setup-bun@v2
       - run: npm ci
       - run: bun run release
@@ -30,6 +30,7 @@ jobs:
             echo "...success: $NEWVERSION"
           else
             echo "...failed to publish"
+            exit 1
           fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -43,6 +44,7 @@ jobs:
             echo "...success: $NEWVERSION"
           else
             echo "...failed to publish"
+            exit 1
           fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
