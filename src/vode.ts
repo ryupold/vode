@@ -696,12 +696,17 @@ function patchProperty<S>(s: S, patch: Dispatch<S>, node: ChildNode, key: string
         } else if (typeof newValue === "string") {
             if (oldValue !== newValue) (node as HTMLElement).style.cssText = newValue;
         } else if (oldValue && typeof oldValue === "object") {
-            for (let k in { ...(oldValue as Props<S>), ...(newValue as Props<S>) }) {
-                if (!oldValue || newValue[k as keyof PropertyValue<S>] !== oldValue[k as keyof PropertyValue<S>]) {
-                    (node as HTMLElement).style[k as keyof PropertyValue<S>] = newValue[k as keyof PropertyValue<S>];
+            for (let k in oldValue) {
+                const nv = newValue[k as keyof PropertyValue<S>];
+                if (!nv) {
+                    (<any>(node as HTMLElement).style)[k as keyof PropertyValue<S>] = null;
                 }
-                else if (oldValue[k as keyof PropertyValue<S>] && !newValue[k as keyof PropertyValue<S>]) {
-                    (<any>(node as HTMLElement).style)[k as keyof PropertyValue<S>] = undefined;
+            }
+            for (let k in (newValue as Record<keyof CSSStyleDeclaration, CSSStyleDeclaration>)) {
+                const ov = oldValue[k as keyof PropertyValue<S>];
+                const nv = newValue[k as keyof PropertyValue<S>];
+                if (ov !== nv) {
+                    (<any>(node as HTMLElement).style)[k as keyof PropertyValue<S>] = nv;
                 }
             }
         } else {

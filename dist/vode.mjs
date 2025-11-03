@@ -494,11 +494,17 @@ function patchProperty(s, patch, node, key, oldValue, newValue) {
       if (oldValue !== newValue)
         node.style.cssText = newValue;
     } else if (oldValue && typeof oldValue === "object") {
-      for (let k in { ...oldValue, ...newValue }) {
-        if (!oldValue || newValue[k] !== oldValue[k]) {
-          node.style[k] = newValue[k];
-        } else if (oldValue[k] && !newValue[k]) {
-          node.style[k] = undefined;
+      for (let k in oldValue) {
+        const nv = newValue[k];
+        if (!nv) {
+          node.style[k] = null;
+        }
+      }
+      for (let k in newValue) {
+        const ov = oldValue[k];
+        const nv = newValue[k];
+        if (ov !== nv) {
+          node.style[k] = nv;
         }
       }
     } else {

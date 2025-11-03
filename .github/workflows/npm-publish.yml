@@ -2,7 +2,7 @@ name: Publish release to NPM and GitHub Packages
 
 on:
   release:
-    types: [created]
+    types: published
     branches:
       - "main"
 
