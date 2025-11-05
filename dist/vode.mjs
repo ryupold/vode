@@ -531,10 +531,12 @@ function patchProperty(s, patch, node, key, oldValue, newValue) {
     } else {
       node[key] = null;
     }
-  } else if (newValue !== null && newValue !== undefined && newValue !== false) {
-    node.setAttribute(key, newValue);
   } else {
-    node.removeAttribute(key);
+    node[key] = newValue;
+    if (newValue === undefined || newValue === null || newValue === false)
+      node.removeAttribute(key);
+    else
+      node.setAttribute(key, newValue);
   }
   return newValue;
 }

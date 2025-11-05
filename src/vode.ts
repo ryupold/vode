@@ -734,10 +734,12 @@ function patchProperty<S>(s: S, patch: Dispatch<S>, node: ChildNode, key: string
         } else {
             (<any>node)[key] = null;
         }
-    } else if (newValue !== null && newValue !== undefined && newValue !== false) {
-        (<HTMLElement>node).setAttribute(key, <string>newValue);
     } else {
-        (<HTMLElement>node).removeAttribute(key);
+        (<any>node)[key] = newValue;
+        if (newValue === undefined || newValue === null || newValue === false)
+            (<HTMLElement>node).removeAttribute(key);
+        else
+            (<HTMLElement>node).setAttribute(key, <string>newValue);
     }
 
     return newValue;

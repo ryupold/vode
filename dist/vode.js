@@ -778,10 +778,12 @@ var V = (() => {
       } else {
         node[key] = null;
       }
-    } else if (newValue !== null && newValue !== void 0 && newValue !== false) {
-      node.setAttribute(key, newValue);
     } else {
-      node.removeAttribute(key);
+      node[key] = newValue;
+      if (newValue === void 0 || newValue === null || newValue === false)
+        node.removeAttribute(key);
+      else
+        node.setAttribute(key, newValue);
     }
     return newValue;
   }
