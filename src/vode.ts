@@ -39,6 +39,8 @@ export type Props<S> = Partial<
     onMount?: MountFunction<S>,
     /** called before the element is detached */
     onUnmount?: MountFunction<S>,
+    /** used instead of original vode when an error occurs during rendering */
+    catch?: ((s: S, error: any) => ChildVode<S>) | ChildVode<S>;
 };
 
 export type MountFunction<S> =
@@ -54,7 +56,8 @@ export type ClassProp =
 
 export type StyleProp =
     | (Record<number, never> & { [K in keyof CSSStyleDeclaration]?: CSSStyleDeclaration[K] | null })
-    | string;
+    | string
+    | "" | null | undefined; // no style
 
 export type EventsMap =
     & { [K in keyof HTMLElementEventMap as `on${K}`]: HTMLElementEventMap[K] }
@@ -464,149 +467,165 @@ function mergeState(target: any, source: any, allowDeletion: boolean) {
 };
 
 function render<S>(state: S, patch: Dispatch<S>, parent: Element, childIndex: number, oldVode: AttachedVode<S> | undefined, newVode: ChildVode<S>, xmlns?: string): AttachedVode<S> | undefined {
-    // unwrap component if it is memoized
-    newVode = remember(state, newVode, oldVode) as ChildVode<S>;
+    try {
+        // unwrap component if it is memoized
+        newVode = remember(state, newVode, oldVode) as ChildVode<S>;
 
-    const isNoVode = !newVode || typeof newVode === "number" || typeof newVode === "boolean";
-    if (newVode === oldVode || (!oldVode && isNoVode)) {
-        return oldVode;
-    }
-
-    const oldIsText = (oldVode as Text)?.nodeType === Node.TEXT_NODE;
-    const oldNode: ChildNode | undefined = oldIsText ? oldVode as Text : oldVode?.node;
-
-    // falsy|text|element(A) -> undefined 
-    if (isNoVode) {
-        (<any>oldNode)?.onUnmount && patch((<any>oldNode).onUnmount(oldNode));
-        oldNode?.remove();
-        return undefined;
-    }
-
-    const isText = !isNoVode && isTextVode(newVode);
-    const isNode = !isNoVode && isNaturalVode(newVode);
-    const alreadyAttached = !!newVode && typeof newVode !== "string" && !!((<any>newVode)?.node || (<any>newVode)?.nodeType === Node.TEXT_NODE);
-
-    if (!isText && !isNode && !alreadyAttached && !oldVode) {
-        throw new Error("Invalid vode: " + typeof newVode + " " + JSON.stringify(newVode));
-    }
-    else if (alreadyAttached && isText) {
-        newVode = (<Text><any>newVode).wholeText;
-    }
-    else if (alreadyAttached && isNode) {
-        newVode = [...<Vode<S>>newVode];
-    }
-
-    // text -> text
-    if (oldIsText && isText) {
-        if ((<Text>oldNode).nodeValue !== <string>newVode) {
-            (<Text>oldNode).nodeValue = <string>newVode;
+        const isNoVode = !newVode || typeof newVode === "number" || typeof newVode === "boolean";
+        if (newVode === oldVode || (!oldVode && isNoVode)) {
+            return oldVode;
         }
-        return oldVode;
-    }
-    // falsy|element -> text
-    if (isText && (!oldNode || !oldIsText)) {
-        const text = document.createTextNode(newVode as string)
-        if (oldNode) {
-            (<any>oldNode).onUnmount && patch((<any>oldNode).onUnmount(oldNode));
-            oldNode.replaceWith(text);
-        } else {
-            if (parent.childNodes[childIndex]) {
-                parent.insertBefore(text, parent.childNodes[childIndex]);
+
+        const oldIsText = (oldVode as Text)?.nodeType === Node.TEXT_NODE;
+        const oldNode: ChildNode | undefined = oldIsText ? oldVode as Text : oldVode?.node;
+
+        // falsy|text|element(A) -> undefined 
+        if (isNoVode) {
+            (<any>oldNode)?.onUnmount && patch((<any>oldNode).onUnmount(oldNode));
+            oldNode?.remove();
+            return undefined;
+        }
+
+        const isText = !isNoVode && isTextVode(newVode);
+        const isNode = !isNoVode && isNaturalVode(newVode);
+        const alreadyAttached = !!newVode && typeof newVode !== "string" && !!((<any>newVode)?.node || (<any>newVode)?.nodeType === Node.TEXT_NODE);
+
+        if (!isText && !isNode && !alreadyAttached && !oldVode) {
+            throw new Error("Invalid vode: " + typeof newVode + " " + JSON.stringify(newVode));
+        }
+        else if (alreadyAttached && isText) {
+            newVode = (<Text><any>newVode).wholeText;
+        }
+        else if (alreadyAttached && isNode) {
+            newVode = [...<Vode<S>>newVode];
+        }
+
+        // text -> text
+        if (oldIsText && isText) {
+            if ((<Text>oldNode).nodeValue !== <string>newVode) {
+                (<Text>oldNode).nodeValue = <string>newVode;
+            }
+            return oldVode;
+        }
+        // falsy|element -> text
+        if (isText && (!oldNode || !oldIsText)) {
+            const text = document.createTextNode(newVode as string)
+            if (oldNode) {
+                (<any>oldNode).onUnmount && patch((<any>oldNode).onUnmount(oldNode));
+                oldNode.replaceWith(text);
             } else {
-                parent.appendChild(text);
+                if (parent.childNodes[childIndex]) {
+                    parent.insertBefore(text, parent.childNodes[childIndex]);
+                } else {
+                    parent.appendChild(text);
+                }
             }
-        }
-        return text as Text;
-    }
-
-    // falsy|text|element(A) -> element(B) 
-    if (
-        (isNode && (!oldNode || oldIsText || (<Vode<S>>oldVode)[0] !== (<Vode<S>>newVode)[0]))
-    ) {
-        const newvode = <Vode<S>>newVode;
-        if (1 in newvode) {
-            newvode[1] = remember(state, newvode[1], undefined) as Vode<S>;
+            return text as Text;
         }
 
-        const properties = props(newVode);
+        // falsy|text|element(A) -> element(B) 
+        if (
+            (isNode && (!oldNode || oldIsText || (<Vode<S>>oldVode)[0] !== (<Vode<S>>newVode)[0]))
+        ) {
+            const newvode = <Vode<S>>newVode;
+            if (1 in newvode) {
+                newvode[1] = remember(state, newvode[1], undefined) as Vode<S>;
+            }
 
-        xmlns = properties?.xmlns as string || xmlns;
-        const newNode: ChildNode = xmlns
-            ? document.createElementNS(xmlns, (<Vode<S>>newVode)[0])
-            : document.createElement((<Vode<S>>newVode)[0]);
-        (<AttachedVode<S>>newVode).node = newNode;
+            const properties = props(newVode);
 
-        patchProperties(state, patch, newNode, undefined, properties);
+            xmlns = properties?.xmlns as string || xmlns;
+            const newNode: ChildNode = xmlns
+                ? document.createElementNS(xmlns, (<Vode<S>>newVode)[0])
+                : document.createElement((<Vode<S>>newVode)[0]);
+            (<AttachedVode<S>>newVode).node = newNode;
 
-        if (oldNode) {
-            (<any>oldNode).onUnmount && patch((<any>oldNode).onUnmount(oldNode));
-            oldNode.replaceWith(newNode);
-        } else {
-            if (parent.childNodes[childIndex]) {
-                parent.insertBefore(newNode, parent.childNodes[childIndex]);
+            patchProperties(state, patch, newNode, undefined, properties);
+
+            if (oldNode) {
+                (<any>oldNode).onUnmount && patch((<any>oldNode).onUnmount(oldNode));
+                oldNode.replaceWith(newNode);
             } else {
-                parent.appendChild(newNode);
+                if (parent.childNodes[childIndex]) {
+                    parent.insertBefore(newNode, parent.childNodes[childIndex]);
+                } else {
+                    parent.appendChild(newNode);
+                }
             }
+
+            const newChildren = children(newVode);
+            if (newChildren) {
+                for (let i = 0; i < newChildren.length; i++) {
+                    const child = newChildren[i];
+                    const attached = render(state, patch, newNode as Element, i, undefined, child, xmlns);
+                    (<Vode<S>>newVode!)[properties ? i + 2 : i + 1] = <Vode<S>>attached;
+                }
+            }
+
+            (<any>newNode).onMount && patch((<any>newNode).onMount(newNode));
+            return <AttachedVode<S>>newVode;
         }
 
-        const newChildren = children(newVode);
-        if (newChildren) {
-            for (let i = 0; i < newChildren.length; i++) {
-                const child = newChildren[i];
-                const attached = render(state, patch, newNode as Element, i, undefined, child, xmlns);
-                (<Vode<S>>newVode!)[properties ? i + 2 : i + 1] = <Vode<S>>attached;
+        //element(A) -> element(A) 
+        if (!oldIsText && isNode && (<Vode<S>>oldVode)[0] === (<Vode<S>>newVode)[0]) {
+            (<AttachedVode<S>>newVode).node = oldNode;
+
+            const newvode = <Vode<S>>newVode;
+            const oldvode = <Vode<S>>oldVode;
+
+            let hasProps = false;
+            if ((<any>newvode[1])?.__memo) {
+                const prev = newvode[1] as any;
+                newvode[1] = remember(state, newvode[1], oldvode[1]) as Vode<S>;
+                if (prev !== newvode[1]) {
+                    const properties = props(newVode);
+                    patchProperties(state, patch, oldNode!, props(oldVode), properties);
+                    hasProps = !!properties;
+                }
             }
-        }
-
-        (<any>newNode).onMount && patch((<any>newNode).onMount(newNode));
-        return <AttachedVode<S>>newVode;
-    }
-
-    //element(A) -> element(A) 
-    if (!oldIsText && isNode && (<Vode<S>>oldVode)[0] === (<Vode<S>>newVode)[0]) {
-        (<AttachedVode<S>>newVode).node = oldNode;
-
-        const newvode = <Vode<S>>newVode;
-        const oldvode = <Vode<S>>oldVode;
-
-        let hasProps = false;
-        if ((<any>newvode[1])?.__memo) {
-            const prev = newvode[1] as any;
-            newvode[1] = remember(state, newvode[1], oldvode[1]) as Vode<S>;
-            if (prev !== newvode[1]) {
+            else {
                 const properties = props(newVode);
                 patchProperties(state, patch, oldNode!, props(oldVode), properties);
                 hasProps = !!properties;
             }
-        }
-        else {
-            const properties = props(newVode);
-            patchProperties(state, patch, oldNode!, props(oldVode), properties);
-            hasProps = !!properties;
-        }
 
-        const newKids = children(newVode);
-        const oldKids = children(oldVode) as AttachedVode<S>[];
-        if (newKids) {
-            for (let i = 0; i < newKids.length; i++) {
-                const child = newKids[i];
-                const oldChild = oldKids && oldKids[i];
+            const newKids = children(newVode);
+            const oldKids = children(oldVode) as AttachedVode<S>[];
+            if (newKids) {
+                for (let i = 0; i < newKids.length; i++) {
+                    const child = newKids[i];
+                    const oldChild = oldKids && oldKids[i];
 
-                const attached = render(state, patch, oldNode as Element, i, oldChild, child, xmlns);
-                if (attached) {
-                    (<Vode<S>>newVode)[hasProps ? i + 2 : i + 1] = <Vode<S>>attached;
+                    const attached = render(state, patch, oldNode as Element, i, oldChild, child, xmlns);
+                    if (attached) {
+                        (<Vode<S>>newVode)[hasProps ? i + 2 : i + 1] = <Vode<S>>attached;
+                    }
                 }
             }
-        }
 
-        if (oldKids) {
-            const newKidsCount = newKids ? newKids.length : 0;
-            for (let i = oldKids.length - 1; i >= newKidsCount; i--) {
-                render(state, patch, oldNode as Element, i, oldKids[i], undefined, xmlns);
+            if (oldKids) {
+                const newKidsCount = newKids ? newKids.length : 0;
+                for (let i = oldKids.length - 1; i >= newKidsCount; i--) {
+                    render(state, patch, oldNode as Element, i, oldKids[i], undefined, xmlns);
+                }
             }
-        }
 
-        return <AttachedVode<S>>newVode;
+            return <AttachedVode<S>>newVode;
+        }
+    } catch (error) {
+        const catchVode = props(newVode)?.catch;
+        if (catchVode) {
+            const handledVode = typeof catchVode === "function"
+                ? (<(s: S, error: any) => ChildVode<S>>catchVode)(state, error)
+                : catchVode;
+
+            return render(state, patch, parent, childIndex,
+                hydrate(((<AttachedVode<S>>newVode)?.node || oldVode?.node) as Element, true) as AttachedVode<S>,
+                handledVode,
+                xmlns);
+        } else {
+            throw error;
+        }
     }
 
     return undefined;

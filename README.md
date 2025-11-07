@@ -474,6 +474,34 @@ const CompMemoProps = (s) => [DIV,
 ];
 ```
 
+### error handling
+
+You can catch errors during rendering by providing a `catch` property in the vode props.
+
+```typescript
+const CompWithError: ChildVode = () =>
+    [DIV,
+        {
+            catch: (s: unknown, err: any) => [SPAN, { style: { color: 'red' } }, `An error occurred: ${err?.message}`],
+        },
+
+        [P, "Below error is intentional for testing error boundaries:"],
+
+        [DIV, {
+            // catch: [SPAN, { style: { color: 'red' } }, `An error occurred!`], // uncomment to catch child error directly here
+            onMount: () => {
+                throw new Error("Test error boundary in post view....");
+            }
+        }],
+    ];
+```
+
+If the `catch` property is a function, it will be called with the current state and the error as arguments, and should return a valid child-vode to render instead.
+If it is a vode, it will be rendered directly. 
+If no `catch` property is provided, the error will propagate to the nearest ancestor that has a `catch` property defined, or to the top-level app if none is found.
+Try to keep the `catch` blocks as specific as possible to avoid masking other errors. 
+Or just don't make errors happen in the first place :)
+
 ### helper functions
 
 The library provides some helper functions for common tasks.
@@ -657,9 +685,9 @@ console.log(appNode._vode.stats);
     syncRenderPatchCount: 55,
     // number of view transition render-patches (arrays) overall
     asyncRenderPatchCount: 3,
-    // number of renders performed overall
+    // number of sync "normal" renders performed overall
     syncRenderCount: 43,
-    // number of renders performed overall
+    // number of async renders performed overall
     asyncRenderCount: 2,
     // time the last render took in milliseconds
     lastSyncRenderTime: 2,
@@ -672,7 +700,10 @@ console.log(appNode._vode.stats);
 
 The library is optimized for small to medium sized applications. In my own tests it could easily handle sites with tens of thousands of elements. Smart usage of `memo` can help to optimize performance further. You can find a comparison of the performance with other libraries [here](https://krausest.github.io/js-framework-benchmark/current.html).
 
-This being said, the library does not focus on performance. It is designed to feel nice while coding, by providing a primitive that is simple to bend & form. I want the mental model to be easy to grasp and the API surface to be small so that a developer can focus on building a web application instead of learning the framework and get to a flow state as quick as possible.
+This being said, the library does not focus on performance.
+It is designed to feel nice while coding, by providing a primitive that is simple to bend & form.
+I want the mental model to be easy to grasp and the API surface to be small 
+so that a developer can focus on building a web application instead of learning the framework and get to a flow state as quick as possible.
 
 ## Thanks
 
