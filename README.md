@@ -81,20 +81,10 @@ Binds the library to the global `V` variable.
 
 ### NPM
 
-[![NPM](https://badge.fury.io/js/%40ryupold%2Fvode.svg)](https://www.npmjs.com/package/@ryupold/vode)
-
-```bash
-# npm
-npm install @ryupold/vode --save
-
-# yarn
-yarn add @ryupold/vode
-
-# bun
-bun add @ryupold/vode
-```
+[![NPM](https://nodei.co/npm/@ryupold/vode.svg?color=red&data=s,d)](https://www.npmjs.com/package/@ryupold/vode)
 
 index.html
+
 ```html
 <html>
 <head>
