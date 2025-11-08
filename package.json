@@ -1,6 +1,6 @@
 {
     "name": "@ryupold/vode",
-    "version": "1.5.1",
+    "version": "1.5.2",
     "description": "a minimalist web framework",
     "author": "Michael Scherbakow (ryupold)",
     "license": "MIT",
@@ -26,17 +26,16 @@
     "homepage": "https://github.com/ryupold/vode#readme",
     "module": "index.ts",
     "scripts": {
-        "build": "bun build index.ts --outfile dist/vode.mjs",
-        "build-min": "bun build index.ts --outfile dist/vode.min.mjs --minify",
-        "build-classic": "esbuild index.ts --outfile=dist/vode.js --bundle --global-name=V",
-        "build-classic-min": "esbuild index.ts --outfile=dist/vode.min.js --bundle --global-name=V --minify",
-        "release": "bun run build && bun run build-min && bun run build-classic && bun run build-classic-min",
+        "build": "esbuild index.ts --bundle --format=esm --outfile=dist/vode.mjs ",
+        "build-min": "esbuild index.ts --bundle --format=esm --minify --outfile=dist/vode.min.mjs",
+        "build-classic": "esbuild index.ts --outfile=dist/vode.js --bundle --format=iife --global-name=V",
+        "build-classic-min": "esbuild index.ts --outfile=dist/vode.min.js --bundle --format=iife  --global-name=V --minify",
+        "release": "npm run build && npm run build-min && npm run build-classic && npm run build-classic-min",
         "publish": "npm publish --access public",
         "clean": "tsc -b --clean",
         "watch": "tsc -b -w"
     },
     "devDependencies": {
-        "bun": "1.3.1",
         "esbuild": "0.25.12",
         "typescript": "5.9.3"
     }

@@ -20,9 +20,8 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           registry-url: "https://registry.npmjs.org"
-      - uses: oven-sh/setup-bun@v2
       - run: npm ci
-      - run: bun run release
+      - run: npm run release
       - run: |
           ((npm publish --provenance --access public 2> /dev/null) | grep "@ryupold/vode@" > version.txt) || echo "...done"
           NEWVERSION=$(cat version.txt)

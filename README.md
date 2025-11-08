@@ -45,7 +45,7 @@ The use cases can be single page applications or isolated components with comple
 </html>
 ```
 
-### Classic
+### Classic (iife)
 Binds the library to the global `V` variable.
 
 ```html

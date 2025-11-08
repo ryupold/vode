@@ -1,18 +1,18 @@
 // src/vode.js
 var globals = {
-  currentViewTransition: undefined,
-  requestAnimationFrame: window.requestAnimationFrame ? window.requestAnimationFrame.bind(window) : (cb) => cb(),
-  startViewTransition: document.startViewTransition ? document.startViewTransition.bind(document) : null
+  currentViewTransition: void 0,
+  requestAnimationFrame: !!window.requestAnimationFrame ? window.requestAnimationFrame.bind(window) : ((cb) => cb()),
+  startViewTransition: !!document.startViewTransition ? document.startViewTransition.bind(document) : null
 };
-function vode(tag, props, ...children) {
-  if (!tag)
+function vode(tag2, props2, ...children2) {
+  if (!tag2)
     throw new Error("first argument to vode() must be a tag name or a vode");
-  if (Array.isArray(tag))
-    return tag;
-  else if (props)
-    return [tag, props, ...children];
+  if (Array.isArray(tag2))
+    return tag2;
+  else if (props2)
+    return [tag2, props2, ...children2];
   else
-    return [tag, ...children];
+    return [tag2, ...children2];
 }
 function app(container, state, dom, ...initialPatches) {
   if (!container?.parentElement)
@@ -71,7 +71,8 @@ function app(container, state, dom, ...initialPatches) {
           _vode.qAsync = null;
           try {
             globals.currentViewTransition?.skipTransition();
-          } catch {}
+          } catch {
+          }
           _vode.stats.syncRenderPatchCount++;
           _vode.renderSync();
         }
@@ -159,7 +160,7 @@ function app(container, state, dom, ...initialPatches) {
 }
 function defuse(container) {
   if (container?._vode) {
-    let clearEvents = function(av) {
+    let clearEvents2 = function(av) {
       if (!av?.node)
         return;
       const p = props(av);
@@ -173,55 +174,58 @@ function defuse(container) {
       }
       const kids = children(av);
       if (kids) {
-        for (let child of kids) {
-          clearEvents(child);
+        for (let child2 of kids) {
+          clearEvents2(child2);
         }
       }
     };
+    var clearEvents = clearEvents2;
     const v = container._vode;
     delete container["_vode"];
-    Object.defineProperty(v.state, "patch", { value: undefined });
-    Object.defineProperty(v, "renderSync", { value: () => {} });
-    Object.defineProperty(v, "renderAsync", { value: () => {} });
-    clearEvents(v.vode);
+    Object.defineProperty(v.state, "patch", { value: void 0 });
+    Object.defineProperty(v, "renderSync", { value: () => {
+    } });
+    Object.defineProperty(v, "renderAsync", { value: () => {
+    } });
+    clearEvents2(v.vode);
   }
 }
 function hydrate(element, prepareForRender) {
   if (element?.nodeType === Node.TEXT_NODE) {
     if (element.nodeValue?.trim() !== "")
       return prepareForRender ? element : element.nodeValue;
-    return;
+    return void 0;
   } else if (element.nodeType === Node.COMMENT_NODE) {
-    return;
+    return void 0;
   } else if (element.nodeType === Node.ELEMENT_NODE) {
-    const tag = element.tagName.toLowerCase();
-    const root = [tag];
+    const tag2 = element.tagName.toLowerCase();
+    const root = [tag2];
     if (prepareForRender)
       root.node = element;
     if (element?.hasAttributes()) {
-      const props = {};
+      const props2 = {};
       const attr = element.attributes;
       for (let a of attr) {
-        props[a.name] = a.value;
+        props2[a.name] = a.value;
       }
-      root.push(props);
+      root.push(props2);
     }
     if (element.hasChildNodes()) {
       const remove = [];
-      for (let child of element.childNodes) {
-        const wet = child && hydrate(child, prepareForRender);
+      for (let child2 of element.childNodes) {
+        const wet = child2 && hydrate(child2, prepareForRender);
         if (wet)
           root.push(wet);
-        else if (child && prepareForRender)
-          remove.push(child);
+        else if (child2 && prepareForRender)
+          remove.push(child2);
       }
-      for (let child of remove) {
-        child.remove();
+      for (let child2 of remove) {
+        child2.remove();
       }
     }
     return root;
   } else {
-    return;
+    return void 0;
   }
 }
 function memo(compare, componentOrProps) {
@@ -241,7 +245,7 @@ function createPatch(p) {
   return p;
 }
 function tag(v) {
-  return v ? Array.isArray(v) ? v[0] : typeof v === "string" || v.nodeType === Node.TEXT_NODE ? "#text" : undefined : undefined;
+  return !!v ? Array.isArray(v) ? v[0] : typeof v === "string" || v.nodeType === Node.TEXT_NODE ? "#text" : void 0 : void 0;
 }
 function props(vode2) {
   if (Array.isArray(vode2) && vode2.length > 1 && vode2[1] && !Array.isArray(vode2[1])) {
@@ -249,7 +253,7 @@ function props(vode2) {
       return vode2[1];
     }
   }
-  return;
+  return void 0;
 }
 function children(vode2) {
   const start = childrenStart(vode2);
@@ -269,7 +273,7 @@ function child(vode2, index) {
   if (start > 0)
     return vode2[index + start];
   else
-    return;
+    return void 0;
 }
 function childrenStart(vode2) {
   return props(vode2) ? vode2.length > 2 ? 2 : -1 : Array.isArray(vode2) && vode2.length > 1 ? 1 : -1;
@@ -301,7 +305,7 @@ function mergeState(target, source, allowDeletion) {
       } else {
         target[key] = mergeState({}, value, allowDeletion);
       }
-    } else if (value === undefined && allowDeletion) {
+    } else if (value === void 0 && allowDeletion) {
       delete target[key];
     } else {
       target[key] = value;
@@ -321,7 +325,7 @@ function render(state, patch, parent, childIndex, oldVode, newVode, xmlns) {
     if (isNoVode) {
       oldNode?.onUnmount && patch(oldNode.onUnmount(oldNode));
       oldNode?.remove();
-      return;
+      return void 0;
     }
     const isText = !isNoVode && isTextVode(newVode);
     const isNode = !isNoVode && isNaturalVode(newVode);
@@ -356,13 +360,17 @@ function render(state, patch, parent, childIndex, oldVode, newVode, xmlns) {
     if (isNode && (!oldNode || oldIsText || oldVode[0] !== newVode[0])) {
       const newvode = newVode;
       if (1 in newvode) {
-        newvode[1] = remember(state, newvode[1], undefined);
+        newvode[1] = remember(state, newvode[1], void 0);
       }
       const properties = props(newVode);
       xmlns = properties?.xmlns || xmlns;
       const newNode = xmlns ? document.createElementNS(xmlns, newVode[0]) : document.createElement(newVode[0]);
       newVode.node = newNode;
-      patchProperties(state, patch, newNode, undefined, properties);
+      patchProperties(state, patch, newNode, void 0, properties);
+      if (!!properties && "catch" in properties) {
+        newVode.node["catch"] = null;
+        newVode.node.removeAttribute("catch");
+      }
       if (oldNode) {
         oldNode.onUnmount && patch(oldNode.onUnmount(oldNode));
         oldNode.replaceWith(newNode);
@@ -375,9 +383,9 @@ function render(state, patch, parent, childIndex, oldVode, newVode, xmlns) {
       }
       const newChildren = children(newVode);
       if (newChildren) {
-        for (let i = 0;i < newChildren.length; i++) {
+        for (let i = 0; i < newChildren.length; i++) {
           const child2 = newChildren[i];
-          const attached = render(state, patch, newNode, i, undefined, child2, xmlns);
+          const attached = render(state, patch, newNode, i, void 0, child2, xmlns);
           newVode[properties ? i + 2 : i + 1] = attached;
         }
       }
@@ -388,28 +396,26 @@ function render(state, patch, parent, childIndex, oldVode, newVode, xmlns) {
       newVode.node = oldNode;
       const newvode = newVode;
       const oldvode = oldVode;
-      let hasProps = false;
+      const properties = props(newVode);
+      let hasProps = !!properties;
+      const oldProps = props(oldVode);
       if (newvode[1]?.__memo) {
         const prev = newvode[1];
         newvode[1] = remember(state, newvode[1], oldvode[1]);
         if (prev !== newvode[1]) {
-          const properties = props(newVode);
-          patchProperties(state, patch, oldNode, props(oldVode), properties);
-          hasProps = !!properties;
+          patchProperties(state, patch, oldNode, oldProps, properties);
         }
       } else {
-        const properties = props(newVode);
-        patchProperties(state, patch, oldNode, props(oldVode), properties);
-        hasProps = !!properties;
-        if (hasProps && "catch" in properties) {
-          newVode.node["catch"] = null;
-          newVode.node.removeAttribute("catch");
-        }
+        patchProperties(state, patch, oldNode, oldProps, properties);
+      }
+      if (!!properties?.catch && oldProps?.catch !== properties.catch) {
+        newVode.node["catch"] = null;
+        newVode.node.removeAttribute("catch");
       }
       const newKids = children(newVode);
       const oldKids = children(oldVode);
       if (newKids) {
-        for (let i = 0;i < newKids.length; i++) {
+        for (let i = 0; i < newKids.length; i++) {
           const child2 = newKids[i];
           const oldChild = oldKids && oldKids[i];
           const attached = render(state, patch, oldNode, i, oldChild, child2, xmlns);
@@ -420,8 +426,8 @@ function render(state, patch, parent, childIndex, oldVode, newVode, xmlns) {
       }
       if (oldKids) {
         const newKidsCount = newKids ? newKids.length : 0;
-        for (let i = oldKids.length - 1;i >= newKidsCount; i--) {
-          render(state, patch, oldNode, i, oldKids[i], undefined, xmlns);
+        for (let i = oldKids.length - 1; i >= newKidsCount; i--) {
+          render(state, patch, oldNode, i, oldKids[i], void 0, xmlns);
         }
       }
       return newVode;
@@ -435,7 +441,7 @@ function render(state, patch, parent, childIndex, oldVode, newVode, xmlns) {
       throw error;
     }
   }
-  return;
+  return void 0;
 }
 function isNaturalVode(x) {
   return Array.isArray(x) && x.length > 0 && typeof x[0] === "string";
@@ -450,7 +456,7 @@ function remember(state, present, past) {
   const pastMemo = past?.__memo;
   if (Array.isArray(presentMemo) && Array.isArray(pastMemo) && presentMemo.length === pastMemo.length) {
     let same = true;
-    for (let i = 0;i < presentMemo.length; i++) {
+    for (let i = 0; i < presentMemo.length; i++) {
       if (presentMemo[i] !== pastMemo[i]) {
         same = false;
         break;
@@ -483,7 +489,7 @@ function patchProperties(s, patch, node, oldProps, newProps) {
         if (newProps)
           newProps[key] = patchProperty(s, patch, node, key, oldValue, newValue);
         else
-          patchProperty(s, patch, node, key, oldValue, undefined);
+          patchProperty(s, patch, node, key, oldValue, void 0);
       }
     }
   }
@@ -491,13 +497,13 @@ function patchProperties(s, patch, node, oldProps, newProps) {
     for (const key in newProps) {
       if (!(key in oldProps)) {
         const newValue = newProps[key];
-        newProps[key] = patchProperty(s, patch, node, key, undefined, newValue);
+        newProps[key] = patchProperty(s, patch, node, key, void 0, newValue);
       }
     }
   } else if (newProps) {
     for (const key in newProps) {
       const newValue = newProps[key];
-      newProps[key] = patchProperty(s, patch, node, key, undefined, newValue);
+      newProps[key] = patchProperty(s, patch, node, key, void 0, newValue);
     }
   }
 }
@@ -548,7 +554,7 @@ function patchProperty(s, patch, node, key, oldValue, newValue) {
     }
   } else {
     node[key] = newValue;
-    if (newValue === undefined || newValue === null || newValue === false)
+    if (newValue === void 0 || newValue === null || newValue === false)
       node.removeAttribute(key);
     else
       node.setAttribute(key, newValue);
@@ -565,6 +571,7 @@ function classString(classProp) {
   else
     return "";
 }
+
 // src/vode-tags.js
 var A = "a";
 var ABBR = "abbr";
@@ -767,6 +774,7 @@ var MTR = "mtr";
 var MUNDER = "munder";
 var MUNDEROVER = "munderover";
 var SEMANTICS = "semantics";
+
 // src/merge-class.js
 function mergeClass(...classes) {
   if (!classes || classes.length === 0)
@@ -774,7 +782,7 @@ function mergeClass(...classes) {
   if (classes.length === 1)
     return classes[0];
   let finalClass = classes[0];
-  for (let index = 1;index < classes.length; index++) {
+  for (let index = 1; index < classes.length; index++) {
     const a = finalClass, b = classes[index];
     if (!a) {
       finalClass = b;
@@ -783,16 +791,16 @@ function mergeClass(...classes) {
     } else if (typeof a === "string" && typeof b === "string") {
       const aSplit = a.split(" ");
       const bSplit = b.split(" ");
-      const classSet = new Set([...aSplit, ...bSplit]);
+      const classSet = /* @__PURE__ */ new Set([...aSplit, ...bSplit]);
       finalClass = Array.from(classSet).join(" ").trim();
     } else if (typeof a === "string" && Array.isArray(b)) {
-      const classSet = new Set([...b, ...a.split(" ")]);
+      const classSet = /* @__PURE__ */ new Set([...b, ...a.split(" ")]);
       finalClass = Array.from(classSet).join(" ").trim();
     } else if (Array.isArray(a) && typeof b === "string") {
-      const classSet = new Set([...a, ...b.split(" ")]);
+      const classSet = /* @__PURE__ */ new Set([...a, ...b.split(" ")]);
       finalClass = Array.from(classSet).join(" ").trim();
     } else if (Array.isArray(a) && Array.isArray(b)) {
-      const classSet = new Set([...a, ...b]);
+      const classSet = /* @__PURE__ */ new Set([...a, ...b]);
       finalClass = Array.from(classSet).join(" ").trim();
     } else if (typeof a === "string" && typeof b === "object") {
       finalClass = { [a]: true, ...b };
@@ -820,8 +828,9 @@ function mergeClass(...classes) {
   }
   return finalClass;
 }
+
 // src/state-context.js
-class KeyStateContext {
+var KeyStateContext = class {
   state;
   path;
   keys;
@@ -832,8 +841,8 @@ class KeyStateContext {
   }
   get() {
     const keys = this.keys;
-    let raw = this.state ? this.state[keys[0]] : undefined;
-    for (let i = 1;i < keys.length && !!raw; i++) {
+    let raw = this.state ? this.state[keys[0]] : void 0;
+    for (let i = 1; i < keys.length && !!raw; i++) {
       raw = raw[keys[i]];
     }
     return raw;
@@ -865,7 +874,7 @@ class KeyStateContext {
       if (typeof raw !== "object" || raw === null) {
         target[keys[i]] = raw = {};
       }
-      for (i = 1;i < keys.length - 1; i++) {
+      for (i = 1; i < keys.length - 1; i++) {
         const p = raw;
         raw = raw[keys[i]];
         if (typeof raw !== "object" || raw === null) {
@@ -880,9 +889,8 @@ class KeyStateContext {
         target[keys[0]] = value;
     }
   }
-}
-
-class DelegateStateContext {
+};
+var DelegateStateContext = class {
   state;
   get;
   put;
@@ -893,224 +901,224 @@ class DelegateStateContext {
     this.put = put;
     this.patch = patch;
   }
-}
+};
 export {
-  vode,
-  tag,
-  props,
-  mergeClass,
-  memo,
-  hydrate,
-  globals,
-  defuse,
-  createState,
-  createPatch,
-  childrenStart,
-  children,
-  childCount,
-  child,
-  app,
-  WBR,
-  VIEW,
-  VIDEO,
-  VAR,
-  USE,
-  UL,
-  U,
-  TSPAN,
-  TRACK,
-  TR,
-  TITLE,
-  TIME,
-  THEAD,
-  TH,
-  TFOOT,
-  TEXTPATH,
-  TEXTAREA,
-  TEXT,
-  TEMPLATE,
-  TD,
-  TBODY,
-  TABLE,
-  SYMBOL,
-  SWITCH,
-  SVG,
-  SUP,
-  SUMMARY,
-  SUB,
-  STYLE,
-  STRONG,
-  STOP,
-  SPAN,
-  SOURCE,
-  SMALL,
-  SLOT,
-  SET,
-  SEMANTICS,
-  SELECT,
-  SECTION,
-  SEARCH,
-  SCRIPT,
-  SAMP,
-  S,
-  RUBY,
-  RT,
-  RP,
-  RECT,
-  RADIALGRADIENT,
-  Q,
-  PROGRESS,
-  PRE,
-  POLYLINE,
-  POLYGON,
-  PICTURE,
-  PATTERN,
-  PATH,
-  P,
-  OUTPUT,
-  OPTION,
-  OPTGROUP,
-  OL,
-  OBJECT,
-  NOSCRIPT,
-  NAV,
-  MUNDEROVER,
-  MUNDER,
-  MTR,
-  MTEXT,
-  MTD,
-  MTABLE,
-  MSUP,
-  MSUBSUP,
-  MSUB,
-  MSTYLE,
-  MSQRT,
-  MSPACE,
-  MS,
-  MROW,
-  MROOT,
-  MPRESCRIPTS,
-  MPHANTOM,
-  MPATH,
-  MPADDED,
-  MOVER,
-  MO,
-  MN,
-  MMULTISCRIPTS,
-  MI,
-  MFRAC,
-  METER,
-  METADATA,
-  META,
-  MERROR,
-  MENU,
-  MATH,
-  MASK,
-  MARKER,
-  MARK,
-  MAP,
-  MAIN,
-  MACTION,
-  LINK,
-  LINEARGRADIENT,
-  LINE,
-  LI,
-  LEGEND,
-  LABEL,
-  KeyStateContext,
-  KBD,
-  INS,
-  INPUT,
-  IMG,
-  IMAGE,
-  IFRAME,
-  I,
-  HTML,
-  HR,
-  HGROUP,
-  HEADER,
-  HEAD,
-  H6,
-  H5,
-  H4,
-  H3,
-  H2,
-  H1,
-  G,
-  FORM,
-  FOREIGNOBJECT,
-  FOOTER,
-  FILTER,
-  FIGURE,
-  FIGCAPTION,
-  FIELDSET,
-  FETURBULENCE,
-  FETILE,
-  FESPOTLIGHT,
-  FESPECULARLIGHTING,
-  FEPOINTLIGHT,
-  FEOFFSET,
-  FEMORPHOLOGY,
-  FEMERGENODE,
-  FEMERGE,
-  FEIMAGE,
-  FEGAUSSIANBLUR,
-  FEFUNCR,
-  FEFUNCG,
-  FEFUNCB,
-  FEFUNCA,
-  FEFLOOD,
-  FEDROPSHADOW,
-  FEDISTANTLIGHT,
-  FEDISPLACEMENTMAP,
-  FEDIFFUSELIGHTING,
-  FECONVOLVEMATRIX,
-  FECOMPOSITE,
-  FECOMPONENTTRANSFER,
-  FECOLORMATRIX,
-  FEBLEND,
-  EMBED,
-  EM,
-  ELLIPSE,
-  DelegateStateContext,
-  DT,
-  DL,
-  DIV,
-  DIALOG,
-  DFN,
-  DETAILS,
-  DESC,
-  DEL,
-  DEFS,
-  DD,
-  DATALIST,
-  DATA,
-  COLGROUP,
-  COL,
-  CODE,
-  CLIPPATH,
-  CITE,
-  CIRCLE,
-  CAPTION,
-  CANVAS,
-  BUTTON,
-  BR,
-  BODY,
-  BLOCKQUOTE,
-  BDO,
-  BDI,
-  BASE,
-  B,
-  AUDIO,
-  ASIDE,
-  ARTICLE,
-  AREA,
-  ANNOTATION_XML,
-  ANNOTATION,
-  ANIMATETRANSFORM,
-  ANIMATEMOTION,
-  ANIMATE,
-  ADDRESS,
+  A,
   ABBR,
-  A
+  ADDRESS,
+  ANIMATE,
+  ANIMATEMOTION,
+  ANIMATETRANSFORM,
+  ANNOTATION,
+  ANNOTATION_XML,
+  AREA,
+  ARTICLE,
+  ASIDE,
+  AUDIO,
+  B,
+  BASE,
+  BDI,
+  BDO,
+  BLOCKQUOTE,
+  BODY,
+  BR,
+  BUTTON,
+  CANVAS,
+  CAPTION,
+  CIRCLE,
+  CITE,
+  CLIPPATH,
+  CODE,
+  COL,
+  COLGROUP,
+  DATA,
+  DATALIST,
+  DD,
+  DEFS,
+  DEL,
+  DESC,
+  DETAILS,
+  DFN,
+  DIALOG,
+  DIV,
+  DL,
+  DT,
+  DelegateStateContext,
+  ELLIPSE,
+  EM,
+  EMBED,
+  FEBLEND,
+  FECOLORMATRIX,
+  FECOMPONENTTRANSFER,
+  FECOMPOSITE,
+  FECONVOLVEMATRIX,
+  FEDIFFUSELIGHTING,
+  FEDISPLACEMENTMAP,
+  FEDISTANTLIGHT,
+  FEDROPSHADOW,
+  FEFLOOD,
+  FEFUNCA,
+  FEFUNCB,
+  FEFUNCG,
+  FEFUNCR,
+  FEGAUSSIANBLUR,
+  FEIMAGE,
+  FEMERGE,
+  FEMERGENODE,
+  FEMORPHOLOGY,
+  FEOFFSET,
+  FEPOINTLIGHT,
+  FESPECULARLIGHTING,
+  FESPOTLIGHT,
+  FETILE,
+  FETURBULENCE,
+  FIELDSET,
+  FIGCAPTION,
+  FIGURE,
+  FILTER,
+  FOOTER,
+  FOREIGNOBJECT,
+  FORM,
+  G,
+  H1,
+  H2,
+  H3,
+  H4,
+  H5,
+  H6,
+  HEAD,
+  HEADER,
+  HGROUP,
+  HR,
+  HTML,
+  I,
+  IFRAME,
+  IMAGE,
+  IMG,
+  INPUT,
+  INS,
+  KBD,
+  KeyStateContext,
+  LABEL,
+  LEGEND,
+  LI,
+  LINE,
+  LINEARGRADIENT,
+  LINK,
+  MACTION,
+  MAIN,
+  MAP,
+  MARK,
+  MARKER,
+  MASK,
+  MATH,
+  MENU,
+  MERROR,
+  META,
+  METADATA,
+  METER,
+  MFRAC,
+  MI,
+  MMULTISCRIPTS,
+  MN,
+  MO,
+  MOVER,
+  MPADDED,
+  MPATH,
+  MPHANTOM,
+  MPRESCRIPTS,
+  MROOT,
+  MROW,
+  MS,
+  MSPACE,
+  MSQRT,
+  MSTYLE,
+  MSUB,
+  MSUBSUP,
+  MSUP,
+  MTABLE,
+  MTD,
+  MTEXT,
+  MTR,
+  MUNDER,
+  MUNDEROVER,
+  NAV,
+  NOSCRIPT,
+  OBJECT,
+  OL,
+  OPTGROUP,
+  OPTION,
+  OUTPUT,
+  P,
+  PATH,
+  PATTERN,
+  PICTURE,
+  POLYGON,
+  POLYLINE,
+  PRE,
+  PROGRESS,
+  Q,
+  RADIALGRADIENT,
+  RECT,
+  RP,
+  RT,
+  RUBY,
+  S,
+  SAMP,
+  SCRIPT,
+  SEARCH,
+  SECTION,
+  SELECT,
+  SEMANTICS,
+  SET,
+  SLOT,
+  SMALL,
+  SOURCE,
+  SPAN,
+  STOP,
+  STRONG,
+  STYLE,
+  SUB,
+  SUMMARY,
+  SUP,
+  SVG,
+  SWITCH,
+  SYMBOL,
+  TABLE,
+  TBODY,
+  TD,
+  TEMPLATE,
+  TEXT,
+  TEXTAREA,
+  TEXTPATH,
+  TFOOT,
+  TH,
+  THEAD,
+  TIME,
+  TITLE,
+  TR,
+  TRACK,
+  TSPAN,
+  U,
+  UL,
+  USE,
+  VAR,
+  VIDEO,
+  VIEW,
+  WBR,
+  app,
+  child,
+  childCount,
+  children,
+  childrenStart,
+  createPatch,
+  createState,
+  defuse,
+  globals,
+  hydrate,
+  memo,
+  mergeClass,
+  props,
+  tag,
+  vode
 };

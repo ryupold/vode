@@ -543,6 +543,11 @@ function render<S>(state: S, patch: Dispatch<S>, parent: Element, childIndex: nu
 
             patchProperties(state, patch, newNode, undefined, properties);
 
+            if (!!properties && 'catch' in properties) {
+                (<any>newVode).node['catch'] = null;
+                (<any>newVode).node.removeAttribute('catch');
+            }
+
             if (oldNode) {
                 (<any>oldNode).onUnmount && patch((<any>oldNode).onUnmount(oldNode));
                 oldNode.replaceWith(newNode);
@@ -574,24 +579,24 @@ function render<S>(state: S, patch: Dispatch<S>, parent: Element, childIndex: nu
             const newvode = <Vode<S>>newVode;
             const oldvode = <Vode<S>>oldVode;
 
-            let hasProps = false;
+            const properties = props(newVode);
+            let hasProps = !!properties;
+            const oldProps = props(oldVode);
+
             if ((<any>newvode[1])?.__memo) {
                 const prev = newvode[1] as any;
                 newvode[1] = remember(state, newvode[1], oldvode[1]) as Vode<S>;
                 if (prev !== newvode[1]) {
-                    const properties = props(newVode);
-                    patchProperties(state, patch, oldNode!, props(oldVode), properties);
-                    hasProps = !!properties;
+                    patchProperties(state, patch, oldNode!, oldProps, properties);
                 }
             }
             else {
-                const properties = props(newVode);
-                patchProperties(state, patch, oldNode!, props(oldVode), properties);
-                hasProps = !!properties;
-                if (hasProps && 'catch' in (properties!)) { //hold catch information only in vdom
-                    (<any>newVode).node['catch'] = null;
-                    (<any>newVode).node.removeAttribute('catch');
-                }
+                patchProperties(state, patch, oldNode!, oldProps, properties);
+            }
+
+            if (!!properties?.catch && oldProps?.catch !== properties.catch) {
+                (<any>newVode).node['catch'] = null;
+                (<any>newVode).node.removeAttribute('catch');
             }
 
             const newKids = children(newVode);

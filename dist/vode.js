@@ -610,6 +610,10 @@ var V = (() => {
         const newNode = xmlns ? document.createElementNS(xmlns, newVode[0]) : document.createElement(newVode[0]);
         newVode.node = newNode;
         patchProperties(state, patch, newNode, void 0, properties);
+        if (!!properties && "catch" in properties) {
+          newVode.node["catch"] = null;
+          newVode.node.removeAttribute("catch");
+        }
         if (oldNode) {
           oldNode.onUnmount && patch(oldNode.onUnmount(oldNode));
           oldNode.replaceWith(newNode);
@@ -635,23 +639,21 @@ var V = (() => {
         newVode.node = oldNode;
         const newvode = newVode;
         const oldvode = oldVode;
-        let hasProps = false;
+        const properties = props(newVode);
+        let hasProps = !!properties;
+        const oldProps = props(oldVode);
         if (newvode[1]?.__memo) {
           const prev = newvode[1];
           newvode[1] = remember(state, newvode[1], oldvode[1]);
           if (prev !== newvode[1]) {
-            const properties = props(newVode);
-            patchProperties(state, patch, oldNode, props(oldVode), properties);
-            hasProps = !!properties;
+            patchProperties(state, patch, oldNode, oldProps, properties);
           }
         } else {
-          const properties = props(newVode);
-          patchProperties(state, patch, oldNode, props(oldVode), properties);
-          hasProps = !!properties;
-          if (hasProps && "catch" in properties) {
-            newVode.node["catch"] = null;
-            newVode.node.removeAttribute("catch");
-          }
+          patchProperties(state, patch, oldNode, oldProps, properties);
+        }
+        if (!!properties?.catch && oldProps?.catch !== properties.catch) {
+          newVode.node["catch"] = null;
+          newVode.node.removeAttribute("catch");
         }
         const newKids = children(newVode);
         const oldKids = children(oldVode);
