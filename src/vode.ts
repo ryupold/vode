@@ -301,6 +301,7 @@ export function defuse(container: ContainerNode<any>) {
                         (<any>av.node)[key] = null;
                     }
                 }
+                (<any>av.node)['catch'] = null;
             }
             const kids = children(av);
             if (kids) {
@@ -587,6 +588,10 @@ function render<S>(state: S, patch: Dispatch<S>, parent: Element, childIndex: nu
                 const properties = props(newVode);
                 patchProperties(state, patch, oldNode!, props(oldVode), properties);
                 hasProps = !!properties;
+                if (hasProps && 'catch' in (properties!)) { //hold catch information only in vdom
+                    (<any>newVode).node['catch'] = null;
+                    (<any>newVode).node.removeAttribute('catch');
+                }
             }
 
             const newKids = children(newVode);

@@ -413,6 +413,7 @@ var V = (() => {
               av.node[key] = null;
             }
           }
+          av.node["catch"] = null;
         }
         const kids = children(av);
         if (kids) {
@@ -647,6 +648,10 @@ var V = (() => {
           const properties = props(newVode);
           patchProperties(state, patch, oldNode, props(oldVode), properties);
           hasProps = !!properties;
+          if (hasProps && "catch" in properties) {
+            newVode.node["catch"] = null;
+            newVode.node.removeAttribute("catch");
+          }
         }
         const newKids = children(newVode);
         const oldKids = children(oldVode);

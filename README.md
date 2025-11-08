@@ -1,10 +1,9 @@
 # ![vode-logo](https://raw.githubusercontent.com/ryupold/vode/refs/heads/main/logo.webp)
+| [![TypeScript](https://img.shields.io/badge/TypeScript-100%25-blue?logo=typescript)](https://www.typescriptlang.org/) |  [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)   |
+| :-------------------------------------------------------------------------------------------------------------------: | :----------------------------------------------------------------------------------: |
+|         [![NPM](https://badge.fury.io/js/%40ryupold%2Fvode.svg)](https://www.npmjs.com/package/@ryupold/vode)         | [![Dependencies](https://img.shields.io/badge/dependencies-0-success)](package.json) |
 
-[![TypeScript](https://img.shields.io/badge/TypeScript-100%25-blue?logo=typescript)](https://www.typescriptlang.org/)
-[![Dependencies](https://img.shields.io/badge/dependencies-0-success)](package.json)
-[![NPM](https://badge.fury.io/js/%40ryupold%2Fvode.svg)](https://www.npmjs.com/package/@ryupold/vode)
-[![NPM Downloads](https://img.shields.io/npm/dm/@ryupold/vode)](https://www.npmjs.com/package/@ryupold/vode)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+---
 
 A compact web framework for minimalist developers. Zero dependencies, no build step except for typescript compilation, and a simple virtual DOM implementation that is easy to understand and use. Autocompletion out of the box thanks to `lib.dom.d.ts`.
 
@@ -81,7 +80,7 @@ Binds the library to the global `V` variable.
 
 ### NPM
 
-[![NPM](https://nodei.co/npm/@ryupold/vode.svg?color=red&data=s,d)](https://www.npmjs.com/package/@ryupold/vode)
+[![NPM](https://nodei.co/npm/@ryupold/vode.svg?color=red&data=n,v,s,d,u)](https://www.npmjs.com/package/@ryupold/vode)
 
 index.html
 
