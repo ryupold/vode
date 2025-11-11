@@ -236,6 +236,7 @@ var V = (() => {
     hydrate: () => hydrate,
     memo: () => memo,
     mergeClass: () => mergeClass,
+    mergeStyle: () => mergeStyle,
     props: () => props,
     tag: () => tag,
     vode: () => vode
@@ -270,6 +271,7 @@ var V = (() => {
     _vode.qSync = null;
     _vode.qAsync = null;
     _vode.stats = { lastSyncRenderTime: 0, lastAsyncRenderTime: 0, syncRenderCount: 0, asyncRenderCount: 0, liveEffectCount: 0, patchCount: 0, syncRenderPatchCount: 0, asyncRenderPatchCount: 0 };
+    const patchableState = state;
     Object.defineProperty(state, "patch", {
       enumerable: false,
       configurable: true,
@@ -286,28 +288,28 @@ var V = (() => {
             while (v.done === false) {
               _vode.stats.liveEffectCount++;
               try {
-                _vode.patch(v.value, isAsync);
+                patchableState.patch(v.value, isAsync);
                 v = await generator.next();
               } finally {
                 _vode.stats.liveEffectCount--;
               }
             }
-            _vode.patch(v.value, isAsync);
+            patchableState.patch(v.value, isAsync);
           } finally {
             _vode.stats.liveEffectCount--;
           }
         } else if (action.then) {
           _vode.stats.liveEffectCount++;
           try {
-            const nextState = await action;
-            _vode.patch(nextState, isAsync);
+            const resolvedPatch = await action;
+            patchableState.patch(resolvedPatch, isAsync);
           } finally {
             _vode.stats.liveEffectCount--;
           }
         } else if (Array.isArray(action)) {
           if (action.length > 0) {
             for (const p of action) {
-              _vode.patch(p, !document.hidden && !!_vode.asyncRenderer);
+              patchableState.patch(p, !document.hidden && !!_vode.asyncRenderer);
             }
           } else {
             _vode.qSync = mergeState(_vode.qSync || {}, _vode.qAsync, false);
@@ -320,7 +322,7 @@ var V = (() => {
             _vode.renderSync();
           }
         } else if (typeof action === "function") {
-          _vode.patch(action(_vode.state), isAsync);
+          patchableState.patch(action(_vode.state), isAsync);
         } else {
           if (isAsync) {
             _vode.stats.asyncRenderPatchCount++;
@@ -337,7 +339,7 @@ var V = (() => {
     function renderDom(isAsync) {
       const sw = Date.now();
       const vom = dom(_vode.state);
-      _vode.vode = render(_vode.state, _vode.patch, container.parentElement, 0, _vode.vode, vom);
+      _vode.vode = render(_vode.state, container.parentElement, 0, _vode.vode, vom);
       if (container.tagName.toUpperCase() !== vom[0].toUpperCase()) {
         container = _vode.vode.node;
         container._vode = _vode;
@@ -391,15 +393,14 @@ var V = (() => {
           _vode.renderAsync();
       }
     });
-    _vode.patch = state.patch;
-    _vode.state = state;
+    _vode.state = patchableState;
     const root = container;
     root._vode = _vode;
-    _vode.vode = render(state, _vode.patch, container.parentElement, Array.from(container.parentElement.children).indexOf(container), hydrate(container, true), dom(state));
+    _vode.vode = render(state, container.parentElement, Array.from(container.parentElement.children).indexOf(container), hydrate(container, true), dom(state));
     for (const effect of initialPatches) {
-      _vode.patch(effect);
+      patchableState.patch(effect);
     }
-    return _vode.patch;
+    return patchableState.patch;
   }
   function defuse(container) {
     if (container?._vode) {
@@ -556,7 +557,7 @@ var V = (() => {
     }
     return target;
   }
-  function render(state, patch, parent, childIndex, oldVode, newVode, xmlns) {
+  function render(state, parent, childIndex, oldVode, newVode, xmlns) {
     try {
       newVode = remember(state, newVode, oldVode);
       const isNoVode = !newVode || typeof newVode === "number" || typeof newVode === "boolean";
@@ -566,7 +567,7 @@ var V = (() => {
       const oldIsText = oldVode?.nodeType === Node.TEXT_NODE;
       const oldNode = oldIsText ? oldVode : oldVode?.node;
       if (isNoVode) {
-        oldNode?.onUnmount && patch(oldNode.onUnmount(oldNode));
+        oldNode?.onUnmount && state.patch(oldNode.onUnmount(oldNode));
         oldNode?.remove();
         return void 0;
       }
@@ -589,7 +590,7 @@ var V = (() => {
       if (isText && (!oldNode || !oldIsText)) {
         const text = document.createTextNode(newVode);
         if (oldNode) {
-          oldNode.onUnmount && patch(oldNode.onUnmount(oldNode));
+          oldNode.onUnmount && state.patch(oldNode.onUnmount(oldNode));
           oldNode.replaceWith(text);
         } else {
           if (parent.childNodes[childIndex]) {
@@ -609,13 +610,13 @@ var V = (() => {
         xmlns = properties?.xmlns || xmlns;
         const newNode = xmlns ? document.createElementNS(xmlns, newVode[0]) : document.createElement(newVode[0]);
         newVode.node = newNode;
-        patchProperties(state, patch, newNode, void 0, properties);
+        patchProperties(state, newNode, void 0, properties);
         if (!!properties && "catch" in properties) {
           newVode.node["catch"] = null;
           newVode.node.removeAttribute("catch");
         }
         if (oldNode) {
-          oldNode.onUnmount && patch(oldNode.onUnmount(oldNode));
+          oldNode.onUnmount && state.patch(oldNode.onUnmount(oldNode));
           oldNode.replaceWith(newNode);
         } else {
           if (parent.childNodes[childIndex]) {
@@ -628,11 +629,11 @@ var V = (() => {
         if (newChildren) {
           for (let i = 0; i < newChildren.length; i++) {
             const child2 = newChildren[i];
-            const attached = render(state, patch, newNode, i, void 0, child2, xmlns);
+            const attached = render(state, newNode, i, void 0, child2, xmlns);
             newVode[properties ? i + 2 : i + 1] = attached;
           }
         }
-        newNode.onMount && patch(newNode.onMount(newNode));
+        newNode.onMount && state.patch(newNode.onMount(newNode));
         return newVode;
       }
       if (!oldIsText && isNode && oldVode[0] === newVode[0]) {
@@ -646,10 +647,10 @@ var V = (() => {
           const prev = newvode[1];
           newvode[1] = remember(state, newvode[1], oldvode[1]);
           if (prev !== newvode[1]) {
-            patchProperties(state, patch, oldNode, oldProps, properties);
+            patchProperties(state, oldNode, oldProps, properties);
           }
         } else {
-          patchProperties(state, patch, oldNode, oldProps, properties);
+          patchProperties(state, oldNode, oldProps, properties);
         }
         if (!!properties?.catch && oldProps?.catch !== properties.catch) {
           newVode.node["catch"] = null;
@@ -661,7 +662,7 @@ var V = (() => {
           for (let i = 0; i < newKids.length; i++) {
             const child2 = newKids[i];
             const oldChild = oldKids && oldKids[i];
-            const attached = render(state, patch, oldNode, i, oldChild, child2, xmlns);
+            const attached = render(state, oldNode, i, oldChild, child2, xmlns);
             if (attached) {
               newVode[hasProps ? i + 2 : i + 1] = attached;
             }
@@ -670,7 +671,7 @@ var V = (() => {
         if (oldKids) {
           const newKidsCount = newKids ? newKids.length : 0;
           for (let i = oldKids.length - 1; i >= newKidsCount; i--) {
-            render(state, patch, oldNode, i, oldKids[i], void 0, xmlns);
+            render(state, oldNode, i, oldKids[i], void 0, xmlns);
           }
         }
         return newVode;
@@ -679,7 +680,7 @@ var V = (() => {
       const catchVode = props(newVode)?.catch;
       if (catchVode) {
         const handledVode = typeof catchVode === "function" ? catchVode(state, error) : catchVode;
-        return render(state, patch, parent, childIndex, hydrate(newVode?.node || oldVode?.node, true), handledVode, xmlns);
+        return render(state, parent, childIndex, hydrate(newVode?.node || oldVode?.node, true), handledVode, xmlns);
       } else {
         throw error;
       }
@@ -721,7 +722,7 @@ var V = (() => {
       return c;
     }
   }
-  function patchProperties(s, patch, node, oldProps, newProps) {
+  function patchProperties(s, node, oldProps, newProps) {
     if (!newProps && !oldProps)
       return;
     if (oldProps) {
@@ -730,9 +731,9 @@ var V = (() => {
         const newValue = newProps?.[key];
         if (oldValue !== newValue) {
           if (newProps)
-            newProps[key] = patchProperty(s, patch, node, key, oldValue, newValue);
+            newProps[key] = patchProperty(s, node, key, oldValue, newValue);
           else
-            patchProperty(s, patch, node, key, oldValue, void 0);
+            patchProperty(s, node, key, oldValue, void 0);
         }
       }
     }
@@ -740,17 +741,17 @@ var V = (() => {
       for (const key in newProps) {
         if (!(key in oldProps)) {
           const newValue = newProps[key];
-          newProps[key] = patchProperty(s, patch, node, key, void 0, newValue);
+          newProps[key] = patchProperty(s, node, key, void 0, newValue);
         }
       }
     } else if (newProps) {
       for (const key in newProps) {
         const newValue = newProps[key];
-        newProps[key] = patchProperty(s, patch, node, key, void 0, newValue);
+        newProps[key] = patchProperty(s, node, key, void 0, newValue);
       }
     }
   }
-  function patchProperty(s, patch, node, key, oldValue, newValue) {
+  function patchProperty(s, node, key, oldValue, newValue) {
     if (key === "style") {
       if (!newValue) {
         node.style.cssText = "";
@@ -787,9 +788,9 @@ var V = (() => {
         let eventHandler = null;
         if (typeof newValue === "function") {
           const action = newValue;
-          eventHandler = (evt) => patch(action(s, evt));
+          eventHandler = (evt) => s.patch(action(s, evt));
         } else if (typeof newValue === "object") {
-          eventHandler = () => patch(newValue);
+          eventHandler = () => s.patch(newValue);
         }
         node[key] = eventHandler;
       } else {
@@ -1070,6 +1071,26 @@ var V = (() => {
         throw new Error(`cannot merge classes of ${a} (${typeof a}) and ${b} (${typeof b})`);
     }
     return finalClass;
+  }
+
+  // src/merge-style.js
+  var tempDivForStyling = document.createElement("div");
+  function mergeStyle(...props2) {
+    try {
+      const merged = tempDivForStyling.style;
+      for (const style of props2) {
+        if (typeof style === "object" && style !== null) {
+          for (const key in style) {
+            merged[key] = style[key];
+          }
+        } else if (typeof style === "string") {
+          merged.cssText += ";" + style;
+        }
+      }
+      return merged.cssText;
+    } finally {
+      tempDivForStyling.style.cssText = "";
+    }
   }
 
   // src/state-context.js

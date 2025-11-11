@@ -503,6 +503,10 @@ mergeClass('foo', ['baz', 'bar']);  // -> 'foo baz bar'
 mergeClass(['foo'], { bar: true, baz: false }); // -> 'foo bar'
 mergeClass({zig: true, zag: false}, 'foo', ['baz', 'bar']);  // -> 'zig foo baz bar'
 
+// Merge style props intelligently
+mergeStyle({ color: 'red' }, 'font-weight: bold;'); // -> 'color: red; font-weight: bold;'
+mergeStyle('color: white; background-color: blue;', { marginTop: '10px', color: 'green' }); // -> 'background-color: blue; margin-top: 10px; color: green;'
+
 const myVode = [DIV, { class: 'foo' }, [SPAN, 'hello'], [STRONG, 'world']];
 
 // access parts of a vode
