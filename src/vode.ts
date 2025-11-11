@@ -285,7 +285,7 @@ export function app<S extends PatchableState = PatchableState>(
         patchableState.patch(effect);
     }
 
-    return patchableState.patch;
+    return (action: Patch<S>) => patchableState.patch(action);
 }
 
 /** unregister vode app from container and free resources

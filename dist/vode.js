@@ -400,7 +400,7 @@ var V = (() => {
     for (const effect of initialPatches) {
       patchableState.patch(effect);
     }
-    return patchableState.patch;
+    return (action) => patchableState.patch(action);
   }
   function defuse(container) {
     if (container?._vode) {
