@@ -607,10 +607,11 @@ var V = (() => {
           newvode[1] = remember(state, newvode[1], void 0);
         }
         const properties = props(newVode);
-        xmlns = properties?.xmlns || xmlns;
+        if (properties?.xmlns !== void 0)
+          xmlns = properties.xmlns;
         const newNode = xmlns ? document.createElementNS(xmlns, newVode[0]) : document.createElement(newVode[0]);
         newVode.node = newNode;
-        patchProperties(state, newNode, void 0, properties);
+        patchProperties(state, newNode, void 0, properties, xmlns);
         if (!!properties && "catch" in properties) {
           newVode.node["catch"] = null;
           newVode.node.removeAttribute("catch");
@@ -625,12 +626,13 @@ var V = (() => {
             parent.appendChild(newNode);
           }
         }
-        const newChildren = children(newVode);
-        if (newChildren) {
-          for (let i = 0; i < newChildren.length; i++) {
-            const child2 = newChildren[i];
+        const newKids = children(newVode);
+        if (newKids) {
+          const childOffset = !!properties ? 2 : 1;
+          for (let i = 0; i < newKids.length; i++) {
+            const child2 = newKids[i];
             const attached = render(state, newNode, i, void 0, child2, xmlns);
-            newVode[properties ? i + 2 : i + 1] = attached;
+            newVode[i + childOffset] = attached;
           }
         }
         newNode.onMount && state.patch(newNode.onMount(newNode));
@@ -641,16 +643,17 @@ var V = (() => {
         const newvode = newVode;
         const oldvode = oldVode;
         const properties = props(newVode);
-        let hasProps = !!properties;
         const oldProps = props(oldVode);
+        if (properties?.xmlns !== void 0)
+          xmlns = properties.xmlns;
         if (newvode[1]?.__memo) {
           const prev = newvode[1];
           newvode[1] = remember(state, newvode[1], oldvode[1]);
           if (prev !== newvode[1]) {
-            patchProperties(state, oldNode, oldProps, properties);
+            patchProperties(state, oldNode, oldProps, properties, xmlns);
           }
         } else {
-          patchProperties(state, oldNode, oldProps, properties);
+          patchProperties(state, oldNode, oldProps, properties, xmlns);
         }
         if (!!properties?.catch && oldProps?.catch !== properties.catch) {
           newVode.node["catch"] = null;
@@ -659,12 +662,13 @@ var V = (() => {
         const newKids = children(newVode);
         const oldKids = children(oldVode);
         if (newKids) {
+          const childOffset = !!properties ? 2 : 1;
           for (let i = 0; i < newKids.length; i++) {
             const child2 = newKids[i];
             const oldChild = oldKids && oldKids[i];
             const attached = render(state, oldNode, i, oldChild, child2, xmlns);
             if (attached) {
-              newVode[hasProps ? i + 2 : i + 1] = attached;
+              newVode[i + childOffset] = attached;
             }
           }
         }
@@ -722,18 +726,19 @@ var V = (() => {
       return c;
     }
   }
-  function patchProperties(s, node, oldProps, newProps) {
+  function patchProperties(s, node, oldProps, newProps, xmlns) {
     if (!newProps && !oldProps)
       return;
+    const xmlMode = xmlns !== void 0;
     if (oldProps) {
       for (const key in oldProps) {
         const oldValue = oldProps[key];
         const newValue = newProps?.[key];
         if (oldValue !== newValue) {
           if (newProps)
-            newProps[key] = patchProperty(s, node, key, oldValue, newValue);
+            newProps[key] = patchProperty(s, node, key, oldValue, newValue, xmlMode);
           else
-            patchProperty(s, node, key, oldValue, void 0);
+            patchProperty(s, node, key, oldValue, void 0, xmlMode);
         }
       }
     }
@@ -741,17 +746,17 @@ var V = (() => {
       for (const key in newProps) {
         if (!(key in oldProps)) {
           const newValue = newProps[key];
-          newProps[key] = patchProperty(s, node, key, void 0, newValue);
+          newProps[key] = patchProperty(s, node, key, void 0, newValue, xmlMode);
         }
       }
     } else if (newProps) {
       for (const key in newProps) {
         const newValue = newProps[key];
-        newProps[key] = patchProperty(s, node, key, void 0, newValue);
+        newProps[key] = patchProperty(s, node, key, void 0, newValue, xmlMode);
       }
     }
   }
-  function patchProperty(s, node, key, oldValue, newValue) {
+  function patchProperty(s, node, key, oldValue, newValue, xmlMode) {
     if (key === "style") {
       if (!newValue) {
         node.style.cssText = "";
@@ -797,7 +802,8 @@ var V = (() => {
         node[key] = null;
       }
     } else {
-      node[key] = newValue;
+      if (!xmlMode)
+        node[key] = newValue;
       if (newValue === void 0 || newValue === null || newValue === false)
         node.removeAttribute(key);
       else

@@ -33,6 +33,7 @@ export type Props<S> = Partial<
     { [K in keyof EventsMap]: EventFunction<S> | Patch<S> } // all on* events
 > & {
     [_: string]: unknown,
+    xmlns?: string | null,
     class?: ClassProp,
     style?: StyleProp,
     /** called after the element was attached */
@@ -471,7 +472,7 @@ function mergeState(target: any, source: any, allowDeletion: boolean) {
     return target;
 };
 
-function render<S extends PatchableState>(state: S, parent: Element, childIndex: number, oldVode: AttachedVode<S> | undefined, newVode: ChildVode<S>, xmlns?: string): AttachedVode<S> | undefined {
+function render<S extends PatchableState>(state: S, parent: Element, childIndex: number, oldVode: AttachedVode<S> | undefined, newVode: ChildVode<S>, xmlns?: string | null): AttachedVode<S> | undefined {
     try {
         // unwrap component if it is memoized
         newVode = remember(state, newVode, oldVode) as ChildVode<S>;
@@ -539,13 +540,14 @@ function render<S extends PatchableState>(state: S, parent: Element, childIndex:
 
             const properties = props(newVode);
 
-            xmlns = properties?.xmlns as string || xmlns;
+            if (properties?.xmlns !== undefined) xmlns = properties.xmlns;
+
             const newNode: ChildNode = xmlns
                 ? document.createElementNS(xmlns, (<Vode<S>>newVode)[0])
                 : document.createElement((<Vode<S>>newVode)[0]);
             (<AttachedVode<S>>newVode).node = newNode;
 
-            patchProperties(state, newNode, undefined, properties);
+            patchProperties(state, newNode, undefined, properties, xmlns);
 
             if (!!properties && 'catch' in properties) {
                 (<any>newVode).node['catch'] = null;
@@ -563,12 +565,13 @@ function render<S extends PatchableState>(state: S, parent: Element, childIndex:
                 }
             }
 
-            const newChildren = children(newVode);
-            if (newChildren) {
-                for (let i = 0; i < newChildren.length; i++) {
-                    const child = newChildren[i];
+            const newKids = children(newVode);
+            if (newKids) {
+                const childOffset = !!properties ? 2 : 1;
+                for (let i = 0; i < newKids.length; i++) {
+                    const child = newKids[i];
                     const attached = render(state, newNode as Element, i, undefined, child, xmlns);
-                    (<Vode<S>>newVode!)[properties ? i + 2 : i + 1] = <Vode<S>>attached;
+                    (<Vode<S>>newVode!)[i + childOffset] = <Vode<S>>attached;
                 }
             }
 
@@ -584,18 +587,19 @@ function render<S extends PatchableState>(state: S, parent: Element, childIndex:
             const oldvode = <Vode<S>>oldVode;
 
             const properties = props(newVode);
-            let hasProps = !!properties;
             const oldProps = props(oldVode);
+
+            if (properties?.xmlns !== undefined) xmlns = properties.xmlns;
 
             if ((<any>newvode[1])?.__memo) {
                 const prev = newvode[1] as any;
                 newvode[1] = remember(state, newvode[1], oldvode[1]) as Vode<S>;
                 if (prev !== newvode[1]) {
-                    patchProperties(state, oldNode!, oldProps, properties);
+                    patchProperties(state, oldNode!, oldProps, properties, xmlns);
                 }
             }
             else {
-                patchProperties(state, oldNode!, oldProps, properties);
+                patchProperties(state, oldNode!, oldProps, properties, xmlns);
             }
 
             if (!!properties?.catch && oldProps?.catch !== properties.catch) {
@@ -606,13 +610,14 @@ function render<S extends PatchableState>(state: S, parent: Element, childIndex:
             const newKids = children(newVode);
             const oldKids = children(oldVode) as AttachedVode<S>[];
             if (newKids) {
+                const childOffset = !!properties ? 2 : 1;
                 for (let i = 0; i < newKids.length; i++) {
                     const child = newKids[i];
                     const oldChild = oldKids && oldKids[i];
 
                     const attached = render(state, oldNode as Element, i, oldChild, child, xmlns);
                     if (attached) {
-                        (<Vode<S>>newVode)[hasProps ? i + 2 : i + 1] = <Vode<S>>attached;
+                        (<Vode<S>>newVode)[i + childOffset] = <Vode<S>>attached;
                     }
                 }
             }
@@ -688,8 +693,14 @@ function unwrap<S>(c: Component<S> | ChildVode<S>, s: S): ChildVode<S> {
     }
 }
 
-function patchProperties<S extends PatchableState>(s: S, node: ChildNode, oldProps?: Props<S>, newProps?: Props<S>) {
+function patchProperties<S extends PatchableState>(
+    s: S, node: ChildNode,
+    oldProps: Props<S> | null | undefined, newProps: Props<S> | null | undefined,
+    xmlns: string | null | undefined
+) {
     if (!newProps && !oldProps) return;
+
+    const xmlMode = xmlns !== undefined;
 
     // match existing properties
     if (oldProps) {
@@ -698,8 +709,10 @@ function patchProperties<S extends PatchableState>(s: S, node: ChildNode, oldPro
             const newValue = newProps?.[key as keyof Props<S>] as PropertyValue<S>;
 
             if (oldValue !== newValue) {
-                if (newProps) newProps[key as keyof Props<S>] = patchProperty(s, node, key, oldValue, newValue);
-                else patchProperty(s, node, key, oldValue, undefined);
+                if (newProps)
+                    newProps[key as keyof Props<S>] = patchProperty(s, node, key, oldValue, newValue, xmlMode);
+                else
+                    patchProperty(s, node, key, oldValue, undefined, xmlMode);
             }
         }
     }
@@ -709,7 +722,7 @@ function patchProperties<S extends PatchableState>(s: S, node: ChildNode, oldPro
         for (const key in newProps) {
             if (!(key in oldProps)) {
                 const newValue = newProps[key as keyof Props<S>] as PropertyValue<S>;
-                newProps[key as keyof Props<S>] = patchProperty(s, <Element>node, key, undefined, newValue);
+                newProps[key as keyof Props<S>] = patchProperty(s, <Element>node, key, undefined, newValue, xmlMode);
             }
         }
     }
@@ -717,12 +730,12 @@ function patchProperties<S extends PatchableState>(s: S, node: ChildNode, oldPro
     else if (newProps) {
         for (const key in newProps) {
             const newValue = newProps[key as keyof Props<S>] as PropertyValue<S>;
-            newProps[key as keyof Props<S>] = patchProperty(s, <Element>node, key, undefined, newValue);
+            newProps[key as keyof Props<S>] = patchProperty(s, <Element>node, key, undefined, newValue, xmlMode);
         }
     }
 }
 
-function patchProperty<S extends PatchableState>(s: S, node: ChildNode, key: string | keyof ElementEventMap, oldValue?: PropertyValue<S>, newValue?: PropertyValue<S>) {
+function patchProperty<S extends PatchableState>(s: S, node: ChildNode, key: string | keyof ElementEventMap, oldValue: PropertyValue<S>, newValue: PropertyValue<S>, xmlMode: boolean) {
     if (key === "style") {
         if (!newValue) {
             (node as HTMLElement).style.cssText = "";
@@ -768,7 +781,7 @@ function patchProperty<S extends PatchableState>(s: S, node: ChildNode, key: str
             (<any>node)[key] = null;
         }
     } else {
-        (<any>node)[key] = newValue;
+        if (!xmlMode) (<any>node)[key] = newValue;
         if (newValue === undefined || newValue === null || newValue === false)
             (<HTMLElement>node).removeAttribute(key);
         else
