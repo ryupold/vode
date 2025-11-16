@@ -595,8 +595,8 @@ var V = (() => {
           oldNode.replaceWith(text);
         } else {
           let inserted = false;
-          for (let i = 0; i < parent.childNodes.length; i++) {
-            const nextSibling = parent.childNodes[indexInParent + i];
+          for (let i = indexInParent; i < parent.childNodes.length; i++) {
+            const nextSibling = parent.childNodes[i];
             if (nextSibling) {
               nextSibling.before(text, nextSibling);
               inserted = true;
@@ -629,8 +629,8 @@ var V = (() => {
           oldNode.replaceWith(newNode);
         } else {
           let inserted = false;
-          for (let i = 0; i < parent.childNodes.length; i++) {
-            const nextSibling = parent.childNodes[indexInParent + i];
+          for (let i = indexInParent; i < parent.childNodes.length; i++) {
+            const nextSibling = parent.childNodes[i];
             if (nextSibling) {
               nextSibling.before(newNode, nextSibling);
               inserted = true;
