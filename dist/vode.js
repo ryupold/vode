@@ -339,7 +339,7 @@ var V = (() => {
     function renderDom(isAsync) {
       const sw = Date.now();
       const vom = dom(_vode.state);
-      _vode.vode = render(_vode.state, container.parentElement, 0, _vode.vode, vom);
+      _vode.vode = render(_vode.state, container.parentElement, 0, 0, _vode.vode, vom);
       if (container.tagName.toUpperCase() !== vom[0].toUpperCase()) {
         container = _vode.vode.node;
         container._vode = _vode;
@@ -396,7 +396,8 @@ var V = (() => {
     _vode.state = patchableState;
     const root = container;
     root._vode = _vode;
-    _vode.vode = render(state, container.parentElement, Array.from(container.parentElement.children).indexOf(container), hydrate(container, true), dom(state));
+    const indexInParent = Array.from(container.parentElement.children).indexOf(container);
+    _vode.vode = render(state, container.parentElement, indexInParent, indexInParent, hydrate(container, true), dom(state));
     for (const effect of initialPatches) {
       patchableState.patch(effect);
     }
@@ -557,7 +558,7 @@ var V = (() => {
     }
     return target;
   }
-  function render(state, parent, childIndex, oldVode, newVode, xmlns) {
+  function render(state, parent, childIndex, indexInParent, oldVode, newVode, xmlns) {
     try {
       newVode = remember(state, newVode, oldVode);
       const isNoVode = !newVode || typeof newVode === "number" || typeof newVode === "boolean";
@@ -593,9 +594,16 @@ var V = (() => {
           oldNode.onUnmount && state.patch(oldNode.onUnmount(oldNode));
           oldNode.replaceWith(text);
         } else {
-          if (parent.childNodes[childIndex]) {
-            parent.insertBefore(text, parent.childNodes[childIndex]);
-          } else {
+          let inserted = false;
+          for (let i = 0; i < parent.childNodes.length; i++) {
+            const nextSibling = parent.childNodes[indexInParent + i];
+            if (nextSibling) {
+              nextSibling.before(text, nextSibling);
+              inserted = true;
+              break;
+            }
+          }
+          if (!inserted) {
             parent.appendChild(text);
           }
         }
@@ -620,19 +628,29 @@ var V = (() => {
           oldNode.onUnmount && state.patch(oldNode.onUnmount(oldNode));
           oldNode.replaceWith(newNode);
         } else {
-          if (parent.childNodes[childIndex]) {
-            parent.insertBefore(newNode, parent.childNodes[childIndex]);
-          } else {
+          let inserted = false;
+          for (let i = 0; i < parent.childNodes.length; i++) {
+            const nextSibling = parent.childNodes[indexInParent + i];
+            if (nextSibling) {
+              nextSibling.before(newNode, nextSibling);
+              inserted = true;
+              break;
+            }
+          }
+          if (!inserted) {
             parent.appendChild(newNode);
           }
         }
         const newKids = children(newVode);
         if (newKids) {
           const childOffset = !!properties ? 2 : 1;
+          let indexP = 0;
           for (let i = 0; i < newKids.length; i++) {
             const child2 = newKids[i];
-            const attached = render(state, newNode, i, void 0, child2, xmlns);
+            const attached = render(state, newNode, i, indexP, void 0, child2, xmlns);
             newVode[i + childOffset] = attached;
+            if (attached)
+              indexP++;
           }
         }
         newNode.onMount && state.patch(newNode.onMount(newNode));
@@ -663,19 +681,20 @@ var V = (() => {
         const oldKids = children(oldVode);
         if (newKids) {
           const childOffset = !!properties ? 2 : 1;
+          let indexP = 0;
           for (let i = 0; i < newKids.length; i++) {
             const child2 = newKids[i];
             const oldChild = oldKids && oldKids[i];
-            const attached = render(state, oldNode, i, oldChild, child2, xmlns);
-            if (attached) {
-              newVode[i + childOffset] = attached;
-            }
+            const attached = render(state, oldNode, i, indexP, oldChild, child2, xmlns);
+            newVode[i + childOffset] = attached;
+            if (attached)
+              indexP++;
           }
         }
         if (oldKids) {
           const newKidsCount = newKids ? newKids.length : 0;
           for (let i = oldKids.length - 1; i >= newKidsCount; i--) {
-            render(state, oldNode, i, oldKids[i], void 0, xmlns);
+            render(state, oldNode, i, i, oldKids[i], void 0, xmlns);
           }
         }
         return newVode;
@@ -684,7 +703,7 @@ var V = (() => {
       const catchVode = props(newVode)?.catch;
       if (catchVode) {
         const handledVode = typeof catchVode === "function" ? catchVode(state, error) : catchVode;
-        return render(state, parent, childIndex, hydrate(newVode?.node || oldVode?.node, true), handledVode, xmlns);
+        return render(state, parent, childIndex, indexInParent, hydrate(newVode?.node || oldVode?.node, true), handledVode, xmlns);
       } else {
         throw error;
       }

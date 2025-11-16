@@ -213,7 +213,7 @@ export function app<S extends PatchableState = PatchableState>(
     function renderDom(isAsync: boolean) {
         const sw = Date.now();
         const vom = dom(_vode.state);
-        _vode.vode = render<S>(_vode.state, container.parentElement as Element, 0, _vode.vode, vom)!;
+        _vode.vode = render<S>(_vode.state, container.parentElement as Element, 0, 0, _vode.vode, vom)!;
 
         if ((<ContainerNode<S>>container).tagName.toUpperCase() !== (vom[0] as Tag).toUpperCase()) { //the tag name was changed during render -> update reference to vode-app-root 
             container = _vode.vode.node as Element;
@@ -273,11 +273,12 @@ export function app<S extends PatchableState = PatchableState>(
 
     const root = container as ContainerNode<S>;
     root._vode = _vode;
-
+    const indexInParent = Array.from(container.parentElement.children).indexOf(container);
     _vode.vode = render(
         <S>state,
         container.parentElement,
-        Array.from(container.parentElement.children).indexOf(container),
+        indexInParent,
+        indexInParent,
         hydrate<S>(container, true) as AttachedVode<S>,
         dom(<S>state)
     )!;
@@ -472,7 +473,7 @@ function mergeState(target: any, source: any, allowDeletion: boolean) {
     return target;
 };
 
-function render<S extends PatchableState>(state: S, parent: Element, childIndex: number, oldVode: AttachedVode<S> | undefined, newVode: ChildVode<S>, xmlns?: string | null): AttachedVode<S> | undefined {
+function render<S extends PatchableState>(state: S, parent: Element, childIndex: number, indexInParent: number, oldVode: AttachedVode<S> | undefined, newVode: ChildVode<S>, xmlns?: string | null): AttachedVode<S> | undefined {
     try {
         // unwrap component if it is memoized
         newVode = remember(state, newVode, oldVode) as ChildVode<S>;
@@ -520,9 +521,16 @@ function render<S extends PatchableState>(state: S, parent: Element, childIndex:
                 (<any>oldNode).onUnmount && state.patch((<any>oldNode).onUnmount(oldNode));
                 oldNode.replaceWith(text);
             } else {
-                if (parent.childNodes[childIndex]) {
-                    parent.insertBefore(text, parent.childNodes[childIndex]);
-                } else {
+                let inserted = false;
+                for (let i = 0; i < parent.childNodes.length; i++) {
+                    const nextSibling = parent.childNodes[indexInParent + i];
+                    if (nextSibling) {
+                        nextSibling.before(text, nextSibling);
+                        inserted = true;
+                        break;
+                    }
+                }
+                if (!inserted) {
                     parent.appendChild(text);
                 }
             }
@@ -558,9 +566,16 @@ function render<S extends PatchableState>(state: S, parent: Element, childIndex:
                 (<any>oldNode).onUnmount && state.patch((<any>oldNode).onUnmount(oldNode));
                 oldNode.replaceWith(newNode);
             } else {
-                if (parent.childNodes[childIndex]) {
-                    parent.insertBefore(newNode, parent.childNodes[childIndex]);
-                } else {
+                let inserted = false;
+                for (let i = 0; i < parent.childNodes.length; i++) {
+                    const nextSibling = parent.childNodes[indexInParent + i];
+                    if (nextSibling) {
+                        nextSibling.before(newNode, nextSibling);
+                        inserted = true;
+                        break;
+                    }
+                }
+                if (!inserted) {
                     parent.appendChild(newNode);
                 }
             }
@@ -568,10 +583,12 @@ function render<S extends PatchableState>(state: S, parent: Element, childIndex:
             const newKids = children(newVode);
             if (newKids) {
                 const childOffset = !!properties ? 2 : 1;
+                let indexP = 0;
                 for (let i = 0; i < newKids.length; i++) {
                     const child = newKids[i];
-                    const attached = render(state, newNode as Element, i, undefined, child, xmlns);
+                    const attached = render(state, newNode as Element, i, indexP, undefined, child, xmlns);
                     (<Vode<S>>newVode!)[i + childOffset] = <Vode<S>>attached;
+                    if (attached) indexP++;
                 }
             }
 
@@ -611,21 +628,21 @@ function render<S extends PatchableState>(state: S, parent: Element, childIndex:
             const oldKids = children(oldVode) as AttachedVode<S>[];
             if (newKids) {
                 const childOffset = !!properties ? 2 : 1;
+                let indexP = 0;
                 for (let i = 0; i < newKids.length; i++) {
                     const child = newKids[i];
                     const oldChild = oldKids && oldKids[i];
 
-                    const attached = render(state, oldNode as Element, i, oldChild, child, xmlns);
-                    if (attached) {
-                        (<Vode<S>>newVode)[i + childOffset] = <Vode<S>>attached;
-                    }
+                    const attached = render(state, oldNode as Element, i, indexP, oldChild, child, xmlns);
+                    (<Vode<S>>newVode)[i + childOffset] = <Vode<S>>attached;
+                    if (attached) indexP++;
                 }
             }
 
             if (oldKids) {
                 const newKidsCount = newKids ? newKids.length : 0;
                 for (let i = oldKids.length - 1; i >= newKidsCount; i--) {
-                    render(state, oldNode as Element, i, oldKids[i], undefined, xmlns);
+                    render(state, oldNode as Element, i, i, oldKids[i], undefined, xmlns);
                 }
             }
 
@@ -638,7 +655,7 @@ function render<S extends PatchableState>(state: S, parent: Element, childIndex:
                 ? (<(s: S, error: any) => ChildVode<S>>catchVode)(state, error)
                 : catchVode;
 
-            return render(state, parent, childIndex,
+            return render(state, parent, childIndex, indexInParent,
                 hydrate(((<AttachedVode<S>>newVode)?.node || oldVode?.node) as Element, true) as AttachedVode<S>,
                 handledVode,
                 xmlns);
