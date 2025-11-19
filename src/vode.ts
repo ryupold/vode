@@ -555,7 +555,8 @@ function render<S extends PatchableState>(state: S, parent: Element, childIndex:
                 : document.createElement((<Vode<S>>newVode)[0]);
             (<AttachedVode<S>>newVode).node = newNode;
 
-            patchProperties(state, newNode, undefined, properties, xmlns);
+            //set properties for new child in xml mode to prevent using the dom properties
+            patchProperties(state, newNode, undefined, properties, xmlns ?? null);
 
             if (!!properties && 'catch' in properties) {
                 (<any>newVode).node['catch'] = null;
@@ -586,7 +587,8 @@ function render<S extends PatchableState>(state: S, parent: Element, childIndex:
                 let indexP = 0;
                 for (let i = 0; i < newKids.length; i++) {
                     const child = newKids[i];
-                    const attached = render(state, newNode as Element, i, indexP, undefined, child, xmlns);
+                    // render child in xml mode to prevent using the dom properties
+                    const attached = render(state, newNode as Element, i, indexP, undefined, child, xmlns ?? null);
                     (<Vode<S>>newVode!)[i + childOffset] = <Vode<S>>attached;
                     if (attached) indexP++;
                 }

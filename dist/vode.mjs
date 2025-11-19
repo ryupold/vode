@@ -1,26 +1,19 @@
-// src/vode.js
+// src/vode.ts
 var globals = {
   currentViewTransition: void 0,
   requestAnimationFrame: !!window.requestAnimationFrame ? window.requestAnimationFrame.bind(window) : ((cb) => cb()),
   startViewTransition: !!document.startViewTransition ? document.startViewTransition.bind(document) : null
 };
 function vode(tag2, props2, ...children2) {
-  if (!tag2)
-    throw new Error("first argument to vode() must be a tag name or a vode");
-  if (Array.isArray(tag2))
-    return tag2;
-  else if (props2)
-    return [tag2, props2, ...children2];
-  else
-    return [tag2, ...children2];
+  if (!tag2) throw new Error("first argument to vode() must be a tag name or a vode");
+  if (Array.isArray(tag2)) return tag2;
+  else if (props2) return [tag2, props2, ...children2];
+  else return [tag2, ...children2];
 }
 function app(container, state, dom, ...initialPatches) {
-  if (!container?.parentElement)
-    throw new Error("first argument to app() must be a valid HTMLElement inside the <html></html> document");
-  if (!state || typeof state !== "object")
-    throw new Error("second argument to app() must be a state object");
-  if (typeof dom !== "function")
-    throw new Error("third argument to app() must be a function that returns a vode");
+  if (!container?.parentElement) throw new Error("first argument to app() must be a valid HTMLElement inside the <html></html> document");
+  if (!state || typeof state !== "object") throw new Error("second argument to app() must be a state object");
+  if (typeof dom !== "function") throw new Error("third argument to app() must be a function that returns a vode");
   const _vode = {};
   _vode.syncRenderer = globals.requestAnimationFrame;
   _vode.asyncRenderer = globals.startViewTransition;
@@ -33,8 +26,7 @@ function app(container, state, dom, ...initialPatches) {
     configurable: true,
     writable: false,
     value: async (action, isAsync) => {
-      if (!action || typeof action !== "function" && typeof action !== "object")
-        return;
+      if (!action || typeof action !== "function" && typeof action !== "object") return;
       _vode.stats.patchCount++;
       if (action?.next) {
         const generator = action;
@@ -104,8 +96,7 @@ function app(container, state, dom, ...initialPatches) {
       _vode.stats.lastSyncRenderTime = Date.now() - sw;
       _vode.stats.syncRenderCount++;
       _vode.isRendering = false;
-      if (_vode.qSync)
-        _vode.renderSync();
+      if (_vode.qSync) _vode.renderSync();
     }
   }
   const sr = renderDom.bind(null, false);
@@ -115,8 +106,7 @@ function app(container, state, dom, ...initialPatches) {
     configurable: true,
     writable: false,
     value: () => {
-      if (_vode.isRendering || !_vode.qSync)
-        return;
+      if (_vode.isRendering || !_vode.qSync) return;
       _vode.isRendering = true;
       _vode.state = mergeState(_vode.state, _vode.qSync, true);
       _vode.qSync = null;
@@ -128,11 +118,9 @@ function app(container, state, dom, ...initialPatches) {
     configurable: true,
     writable: false,
     value: async () => {
-      if (_vode.isAnimating || !_vode.qAsync)
-        return;
+      if (_vode.isAnimating || !_vode.qAsync) return;
       await globals.currentViewTransition?.updateCallbackDone;
-      if (_vode.isAnimating || !_vode.qAsync || document.hidden)
-        return;
+      if (_vode.isAnimating || !_vode.qAsync || document.hidden) return;
       _vode.isAnimating = true;
       const sw = Date.now();
       try {
@@ -145,15 +133,21 @@ function app(container, state, dom, ...initialPatches) {
         _vode.stats.asyncRenderCount++;
         _vode.isAnimating = false;
       }
-      if (_vode.qAsync)
-        _vode.renderAsync();
+      if (_vode.qAsync) _vode.renderAsync();
     }
   });
   _vode.state = patchableState;
   const root = container;
   root._vode = _vode;
   const indexInParent = Array.from(container.parentElement.children).indexOf(container);
-  _vode.vode = render(state, container.parentElement, indexInParent, indexInParent, hydrate(container, true), dom(state));
+  _vode.vode = render(
+    state,
+    container.parentElement,
+    indexInParent,
+    indexInParent,
+    hydrate(container, true),
+    dom(state)
+  );
   for (const effect of initialPatches) {
     patchableState.patch(effect);
   }
@@ -162,8 +156,7 @@ function app(container, state, dom, ...initialPatches) {
 function defuse(container) {
   if (container?._vode) {
     let clearEvents2 = function(av) {
-      if (!av?.node)
-        return;
+      if (!av?.node) return;
       const p = props(av);
       if (p) {
         for (const key in p) {
@@ -201,8 +194,7 @@ function hydrate(element, prepareForRender) {
   } else if (element.nodeType === Node.ELEMENT_NODE) {
     const tag2 = element.tagName.toLowerCase();
     const root = [tag2];
-    if (prepareForRender)
-      root.node = element;
+    if (prepareForRender) root.node = element;
     if (element?.hasAttributes()) {
       const props2 = {};
       const attr = element.attributes;
@@ -215,10 +207,8 @@ function hydrate(element, prepareForRender) {
       const remove = [];
       for (let child2 of element.childNodes) {
         const wet = child2 && hydrate(child2, prepareForRender);
-        if (wet)
-          root.push(wet);
-        else if (child2 && prepareForRender)
-          remove.push(child2);
+        if (wet) root.push(wet);
+        else if (child2 && prepareForRender) remove.push(child2);
       }
       for (let child2 of remove) {
         child2.remove();
@@ -230,16 +220,13 @@ function hydrate(element, prepareForRender) {
   }
 }
 function memo(compare, componentOrProps) {
-  if (!compare || !Array.isArray(compare))
-    throw new Error("first argument to memo() must be an array of values to compare");
-  if (typeof componentOrProps !== "function")
-    throw new Error("second argument to memo() must be a function that returns a vode or props object");
+  if (!compare || !Array.isArray(compare)) throw new Error("first argument to memo() must be an array of values to compare");
+  if (typeof componentOrProps !== "function") throw new Error("second argument to memo() must be a function that returns a vode or props object");
   componentOrProps.__memo = compare;
   return componentOrProps;
 }
 function createState(state) {
-  if (!state || typeof state !== "object")
-    throw new Error("createState() must be called with a state object");
+  if (!state || typeof state !== "object") throw new Error("createState() must be called with a state object");
   return state;
 }
 function createPatch(p) {
@@ -265,23 +252,19 @@ function children(vode2) {
 }
 function childCount(vode2) {
   const start = childrenStart(vode2);
-  if (start < 0)
-    return 0;
+  if (start < 0) return 0;
   return vode2.length - start;
 }
 function child(vode2, index) {
   const start = childrenStart(vode2);
-  if (start > 0)
-    return vode2[index + start];
-  else
-    return void 0;
+  if (start > 0) return vode2[index + start];
+  else return void 0;
 }
 function childrenStart(vode2) {
   return props(vode2) ? vode2.length > 2 ? 2 : -1 : Array.isArray(vode2) && vode2.length > 1 ? 1 : -1;
 }
 function mergeState(target, source, allowDeletion) {
-  if (!source)
-    return target;
+  if (!source) return target;
   for (const key in source) {
     const value = source[key];
     if (value && typeof value === "object") {
@@ -292,12 +275,9 @@ function mergeState(target, source, allowDeletion) {
         } else if (value instanceof Date && targetValue !== value) {
           target[key] = new Date(value);
         } else {
-          if (Array.isArray(targetValue))
-            target[key] = mergeState({}, value, allowDeletion);
-          else if (typeof targetValue === "object")
-            mergeState(target[key], value, allowDeletion);
-          else
-            target[key] = mergeState({}, value, allowDeletion);
+          if (Array.isArray(targetValue)) target[key] = mergeState({}, value, allowDeletion);
+          else if (typeof targetValue === "object") mergeState(target[key], value, allowDeletion);
+          else target[key] = mergeState({}, value, allowDeletion);
         }
       } else if (Array.isArray(value)) {
         target[key] = [...value];
@@ -371,11 +351,10 @@ function render(state, parent, childIndex, indexInParent, oldVode, newVode, xmln
         newvode[1] = remember(state, newvode[1], void 0);
       }
       const properties = props(newVode);
-      if (properties?.xmlns !== void 0)
-        xmlns = properties.xmlns;
+      if (properties?.xmlns !== void 0) xmlns = properties.xmlns;
       const newNode = xmlns ? document.createElementNS(xmlns, newVode[0]) : document.createElement(newVode[0]);
       newVode.node = newNode;
-      patchProperties(state, newNode, void 0, properties, xmlns);
+      patchProperties(state, newNode, void 0, properties, xmlns ?? null);
       if (!!properties && "catch" in properties) {
         newVode.node["catch"] = null;
         newVode.node.removeAttribute("catch");
@@ -403,10 +382,9 @@ function render(state, parent, childIndex, indexInParent, oldVode, newVode, xmln
         let indexP = 0;
         for (let i = 0; i < newKids.length; i++) {
           const child2 = newKids[i];
-          const attached = render(state, newNode, i, indexP, void 0, child2, xmlns);
+          const attached = render(state, newNode, i, indexP, void 0, child2, xmlns ?? null);
           newVode[i + childOffset] = attached;
-          if (attached)
-            indexP++;
+          if (attached) indexP++;
         }
       }
       newNode.onMount && state.patch(newNode.onMount(newNode));
@@ -418,8 +396,7 @@ function render(state, parent, childIndex, indexInParent, oldVode, newVode, xmln
       const oldvode = oldVode;
       const properties = props(newVode);
       const oldProps = props(oldVode);
-      if (properties?.xmlns !== void 0)
-        xmlns = properties.xmlns;
+      if (properties?.xmlns !== void 0) xmlns = properties.xmlns;
       if (newvode[1]?.__memo) {
         const prev = newvode[1];
         newvode[1] = remember(state, newvode[1], oldvode[1]);
@@ -443,8 +420,7 @@ function render(state, parent, childIndex, indexInParent, oldVode, newVode, xmln
           const oldChild = oldKids && oldKids[i];
           const attached = render(state, oldNode, i, indexP, oldChild, child2, xmlns);
           newVode[i + childOffset] = attached;
-          if (attached)
-            indexP++;
+          if (attached) indexP++;
         }
       }
       if (oldKids) {
@@ -459,7 +435,15 @@ function render(state, parent, childIndex, indexInParent, oldVode, newVode, xmln
     const catchVode = props(newVode)?.catch;
     if (catchVode) {
       const handledVode = typeof catchVode === "function" ? catchVode(state, error) : catchVode;
-      return render(state, parent, childIndex, indexInParent, hydrate(newVode?.node || oldVode?.node, true), handledVode, xmlns);
+      return render(
+        state,
+        parent,
+        childIndex,
+        indexInParent,
+        hydrate(newVode?.node || oldVode?.node, true),
+        handledVode,
+        xmlns
+      );
     } else {
       throw error;
     }
@@ -485,8 +469,7 @@ function remember(state, present, past) {
         break;
       }
     }
-    if (same)
-      return past;
+    if (same) return past;
   }
   const newRender = unwrap(present, state);
   if (typeof newRender === "object") {
@@ -502,8 +485,7 @@ function unwrap(c, s) {
   }
 }
 function patchProperties(s, node, oldProps, newProps, xmlns) {
-  if (!newProps && !oldProps)
-    return;
+  if (!newProps && !oldProps) return;
   const xmlMode = xmlns !== void 0;
   if (oldProps) {
     for (const key in oldProps) {
@@ -536,8 +518,7 @@ function patchProperty(s, node, key, oldValue, newValue, xmlMode) {
     if (!newValue) {
       node.style.cssText = "";
     } else if (typeof newValue === "string") {
-      if (oldValue !== newValue)
-        node.style.cssText = newValue;
+      if (oldValue !== newValue) node.style.cssText = newValue;
     } else if (oldValue && typeof oldValue === "object") {
       for (let k in oldValue) {
         const nv = newValue[k];
@@ -577,8 +558,7 @@ function patchProperty(s, node, key, oldValue, newValue, xmlMode) {
       node[key] = null;
     }
   } else {
-    if (!xmlMode)
-      node[key] = newValue;
+    if (!xmlMode) node[key] = newValue;
     if (newValue === void 0 || newValue === null || newValue === false)
       node.removeAttribute(key);
     else
@@ -597,7 +577,7 @@ function classString(classProp) {
     return "";
 }
 
-// src/vode-tags.js
+// src/vode-tags.ts
 var A = "a";
 var ABBR = "abbr";
 var ADDRESS = "address";
@@ -800,12 +780,10 @@ var MUNDER = "munder";
 var MUNDEROVER = "munderover";
 var SEMANTICS = "semantics";
 
-// src/merge-class.js
+// src/merge-class.ts
 function mergeClass(...classes) {
-  if (!classes || classes.length === 0)
-    return null;
-  if (classes.length === 1)
-    return classes[0];
+  if (!classes || classes.length === 0) return null;
+  if (classes.length === 1) return classes[0];
   let finalClass = classes[0];
   for (let index = 1; index < classes.length; index++) {
     const a = finalClass, b = classes[index];
@@ -848,13 +826,12 @@ function mergeClass(...classes) {
         aa[bKey] = b[bKey];
       }
       finalClass = aa;
-    } else
-      throw new Error(`cannot merge classes of ${a} (${typeof a}) and ${b} (${typeof b})`);
+    } else throw new Error(`cannot merge classes of ${a} (${typeof a}) and ${b} (${typeof b})`);
   }
   return finalClass;
 }
 
-// src/merge-style.js
+// src/merge-style.ts
 var tempDivForStyling = document.createElement("div");
 function mergeStyle(...props2) {
   try {
@@ -874,16 +851,14 @@ function mergeStyle(...props2) {
   }
 }
 
-// src/state-context.js
+// src/state-context.ts
 var KeyStateContext = class {
-  state;
-  path;
-  keys;
   constructor(state, path) {
     this.state = state;
     this.path = path;
     this.keys = path.split(".");
   }
+  keys;
   get() {
     const keys = this.keys;
     let raw = this.state ? this.state[keys[0]] : void 0;
@@ -906,6 +881,19 @@ var KeyStateContext = class {
       this.state.patch(this.createPatch(value));
     }
   }
+  /**
+   * Creates a render-patch for the parent state by setting a nested sub-state value while creating necessary structure. 
+   * 
+   * @example
+   * ```typescript
+   * const ctx = new KeyStateContext(state, 'user.profile.settings');
+   * const patch = ctx.createPatch({ theme: 'light' });
+   * // patch is { user: { profile: { settings: { theme: 'light' } } } }
+   * ```
+   * 
+   * @param value 
+   * @returns {{key-path}:{...: value}} render-patch for the parent state
+   */
   createPatch(value) {
     const renderPatch = {};
     this.putDeep(value, renderPatch);
@@ -936,10 +924,6 @@ var KeyStateContext = class {
   }
 };
 var DelegateStateContext = class {
-  state;
-  get;
-  put;
-  patch;
   constructor(state, get, put, patch) {
     this.state = state;
     this.get = get;
