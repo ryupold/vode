@@ -291,6 +291,7 @@ export function app<S extends PatchableState = PatchableState>(
 }
 
 /** unregister vode app from container and free resources
+ * of all vodes inside the container.
  * removes all event listeners registered by vode
  * removes patch function from state object
  * leaves the DOM as is
@@ -309,10 +310,15 @@ export function defuse(container: ContainerNode<any>) {
                 }
                 (<any>av.node)['catch'] = null;
             }
-            const kids = children(av);
-            if (kids) {
-                for (let child of kids) {
-                    clearEvents(child as AttachedVode<PatchableState>);
+
+            if ((av.node as ContainerNode)._vode) {
+                defuse(av.node as ContainerNode<PatchableState>);
+            } else {
+                const kids = children(av);
+                if (kids) {
+                    for (let child of kids) {
+                        clearEvents(child as AttachedVode<PatchableState>);
+                    }
                 }
             }
         }
@@ -323,6 +329,10 @@ export function defuse(container: ContainerNode<any>) {
         Object.defineProperty(v, "renderSync", { value: () => { } });
         Object.defineProperty(v, "renderAsync", { value: () => { } });
         clearEvents(v.vode);
+    } else {
+        for (let child of container.children) {
+            defuse(child as ContainerNode<PatchableState>);
+        }
     }
 }
 

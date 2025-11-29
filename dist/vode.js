@@ -410,10 +410,14 @@ var V = (() => {
           }
           av.node["catch"] = null;
         }
-        const kids = children(av);
-        if (kids) {
-          for (let child2 of kids) {
-            clearEvents2(child2);
+        if (av.node._vode) {
+          defuse(av.node);
+        } else {
+          const kids = children(av);
+          if (kids) {
+            for (let child2 of kids) {
+              clearEvents2(child2);
+            }
           }
         }
       };
@@ -426,6 +430,10 @@ var V = (() => {
       Object.defineProperty(v, "renderAsync", { value: () => {
       } });
       clearEvents2(v.vode);
+    } else {
+      for (let child2 of container.children) {
+        defuse(child2);
+      }
     }
   }
   function hydrate(element, prepareForRender) {
