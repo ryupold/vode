@@ -496,7 +496,7 @@ Or just don't make errors happen in the first place :)
 The library provides some helper functions for common tasks.
 
 ```typescript
-import { tag, props, children, mergeClass, hydrate } from '@ryupold/vode';
+import { tag, props, children, mergeClass, hydrate, vode } from '@ryupold/vode';
 
 // Merge class props intelligently
 mergeClass('foo', ['baz', 'bar']);  // -> 'foo baz bar'
@@ -507,7 +507,10 @@ mergeClass({zig: true, zag: false}, 'foo', ['baz', 'bar']);  // -> 'zig foo baz 
 mergeStyle({ color: 'red' }, 'font-weight: bold;'); // -> 'color: red; font-weight: bold;'
 mergeStyle('color: white; background-color: blue;', { marginTop: '10px', color: 'green' }); // -> 'background-color: blue; margin-top: 10px; color: green;'
 
-const myVode = [DIV, { class: 'foo' }, [SPAN, 'hello'], [STRONG, 'world']];
+// create a vode
+const myVode: Vode = [DIV, { class: 'foo' }, [SPAN, 'hello'], [STRONG, 'world']];
+const alsoMyVode1: Vode = vode(DIV, { class: 'foo' }, [SPAN, 'hello'], [STRONG, 'world']);
+const alsoMyVode2: Vode = vode([DIV, { class: 'foo' }, [SPAN, 'hello'], [STRONG, 'world']]);
 
 // access parts of a vode
 tag(myVode);        // 'div'
