@@ -51,28 +51,34 @@ Binds the library to the global `V` variable.
 ```html
 <!DOCTYPE html>
 <html>
+
 <head>
+    <meta charset="utf-8">
+    <script src="https://unpkg.com/@ryupold/vode/dist/vode.es5.min.js"></script>
     <title>Classic Script Example</title>
-    <script src="https://unpkg.com/@ryupold/vode/dist/vode.min.js"></script>
 </head>
+
 <body>
     <div id="app"></div>
     <script>
         var appNode = document.getElementById('app');
-        
+        appNode.innerHTML = 'initializing...';
+
         var state = { counter: 0 };
 
         V.app(appNode, state,
-            (s) => ["div",
-                ["input", {
-                    type: 'button',
-                    onclick: { counter: s.counter + 1 },
-                    value: 'Click me',
-                }
-                ],
-                ["br"],
-                ["span", { style: { color: 'red' } }, `${s.counter}`],
-            ]);
+            function (s) {
+                return ["div",
+                    ["input", {
+                        type: 'button',
+                        onclick: { counter: s.counter + 1 },
+                        value: 'Click me',
+                    }
+                    ],
+                    ["br"],
+                    ["span", { style: { color: 'red' } }, s.counter + ''],
+                ]
+            });
     </script>
 </body>
 </html>
