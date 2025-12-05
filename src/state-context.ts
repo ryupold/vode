@@ -1,5 +1,8 @@
 import { AnimatedPatch, DeepPartial, PatchableState, RenderPatch } from "./vode.js";
 
+/** Helper to unwrap undefined/null from optional properties */
+type NonNullable<T> = T extends null | undefined ? never : T;
+
 /**
  * Generates dot-notation path strings for all nested properties in an object type.
  * 
@@ -8,8 +11,9 @@ import { AnimatedPatch, DeepPartial, PatchableState, RenderPatch } from "./vode.
  * type Paths = KeyPath<User>; // "profile" | "profile.settings" | "profile.settings.theme"
  */
 export type KeyPath<ObjectType extends object> =
-    { [Key in keyof ObjectType & (string | number)]: ObjectType[Key] extends object
-        ? `${Key}` | `${Key}.${KeyPath<ObjectType[Key]>}`
+    { [Key in keyof ObjectType & (string | number)]:
+        NonNullable<ObjectType[Key]> extends object
+        ? `${Key}` | `${Key}.${KeyPath<NonNullable<ObjectType[Key]>>}`
         : `${Key}`
     }[keyof ObjectType & (string | number)];
 
@@ -22,8 +26,12 @@ export type KeyPath<ObjectType extends object> =
  */
 export type PathValue<T, P extends string> =
     P extends `${infer Key}.${infer Rest}`
-    ? Key extends keyof T ? PathValue<T[Key], Rest> : never
-    : P extends keyof T ? T[P] : never;
+    ? Key extends keyof T
+    ? PathValue<NonNullable<T[Key]>, Rest>
+    : never
+    : P extends keyof T
+    ? T[P]
+    : never;
 
 /**
  * Maps valid paths in an object type to paths that resolve to a specific substate type.
@@ -36,8 +44,14 @@ export type PathValue<T, P extends string> =
  * type InvalidPath = KeyToSubState<User, { theme: string }, "profile">; // never (type mismatch)
  */
 export type KeyToSubState<S extends object, Sub, K = KeyPath<S>> =
-    K extends KeyPath<S> ? [PathValue<S, K>] extends [Sub] ? [Sub] extends [PathValue<S, K>] ? K
-    : never : never : never;
+    K extends KeyPath<S>
+    ? [NonNullable<PathValue<S, K>>] extends [Sub]
+    ? [Sub] extends [NonNullable<PathValue<S, K>>]
+    ? K
+    : never
+    : never
+    : never;
+
 
 /**
  * State context for type-safe access and manipulation of nested state paths
