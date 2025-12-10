@@ -27,11 +27,11 @@ export type Effect<S> =
 
 export type EventFunction<S> = (state: S, evt: Event) => Patch<S>;
 
-export type Props<S> = Partial<
+export interface Props<S> extends Partial<
     Omit<HTMLElement,
         keyof (DocumentFragment & ElementCSSInlineStyle & GlobalEventHandlers)> &
     { [K in keyof EventsMap]: EventFunction<S> | Patch<S> } // all on* events
-> & {
+> {
     [_: string]: unknown,
     xmlns?: string | null,
     class?: ClassProp,
@@ -60,11 +60,12 @@ export type StyleProp =
     | string
     | "" | null | undefined; // no style
 
-export type EventsMap =
-    & { [K in keyof HTMLElementEventMap as `on${K}`]: HTMLElementEventMap[K] }
-    & { [K in keyof WindowEventMap as `on${K}`]: WindowEventMap[K] }
-    & { [K in keyof SVGElementEventMap as `on${K}`]: SVGElementEventMap[K] }
-    & { onsearch: Event };
+type EventsMapBase =
+  & { [K in keyof HTMLElementEventMap as `on${K}`]: HTMLElementEventMap[K] }
+  & { [K in keyof WindowEventMap as `on${K}`]: WindowEventMap[K] }
+  & { [K in keyof SVGElementEventMap as `on${K}`]: SVGElementEventMap[K] };
+
+export interface EventsMap extends EventsMapBase {}
 
 export type PropertyValue<S> =
     | string | boolean | null | undefined | void
@@ -72,7 +73,8 @@ export type PropertyValue<S> =
     | Patch<S>;
 
 export type Dispatch<S> = (action: Patch<S>) => void;
-export type PatchableState<S = object> = S & { patch: Dispatch<S> };
+export interface Patchable<S = object> { patch: Dispatch<S>; }
+export type PatchableState<S = object> = S & Patchable<S>;
 
 export const globals = {
     currentViewTransition: <ViewTransition | null | undefined>undefined,
@@ -80,7 +82,7 @@ export const globals = {
     startViewTransition: !!document.startViewTransition ? document.startViewTransition.bind(document) : null,
 };
 
-export type ContainerNode<S = PatchableState> = HTMLElement & {
+export interface ContainerNode<S = PatchableState> extends HTMLElement {
     /** the `_vode` property is added to the container in `app()`.
      * it contains all necessary stuff for the vode app to function.
      * remove the container node to clear vodes resources */
