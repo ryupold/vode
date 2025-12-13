@@ -40,6 +40,18 @@ export interface SubStateContext<SubState> {
     patch(value: SubState | DeepPartial<SubState> | Array<DeepPartial<SubState>> | undefined | null): void;
 }
 
+export type ProxyStateContext<S extends PatchableState, SubState> = StateContext<S, SubState> & {
+    [K in keyof SubState]-?: SubState[K] extends object
+        ? ProxyStateContext<S, SubState[K]>
+        : StateContext<S, SubState[K]>
+};
+
+export type ProxySubContext<SubState> = SubStateContext<SubState> & {
+    [K in keyof SubState]-?: SubState[K] extends object
+        ? ProxySubContext<SubState[K]>
+        : SubStateContext<SubState[K]>
+};
+
 /**
  * create a ProxyStateContext for type-safe dynamic access to nested state
  * 
@@ -248,9 +260,6 @@ export type KeyToSubState<S extends object, Sub, K = KeyPath<S>> =
     : never
     : never;
 
-/** @deprecated Helper to unwrap undefined/null from optional properties */
-type NonNullable<T> = T extends null | undefined ? never : T;
-
 /**
  * @deprecated use {context()} instead
  * Provides type-safe access to deeply nested state with path-based operations.
@@ -374,8 +383,5 @@ export class KeyStateContext<S extends PatchableState, SubState>
     }
 }
 
-export type ProxyStateContext<S extends PatchableState, SubState> = StateContext<S, SubState> & {
-    [K in keyof SubState]-?: NonNullable<SubState[K]> extends object
-        ? ProxyStateContext<S, NonNullable<SubState[K]>>
-        : StateContext<S, SubState[K]>
-};
+/** @deprecated Helper to unwrap undefined/null from optional properties */
+type NonNullable<T> = T extends null | undefined ? never : T;
