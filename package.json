@@ -1,6 +1,6 @@
 {
     "name": "@ryupold/vode",
-    "version": "1.6.8",
+    "version": "1.7.0",
     "description": "a minimalist web framework",
     "author": "Michael Scherbakow (ryupold)",
     "license": "MIT",
@@ -26,7 +26,7 @@
     "homepage": "https://github.com/ryupold/vode#readme",
     "module": "index.ts",
     "scripts": {
-        "build": "esbuild index.ts --bundle --format=esm --outfile=dist/vode.mjs ",
+        "build": "esbuild index.ts --bundle --format=esm --outfile=dist/vode.mjs",
         "build-min": "esbuild index.ts --bundle --format=esm --minify --outfile=dist/vode.min.mjs",
         "build-classic": "esbuild index.ts --outfile=dist/vode.js --bundle --format=iife --global-name=V",
         "build-classic-min": "esbuild index.ts --outfile=dist/vode.min.js --bundle --format=iife  --global-name=V --minify",

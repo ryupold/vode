@@ -229,6 +229,7 @@ var V = (() => {
     childCount: () => childCount,
     children: () => children,
     childrenStart: () => childrenStart,
+    context: () => context,
     createPatch: () => createPatch,
     createState: () => createState,
     defuse: () => defuse,
@@ -1104,6 +1105,98 @@ var V = (() => {
   }
 
   // src/state-context.ts
+  function context(state) {
+    return new ProxyStateContextImpl(state, []);
+  }
+  var ProxyStateContextImpl = class _ProxyStateContextImpl {
+    constructor(state, keys) {
+      this.state = state;
+      this.keys = keys;
+      function putDeep(value, target) {
+        if (keys.length > 1) {
+          let i = 0;
+          let raw = target[keys[i]];
+          if (typeof raw !== "object" || raw === null) {
+            target[keys[i]] = raw = {};
+          }
+          for (i = 1; i < keys.length - 1; i++) {
+            const p = raw;
+            raw = raw[keys[i]];
+            if (typeof raw !== "object" || raw === null) {
+              p[keys[i]] = raw = {};
+            }
+          }
+          raw[keys[i]] = value;
+        } else if (keys.length === 1) {
+          if (typeof target[keys[0]] === "object" && typeof value === "object")
+            Object.assign(target[keys[0]], value);
+          else
+            target[keys[0]] = value;
+        } else {
+          Object.assign(target, value);
+        }
+      }
+      function createPatch2(value) {
+        const renderPatch = {};
+        putDeep(value, renderPatch);
+        return renderPatch;
+      }
+      function get() {
+        if (keys.length === 0)
+          return state;
+        let raw = state ? state[keys[0]] : void 0;
+        for (let i = 1; i < keys.length && !!raw; i++) {
+          raw = raw[keys[i]];
+        }
+        return raw;
+      }
+      function put(value) {
+        putDeep(value, state);
+      }
+      function patch(value) {
+        if (Array.isArray(value)) {
+          const animation = [];
+          for (const v of value) {
+            animation.push(createPatch2(v));
+          }
+          state.patch(animation);
+        } else {
+          state.patch(createPatch2(value));
+        }
+      }
+      return new Proxy(this, {
+        get: (target, prop, receiver) => {
+          if (prop === "state")
+            return state;
+          if (prop === "get")
+            return get;
+          if (prop === "put")
+            return put;
+          if (prop === "patch")
+            return patch;
+          const newKeys = [...target.keys, String(prop)];
+          return new _ProxyStateContextImpl(target.state, newKeys);
+        }
+      });
+    }
+    get() {
+      throw "implemented in ctor";
+    }
+    put(value) {
+      throw "implemented in ctor";
+    }
+    patch(value) {
+      throw "implemented in ctor";
+    }
+  };
+  var DelegateStateContext = class {
+    constructor(state, get, put, patch) {
+      this.state = state;
+      this.get = get;
+      this.put = put;
+      this.patch = patch;
+    }
+  };
   var KeyStateContext = class {
     constructor(state, path) {
       this.state = state;
@@ -1173,14 +1266,6 @@ var V = (() => {
         else
           target[keys[0]] = value;
       }
-    }
-  };
-  var DelegateStateContext = class {
-    constructor(state, get, put, patch) {
-      this.state = state;
-      this.get = get;
-      this.put = put;
-      this.patch = patch;
     }
   };
   return __toCommonJS(index_exports);

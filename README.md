@@ -567,6 +567,7 @@ const CompMathML = (s) =>
 The state context utilities can help creating shareable type safe components.
 
 ```typescript
+import { app, context, createState, SubStateContext, Vode, DIV, FORM, H1, OPTION, P, SELECT } from "@ryupold/vode";
 
 type Settings = { theme: string, lang: string };
 type StateType = {
@@ -578,13 +579,13 @@ type StateType = {
 const state = createState<StateType>({
     user: {
         profile: {
-            settings: { theme: 'dark', lang: 'en' }
+            settings: { theme: 'dark', lang: 'es' }
         }
     }
 });
 
 // Create a context for the nested settings
-const settingsCtx = new KeyStateContext<typeof state, Settings>(state, 'user.profile.settings');
+const settingsCtx = context(state).user.profile.settings;
 
 const element = document.getElementById('app')!;
 app(element, state,
@@ -602,20 +603,22 @@ function SettingsForm(ctx: SubStateContext<Settings>) {
         [SELECT,
             {
                 class: 'theme-select',
-                onchange: (s: PatchableState, e: Event) => ctx.patch({ theme: (<HTMLSelectElement>e.target).value }),
+                onchange: (s: unknown, e: Event) => ctx.patch({ theme: (<HTMLSelectElement>e.target).value }),
+                value: settings.theme,
             },
-            [OPTION, { value: 'light', selected: settings.theme === 'light' ? '' : null }, 'light'],
-            [OPTION, { value: 'dark', selected: settings.theme === 'dark' ? '' : null }, 'dark'],
+            [OPTION, { value: 'light', selected: settings.theme === 'light' }, 'light'],
+            [OPTION, { value: 'dark', selected: settings.theme === 'dark' }, 'dark'],
         ],
         [P, "current lang:", settings.lang],
         [SELECT, {
             class: 'lang-select',
-            onchange: (s: PatchableState, e: Event) => ctx.patch({ lang: (<HTMLSelectElement>e.target).value }),
+            onchange: (s: unknown, e: Event) => ctx.patch({ lang: (<HTMLSelectElement>e.target).value }),
+            value: settings.lang,
         },
-            [OPTION, { value: 'en', selected: settings.lang === 'en' ? '' : null }, 'en'],
-            [OPTION, { value: 'de', selected: settings.lang === 'de' ? '' : null }, 'de'],
-            [OPTION, { value: 'es', selected: settings.lang === 'es' ? '' : null }, 'es'],
-            [OPTION, { value: 'fr', selected: settings.lang === 'fr' ? '' : null }, 'fr'],
+            [OPTION, { value: 'en', selected: settings.lang === 'en' }, 'en'],
+            [OPTION, { value: 'de', selected: settings.lang === 'de' }, 'de'],
+            [OPTION, { value: 'es', selected: settings.lang === 'es' }, 'es'],
+            [OPTION, { value: 'fr', selected: settings.lang === 'fr' }, 'fr'],
         ],
     ];
 }
