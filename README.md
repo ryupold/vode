@@ -18,7 +18,8 @@ The use cases can be single page applications or isolated components with comple
 <!DOCTYPE html>
 <html>
 <head>
-    <title>ESM Example</title>
+    <meta charset="utf-8">
+    <title>Vode ESM Example</title>
 </head>
 <body>
     <div id="app"></div>
@@ -51,18 +52,15 @@ Binds the library to the global `V` variable.
 ```html
 <!DOCTYPE html>
 <html>
-
 <head>
     <meta charset="utf-8">
     <script src="https://unpkg.com/@ryupold/vode/dist/vode.es5.min.js"></script>
-    <title>Classic Script Example</title>
+    <title>Vode ES5 (iife) Script Example</title>
 </head>
-
 <body>
     <div id="app"></div>
     <script>
         var appNode = document.getElementById('app');
-        appNode.innerHTML = 'initializing...';
 
         var state = { counter: 0 };
 
@@ -76,7 +74,7 @@ Binds the library to the global `V` variable.
                     }
                     ],
                     ["br"],
-                    ["span", { style: { color: 'red' } }, s.counter + ''],
+                    ["span", { style: { color: 'red' } }, '' + s.counter]
                 ]
             });
     </script>
@@ -93,7 +91,8 @@ index.html
 ```html
 <html>
 <head>
-    <title>Vode Example</title>
+    <meta charset="utf-8">
+    <title>Vode NPM Example</title>
     <script type="module" src="main.js"></script>
 </head>
 <body>
@@ -362,7 +361,7 @@ Also a `patch` function is added to the state object; it is the same function th
 A re-render happens when a patch object is supplied to the `patch` function or via event.
 When an object is passed to `patch`, its properties are recursively deep merged onto the state object.
 
-```js
+```javascript
 const s = {
     counter: 0,
     pointing: false,
@@ -596,7 +595,7 @@ app(element, state,
 );
 
 function SettingsForm(ctx: SubStateContext<Settings>) {
-    const settings = ctx.get()!; // { theme: 'dark', lang: 'en' }
+    const settings = ctx.get()!; // { theme: 'dark', lang: 'es' }
 
     return <Vode>[FORM,
         [P, "current theme:", settings.theme],
@@ -649,6 +648,7 @@ export function IsolatedVodeApp<OuterState, InnerState>(
     );
 }
 ```
+
 The memo with empty dependency array prevents further render calls from the outer app
 so rendering of the subtree inside is controlled by the inner app.
 Take note of the fact that the top-level element of the inner app refers to the surrounding element and will change its state accordingly.
@@ -662,7 +662,7 @@ Patching an empty array `[]` will skip the current view transition and set the q
 
 Scheduling behaviour can in theory be overridden with `containerNode._vode.asyncRenderer`.
 
-```js
+```javascript
 // or globally disable view transitions for the vode framework
 import { globals } from '@ryupold/vode';
 globals.startViewTransition = null;
