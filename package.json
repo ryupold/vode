@@ -1,6 +1,6 @@
 {
     "name": "@ryupold/vode",
-    "version": "1.7.1",
+    "version": "1.7.2",
     "description": "a minimalist web framework",
     "author": "Michael Scherbakow (ryupold)",
     "license": "MIT",
@@ -24,7 +24,13 @@
         "url": "https://github.com/ryupold/vode/issues"
     },
     "homepage": "https://github.com/ryupold/vode#readme",
-    "module": "index.ts",
+    "type": "module",
+    "main": "./dist/vode.mjs",
+    "exports": {
+        "import": "./dist/vode.min.mjs",
+        "require": "./dist/vode.min.js",
+        "default": "./dist/vode.min.mjs"
+    },
     "scripts": {
         "build": "esbuild index.ts --bundle --format=esm --outfile=dist/vode.mjs",
         "build-min": "esbuild index.ts --bundle --format=esm --minify --outfile=dist/vode.min.mjs",
@@ -34,15 +40,15 @@
         "babel-classic": "npx babel dist/vode.js --out-file dist/vode.es5.min.js",
         "release": "npm run build && npm run build-min && npm run build-classic && npm run build-classic-min && npm run babel && npm run babel-classic",
         "publish": "npm publish --access public",
-        "clean": "tsc -b --clean",
+        "clean": "tsc -b --clean && rm dist/*",
         "watch": "tsc -b -w"
     },
     "devDependencies": {
-        "@babel/cli": "7.28.3",
-        "@babel/core": "7.28.5",
-        "@babel/preset-env": "7.28.5",
+        "@babel/cli": "7.28.6",
+        "@babel/core": "7.29.0",
+        "@babel/preset-env": "7.29.0",
         "babel-preset-minify": "0.5.2",
-        "esbuild": "0.27.1",
+        "esbuild": "0.27.3",
         "typescript": "5.9.3"
     }
 }
