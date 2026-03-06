@@ -1,6 +1,6 @@
 {
     "name": "@ryupold/vode",
-    "version": "1.7.2",
+    "version": "1.7.3",
     "description": "a minimalist web framework",
     "author": "Michael Scherbakow (ryupold)",
     "license": "MIT",
@@ -26,19 +26,25 @@
     "homepage": "https://github.com/ryupold/vode#readme",
     "type": "module",
     "main": "./dist/vode.mjs",
+    "types": "./dist/vode.d.ts",
     "exports": {
-        "import": "./dist/vode.min.mjs",
-        "require": "./dist/vode.min.js",
-        "default": "./dist/vode.min.mjs"
+        ".": {
+            "browser": "./dist/vode.min.js",
+            "types": "./dist/vode.d.ts",
+            "import": "./dist/vode.min.mjs",
+            "require": "./dist/vode.amd.min.js",
+            "default": "./dist/vode.min.mjs"
+        }
     },
     "scripts": {
+        "types": "dts-bundle-generator -o ./dist/vode.d.ts ./index.ts --project tsconfig.json",
         "build": "esbuild index.ts --bundle --format=esm --outfile=dist/vode.mjs",
         "build-min": "esbuild index.ts --bundle --format=esm --minify --outfile=dist/vode.min.mjs",
         "build-classic": "esbuild index.ts --outfile=dist/vode.js --bundle --format=iife --global-name=V",
         "build-classic-min": "esbuild index.ts --outfile=dist/vode.min.js --bundle --format=iife  --global-name=V --minify",
         "babel": "npx babel dist/vode.mjs --out-file dist/vode.amd.min.js",
         "babel-classic": "npx babel dist/vode.js --out-file dist/vode.es5.min.js",
-        "release": "npm run build && npm run build-min && npm run build-classic && npm run build-classic-min && npm run babel && npm run babel-classic",
+        "release": "npm run build && npm run build-min && npm run build-classic && npm run build-classic-min && npm run babel && npm run babel-classic && npm run types",
         "publish": "npm publish --access public",
         "clean": "tsc -b --clean && rm dist/*",
         "watch": "tsc -b -w"
@@ -48,6 +54,7 @@
         "@babel/core": "7.29.0",
         "@babel/preset-env": "7.29.0",
         "babel-preset-minify": "0.5.2",
+        "dts-bundle-generator": "9.5.1",
         "esbuild": "0.27.3",
         "typescript": "5.9.3"
     }
