@@ -1,6 +1,6 @@
 {
     "name": "@ryupold/vode",
-    "version": "1.7.3",
+    "version": "1.7.4",
     "description": "a minimalist web framework",
     "author": "Michael Scherbakow (ryupold)",
     "license": "MIT",
@@ -29,11 +29,10 @@
     "types": "./dist/vode.d.ts",
     "exports": {
         ".": {
-            "browser": "./dist/vode.min.js",
             "types": "./dist/vode.d.ts",
             "import": "./dist/vode.min.mjs",
             "require": "./dist/vode.amd.min.js",
-            "default": "./dist/vode.min.mjs"
+            "default": "./dist/vode.min.js"
         }
     },
     "scripts": {
