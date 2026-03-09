@@ -579,7 +579,7 @@ const CompMathML = (s) =>
 The state context utilities can help creating shareable type safe components.
 
 ```typescript
-import { app, context, createState, SubStateContext, Vode, DIV, FORM, H1, OPTION, P, SELECT } from "@ryupold/vode";
+import { app, context, createState, SubContext, Vode, DIV, FORM, H1, OPTION, P, SELECT } from "@ryupold/vode";
 
 type Settings = { theme: string, lang: string };
 type StateType = {
@@ -607,7 +607,7 @@ app(element, state,
     ]
 );
 
-function SettingsForm(ctx: SubStateContext<Settings>) {
+function SettingsForm(ctx: SubContext<Settings>) {
     const settings = ctx.get()!; // { theme: 'dark', lang: 'es' }
 
     return <Vode>[FORM,
