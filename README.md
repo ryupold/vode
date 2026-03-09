@@ -503,14 +503,27 @@ The library provides some helper functions for common tasks.
 ```typescript
 import { tag, props, children, mergeClass, hydrate, vode } from '@ryupold/vode';
 
-// Merge class props intelligently
+// Merge class props intelligently (additive)
 mergeClass('foo', ['baz', 'bar']);  // -> 'foo baz bar'
 mergeClass(['foo'], { bar: true, baz: false }); // -> 'foo bar'
 mergeClass({zig: true, zag: false}, 'foo', ['baz', 'bar']);  // -> 'zig foo baz bar'
 
-// Merge style props intelligently
+// Merge style props intelligently (same style properties are overwritten from left to right)
 mergeStyle({ color: 'red' }, 'font-weight: bold;'); // -> 'color: red; font-weight: bold;'
 mergeStyle('color: white; background-color: blue;', { marginTop: '10px', color: 'green' }); // -> 'background-color: blue; margin-top: 10px; color: green;'
+
+// Merge props objects intelligently (class and style props are merged with the helper functions above, other props are overwritten from left to right)
+mergeProps(
+    { title: 'Hello', src: 'foo.png', class: 'foo', style: { color: 'red' } },
+    { id: 'my-element', src: 'bar.png', class: ['bar', 'baz'], style: 'font-weight: bold;' },
+); 
+/* -> { 
+  title: 'Hello', 
+  id: 'my-element', 
+  src: 'bar.png', 
+  class: 'foo bar baz', 
+  style: 'color: red; font-weight: bold;' 
+} */
 
 // create a vode
 const myVode: Vode = [DIV, { class: 'foo' }, [SPAN, 'hello'], [STRONG, 'world']];

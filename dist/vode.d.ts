@@ -39,8 +39,11 @@ export interface Props<S> extends Partial<Omit<HTMLElement, keyof (DocumentFragm
 	xmlns?: string | null;
 	class?: ClassProp;
 	style?: StyleProp;
+	/** called after the element was attached */
 	onMount?: MountFunction<S>;
+	/** called before the element is detached */
 	onUnmount?: MountFunction<S>;
+	/** used instead of original vode when an error occurs during rendering */
 	catch?: ((s: S, error: any) => ChildVode<S>) | ChildVode<S>;
 }
 export type MountFunction<S> = ((s: S, node: HTMLElement) => Patch<S>) | ((s: S, node: SVGSVGElement) => Patch<S>) | ((s: S, node: MathMLElement) => Patch<S>);
@@ -69,6 +72,9 @@ export declare const globals: {
 	startViewTransition: ((callbackOptions?: ViewTransitionUpdateCallback | StartViewTransitionOptions) => ViewTransition) | null;
 };
 export interface ContainerNode<S = PatchableState> extends HTMLElement {
+	/** the `_vode` property is added to the container in `app()`.
+	 * it contains all necessary stuff for the vode app to function.
+	 * remove the container node to clear vodes resources */
 	_vode: {
 		state: PatchableState<S>;
 		vode: AttachedVode<S>;
@@ -80,6 +86,7 @@ export interface ContainerNode<S = PatchableState> extends HTMLElement {
 		qAsync: {} | undefined | null;
 		isRendering: boolean;
 		isAnimating: boolean;
+		/** stats about the overall patches & last render time */
 		stats: {
 			patchCount: number;
 			liveEffectCount: number;
@@ -92,18 +99,47 @@ export interface ContainerNode<S = PatchableState> extends HTMLElement {
 		};
 	};
 }
+/** type-safe way to create a vode. useful for type inference and autocompletion.
+ *
+ * - just a tag: `vode("div")` => `["div"]` --*rendered*-> `<div></div>`
+ * - tag and props: `vode("div", { class: "foo" })` => `["div", { class: "foo" }]` --*rendered*-> `<div class="foo"></div>`
+ * - tag, props and children: `vode("div", { class: "foo" }, ["span", "bar"])` => `["div", { class: "foo" }, ["span", "bar"]]` --*rendered*-> `<div class="foo"><span>bar</span></div>`
+ * - identity: `vode(["div", ["span", "bar"]])` => `["div", ["span", "bar"]]` --*rendered*-> `<div><span>bar</span></div>`
+ */
 export declare function vode<S = PatchableState>(tag: Tag | Vode<S>, props?: Props<S> | ChildVode<S>, ...children: ChildVode<S>[]): Vode<S>;
+/** create a vode app inside a container element
+ * @param container will use this container as root and places the result of the dom function and further renderings in it
+ * @param state the state object that is used as singleton state bound to the vode app and is updated with `patch()`
+ * @param dom function is alled every render and returnes the vode-dom that is updated incrementally to the DOM based on the state.
+ * @param initialPatches variadic list of patches that are applied after the first render
+ * @returns a patch function that can be used to update the state
+ */
 export declare function app<S extends PatchableState = PatchableState>(container: Element, state: Omit<S, "patch">, dom: (s: S) => Vode<S>, ...initialPatches: Patch<S>[]): Dispatch<S>;
+/** unregister vode app from container and free resources
+ * of all vodes inside the container.
+ * removes all event listeners registered by vode
+ * removes patch function from state object
+ * leaves the DOM as is
+ */
 export declare function defuse(container: ContainerNode<any>): void;
+/** return vode representation of given DOM node */
 export declare function hydrate<S = PatchableState>(element: Element | Text, prepareForRender?: boolean): Vode<S> | string | AttachedVode<S> | undefined;
+/** memoizes the resulting component or props by comparing element by element (===) with the
+ * `compare` of the previous render. otherwise skips the render step (not calling `componentOrProps`)*/
 export declare function memo<S = PatchableState>(compare: any[], componentOrProps: Component<S> | ((s: S) => Props<S>)): typeof componentOrProps extends ((s: S) => Props<S>) ? ((s: S) => Props<S>) : Component<S>;
+/** create a state object used as state for `app()`. it is updated with `PatchableState.patch()` using `merge()` */
 export declare function createState<S = PatchableState>(state: S): PatchableState<S>;
+/** type safe way to create a patch. useful for type inference and autocompletion. */
 export declare function createPatch<S = PatchableState>(p: DeepPartial<S> | Effect<S> | IgnoredPatch): typeof p;
+/** html tag of the vode or `#text` if it is a text node */
 export declare function tag<S = PatchableState>(v: Vode<S> | TextVode | NoVode | AttachedVode<S>): Tag | "#text" | undefined;
+/** get properties object of a vode, if there is any */
 export declare function props<S = PatchableState>(vode: ChildVode<S> | AttachedVode<S>): Props<S> | undefined;
+/** get a slice of all children of a vode, if there are any */
 export declare function children<S = PatchableState>(vode: ChildVode<S> | AttachedVode<S>): ChildVode<S>[] | null;
 export declare function childCount<S = PatchableState>(vode: Vode<S>): number;
 export declare function child<S = PatchableState>(vode: Vode<S>, index: number): ChildVode<S> | undefined;
+/** index in vode at which child-vodes start */
 export declare function childrenStart<S = PatchableState>(vode: ChildVode<S> | AttachedVode<S>): 1 | 2 | -1;
 export declare const A: Tag;
 export declare const ABBR: Tag;
@@ -306,54 +342,88 @@ export declare const MTR: Tag;
 export declare const MUNDER: Tag;
 export declare const MUNDEROVER: Tag;
 export declare const SEMANTICS: Tag;
+/** merge `ClassProp`s regardless of structure */
 export declare function mergeClass(...classes: ClassProp[]): ClassProp;
+/** merge `StyleProps`s regardless of type
+ * @returns {string} merged StyleProp */
 export declare function mergeStyle(...props: StyleProp[]): StyleProp;
-export interface StateContext<S extends PatchableState, SubState> extends SubStateContext<SubState> {
+/** merge `Props` from left to right
+ * utilizing `mergeStyle` for style properties and `mergeClass` for class properties.
+ * @returns {Props<S>} merged Prop object or undefined if no props were provided
+ */
+export declare function mergeProps<S extends PatchableState = PatchableState>(...props: (Props<S> | undefined | null)[]): Props<S> | undefined;
+/**
+ * State context for type-safe access and manipulation of nested state paths
+ * while still be able to access the parent state.
+ */
+export interface StateContext<S extends PatchableState, SubState> extends SubContext<SubState> {
+	/**
+	 * parent state
+	 * @see PatchableState<S>
+	 */
 	get state(): S;
 }
-export interface SubStateContext<SubState> {
+/**
+ * State context for type-safe access and manipulation of nested sub-state values without knowledge of the parent state.
+ */
+export interface SubContext<SubState> {
+	/**
+	 * Reads the current value of the substate if it exists.
+	 *
+	 * @returns The current value, or undefined if the path doesn't exist
+	 */
 	get(): SubState | undefined;
+	/**
+	 * Updates the nested sub-state value WITHOUT triggering a render.
+	 * This performs a silent mutation of the parent state object.
+	 *
+	 * @param {DeepPartial<SubState>} value - The new value or partial update to apply
+	 */
 	put(value: SubState | DeepPartial<SubState> | undefined | null): void;
+	/**
+	 * Updates the nested sub-state value AND triggers a render.
+	 * This is the recommended way to update nested state in most cases.
+	 *
+	 * @param value - The new value or partial update to apply
+	 */
 	patch(value: SubState | DeepPartial<SubState> | Array<DeepPartial<SubState>> | undefined | null): void;
 }
 export type ProxyStateContext<S extends PatchableState, SubState> = StateContext<S, SubState> & {
 	[K in keyof SubState]-?: SubState[K] extends object ? ProxyStateContext<S, SubState[K]> : StateContext<S, SubState[K]>;
 };
-export type ProxySubContext<SubState> = SubStateContext<SubState> & {
-	[K in keyof SubState]-?: SubState[K] extends object ? ProxySubContext<SubState[K]> : SubStateContext<SubState[K]>;
+export type ProxySubContext<SubState> = SubContext<SubState> & {
+	[K in keyof SubState]-?: SubState[K] extends object ? ProxySubContext<SubState[K]> : SubContext<SubState[K]>;
 };
+/**
+ * create a ProxyStateContext for type-safe dynamic access to nested state
+ *
+ * @example
+ * ```typescript
+ * const state = createState({
+ *   user: {
+ *    profile: {
+ *     settings: { theme: 'dark', lang: 'en' }
+ *   }
+ * });
+ * app(element, state, (s) => [DIV]);
+ *
+ * // Create a proxy context for the state
+ * const ctx = context(state).user.profile.settings;
+ *
+ * // Access nested state dynamically
+ * const settings = ctx.get(); // { theme: 'dark', lang: 'en' }
+ *
+ * // Update and trigger render
+ * ctx.patch({ theme: 'light' });
+ *
+ * // Update without render (silent mutation)
+ * ctx.put({ lang: 'de' });
+ * state.patch({}); // trigger render manually later
+ * ```
+ *
+ * @param state
+ * @returns
+ */
 export declare function context<S extends PatchableState>(state: S): ProxyStateContext<S, S>;
-export declare class DelegateStateContext<S extends PatchableState, SubState> implements StateContext<S, SubState> {
-	readonly state: S;
-	readonly get: () => SubState | undefined;
-	readonly put: (value: SubState | DeepPartial<SubState> | undefined | null) => void;
-	readonly patch: (value: SubState | DeepPartial<SubState> | Array<DeepPartial<SubState>> | undefined | null) => void;
-	constructor(state: S, get: () => SubState | undefined, put: (value: SubState | DeepPartial<SubState> | undefined | null) => void, patch: (value: SubState | DeepPartial<SubState> | Array<DeepPartial<SubState>> | undefined | null) => void);
-}
-export type KeyPath<ObjectType extends object> = {
-	[Key in keyof ObjectType & (string | number)]: NonNullable$1<ObjectType[Key]> extends object ? `${Key}` | `${Key}.${KeyPath<NonNullable$1<ObjectType[Key]>>}` : `${Key}`;
-}[keyof ObjectType & (string | number)];
-export type PathValue<T, P extends string> = P extends `${infer Key}.${infer Rest}` ? Key extends keyof T ? PathValue<NonNullable$1<T[Key]>, Rest> : never : P extends keyof T ? T[P] : never;
-export type KeyToSubState<S extends object, Sub, K = KeyPath<S>> = K extends KeyPath<S> ? [
-	NonNullable$1<PathValue<S, K>>
-] extends [
-	Sub
-] ? [
-	Sub
-] extends [
-	NonNullable$1<PathValue<S, K>>
-] ? K : never : never : never;
-export declare class KeyStateContext<S extends PatchableState, SubState> implements StateContext<S, SubState> {
-	readonly state: S;
-	readonly path: KeyToSubState<S, SubState>;
-	private readonly keys;
-	constructor(state: S, path: KeyToSubState<S, SubState>);
-	get(): SubState | undefined;
-	put(value: SubState | DeepPartial<SubState> | undefined | null): void;
-	patch(value: SubState | DeepPartial<SubState> | Array<DeepPartial<SubState>> | undefined | null): void;
-	createPatch(value: SubState | DeepPartial<SubState> | undefined | null): RenderPatch<S>;
-	private putDeep;
-}
-type NonNullable$1<T> = T extends null | undefined ? never : T;
 
 export {};

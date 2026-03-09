@@ -61,7 +61,6 @@ var V = (() => {
     DIV: () => DIV,
     DL: () => DL,
     DT: () => DT,
-    DelegateStateContext: () => DelegateStateContext,
     ELLIPSE: () => ELLIPSE,
     EM: () => EM,
     EMBED: () => EMBED,
@@ -116,7 +115,6 @@ var V = (() => {
     INPUT: () => INPUT,
     INS: () => INS,
     KBD: () => KBD,
-    KeyStateContext: () => KeyStateContext,
     LABEL: () => LABEL,
     LEGEND: () => LEGEND,
     LI: () => LI,
@@ -237,6 +235,7 @@ var V = (() => {
     hydrate: () => hydrate,
     memo: () => memo,
     mergeClass: () => mergeClass,
+    mergeProps: () => mergeProps,
     mergeStyle: () => mergeStyle,
     props: () => props,
     tag: () => tag,
@@ -1104,6 +1103,27 @@ var V = (() => {
     }
   }
 
+  // src/merge-props.ts
+  function mergeProps(...props2) {
+    if (props2.length === 0) return void 0;
+    if (props2.length === 1) return props2[0] || void 0;
+    let combined;
+    for (const p of props2) {
+      if (typeof p !== "object" || p === null) continue;
+      if (!combined) combined = {};
+      for (const key in p) {
+        if (key === "style") {
+          combined.style = mergeStyle(combined.style, p.style);
+        } else if (key === "class") {
+          combined.class = mergeClass(combined.class, p.class);
+        } else {
+          combined[key] = p[key];
+        }
+      }
+    }
+    return combined;
+  }
+
   // src/state-context.ts
   function context(state) {
     return new ProxyStateContextImpl(state, []);
@@ -1187,85 +1207,6 @@ var V = (() => {
     }
     patch(value) {
       throw "implemented in ctor";
-    }
-  };
-  var DelegateStateContext = class {
-    constructor(state, get, put, patch) {
-      this.state = state;
-      this.get = get;
-      this.put = put;
-      this.patch = patch;
-    }
-  };
-  var KeyStateContext = class {
-    constructor(state, path) {
-      this.state = state;
-      this.path = path;
-      this.keys = path.split(".");
-    }
-    keys;
-    get() {
-      const keys = this.keys;
-      let raw = this.state ? this.state[keys[0]] : void 0;
-      for (let i = 1; i < keys.length && !!raw; i++) {
-        raw = raw[keys[i]];
-      }
-      return raw;
-    }
-    put(value) {
-      this.putDeep(value, this.state);
-    }
-    patch(value) {
-      if (Array.isArray(value)) {
-        const animation = [];
-        for (const v of value) {
-          animation.push(this.createPatch(v));
-        }
-        this.state.patch(animation);
-      } else {
-        this.state.patch(this.createPatch(value));
-      }
-    }
-    /**
-     * Creates a render-patch for the parent state by setting a nested sub-state value while creating necessary structure. 
-     * 
-     * @example
-     * ```typescript
-     * const ctx = new KeyStateContext(state, 'user.profile.settings');
-     * const patch = ctx.createPatch({ theme: 'light' });
-     * // patch is { user: { profile: { settings: { theme: 'light' } } } }
-     * ```
-     * 
-     * @param value 
-     * @returns {{key-path}:{...: value}} render-patch for the parent state
-     */
-    createPatch(value) {
-      const renderPatch = {};
-      this.putDeep(value, renderPatch);
-      return renderPatch;
-    }
-    putDeep(value, target) {
-      const keys = this.keys;
-      if (keys.length > 1) {
-        let i = 0;
-        let raw = target[keys[i]];
-        if (typeof raw !== "object" || raw === null) {
-          target[keys[i]] = raw = {};
-        }
-        for (i = 1; i < keys.length - 1; i++) {
-          const p = raw;
-          raw = raw[keys[i]];
-          if (typeof raw !== "object" || raw === null) {
-            p[keys[i]] = raw = {};
-          }
-        }
-        raw[keys[i]] = value;
-      } else {
-        if (typeof target[keys[0]] === "object" && typeof value === "object")
-          Object.assign(target[keys[0]], value);
-        else
-          target[keys[0]] = value;
-      }
     }
   };
   return __toCommonJS(index_exports);
