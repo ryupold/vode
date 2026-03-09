@@ -1,6 +1,6 @@
 {
     "name": "@ryupold/vode",
-    "version": "1.7.4",
+    "version": "1.8.0",
     "description": "a minimalist web framework",
     "author": "Michael Scherbakow (ryupold)",
     "license": "MIT",
@@ -31,7 +31,7 @@
         ".": {
             "types": "./dist/vode.d.ts",
             "import": "./dist/vode.min.mjs",
-            "require": "./dist/vode.amd.min.js",
+            "require": "./dist/vode.cjs.min.js",
             "default": "./dist/vode.min.js"
         }
     },
@@ -41,7 +41,7 @@
         "build-min": "esbuild index.ts --bundle --format=esm --minify --outfile=dist/vode.min.mjs",
         "build-classic": "esbuild index.ts --outfile=dist/vode.js --bundle --format=iife --global-name=V",
         "build-classic-min": "esbuild index.ts --outfile=dist/vode.min.js --bundle --format=iife  --global-name=V --minify",
-        "babel": "npx babel dist/vode.mjs --out-file dist/vode.amd.min.js",
+        "babel": "npx babel dist/vode.mjs --out-file dist/vode.cjs.min.js",
         "babel-classic": "npx babel dist/vode.js --out-file dist/vode.es5.min.js",
         "release": "npm run build && npm run build-min && npm run build-classic && npm run build-classic-min && npm run babel && npm run babel-classic && npm run types",
         "publish": "npm publish --access public",

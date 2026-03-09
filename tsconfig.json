@@ -4,25 +4,29 @@
     "module": "preserve",
     "moduleResolution": "bundler",
     "rootDir": ".",
-    "composite": true,
-    "removeComments": true,
+    "outDir": "./dist",
     "declaration": true,
     "declarationDir": "./dist",
+    "declarationMap": true,
+    "sourceMap": true,
     "strict": true,
-    "allowSyntheticDefaultImports": true,
-    "strictBindCallApply": true,
-    "strictFunctionTypes": true,
-    "strictPropertyInitialization": true,
-    "strictNullChecks": true,
-    "allowJs": false,
-    "skipLibCheck": true,
+    "noUncheckedSideEffectImports": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
-    "downlevelIteration": true,
-    "isolatedModules": true
+    "forceConsistentCasingInFileNames": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "composite": true,
+    "tsBuildInfoFile": "./dist/.tsbuildinfo"
   },
   "include": [
-    "./index.ts",
-    "./src/*.ts",
+    "index.ts",
+    "src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
   ]
 }
