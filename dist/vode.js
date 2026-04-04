@@ -1199,6 +1199,8 @@ var V = (() => {
         }
       });
     }
+    state;
+    keys;
     get() {
       throw "implemented in ctor";
     }

@@ -379,14 +379,14 @@ export interface SubContext<SubState> {
 	 *
 	 * @param {DeepPartial<SubState>} value - The new value or partial update to apply
 	 */
-	put(value: SubState | DeepPartial<SubState> | undefined | null): void;
+	put(value: SubState | Partial<SubState> | DeepPartial<SubState> | undefined | null): void;
 	/**
 	 * Updates the nested sub-state value AND triggers a render.
 	 * This is the recommended way to update nested state in most cases.
 	 *
 	 * @param value - The new value or partial update to apply
 	 */
-	patch(value: SubState | DeepPartial<SubState> | Array<DeepPartial<SubState>> | undefined | null): void;
+	patch(value: SubState | Partial<SubState> | DeepPartial<SubState> | Array<DeepPartial<SubState>> | undefined | null): void;
 }
 export type ProxyStateContext<S extends PatchableState, SubState> = StateContext<S, SubState> & {
 	[K in keyof SubState]-?: SubState[K] extends object ? ProxyStateContext<S, SubState[K]> : StateContext<S, SubState[K]>;

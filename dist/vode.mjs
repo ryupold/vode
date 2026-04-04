@@ -955,6 +955,8 @@ var ProxyStateContextImpl = class _ProxyStateContextImpl {
       }
     });
   }
+  state;
+  keys;
   get() {
     throw "implemented in ctor";
   }
