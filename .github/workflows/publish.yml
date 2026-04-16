@@ -1,0 +1,95 @@
+name: Publish release to NPM, GitHub & Chimps Packages
+
+on:
+  release:
+    types: published
+    branches:
+      - "main"
+  workflow_dispatch:
+
+permissions:
+  id-token: write # Required for OIDC
+  packages: write
+  attestations: write
+  contents: read
+
+jobs:
+
+  build-and-publish-to-npm:
+    name: Build and Publish to NPM
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v6
+        with:
+          registry-url: "https://registry.npmjs.org"
+      - run: npm ci
+      - run: npm run release
+      - run: |
+          set +e
+          (npm publish --provenance --access public) > log.txt 2>&1
+          NEWVERSION=$(grep "> @ryupold/vode@" log.txt)
+          if grep -q 'publish over the previously published' log.txt || grep -q '409 Conflict' log.txt || [[ -n "$NEWVERSION" ]]; then
+            echo "new version: $NEWVERSION"
+            echo "...successfully published to npmjs.org"
+          else
+            echo "...failed to publish to npmjs.org"
+            cat log.txt
+            exit 1
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      
+  build-and-publish-to-github:
+    name: Build and Publish to Github
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v6
+        with:
+          registry-url: "https://npm.pkg.github.com"
+      - run: npm ci
+      - run: npm run release
+      - run: |
+          set +e
+          (npm publish --access public) > log.txt 2>&1
+          NEWVERSION=$(grep "> @ryupold/vode@" log.txt)
+          if grep -q 'publish over the previously published' log.txt || grep -q '409 Conflict' log.txt || [[ -n "$NEWVERSION" ]]; then
+            echo "new version: $NEWVERSION"
+            echo "...successfully published to GitHub Packages"
+          else
+            echo "...failed to publish to GitHub Packages"
+            cat log.txt
+            exit 1
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-and-publish-to-chimps:
+    name: Build and Publish to Chimps
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v6
+      - run: |
+          echo "@ryupold:registry=https://git.chimps.quest/api/packages/ryupold/npm/" >> .npmrc
+          echo "//git.chimps.quest/api/packages/ryupold/npm/:_authToken=${CHIMPS_TOKEN}" >> .npmrc
+        env:
+          CHIMPS_TOKEN: ${{ secrets.CHIMPS_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.CHIMPS_TOKEN }}
+      - run: npm ci
+      - run: npm run release
+      - run: |
+          set +e
+          (npm publish --access public) > log.txt 2>&1
+          rm -rf .npmrc
+          NEWVERSION=$(grep "> @ryupold/vode@" log.txt)
+          if grep -q 'publish over the previously published' log.txt || grep -q '409 Conflict' log.txt || [[ -n "$NEWVERSION" ]]; then
+            echo "new version: $NEWVERSION"
+            echo "...successfully published to chimps"
+          else
+            echo "...failed to publish to chimps"
+            cat log.txt
+            exit 1
+          fi

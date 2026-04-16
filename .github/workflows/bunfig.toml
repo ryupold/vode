@@ -1,5 +1,0 @@
-[install]
-registry = "https://git.chimps.quest/api/packages/ryupold/npm/"
-
-[install.scopes]
-"@ryupold" = { url = "https://git.chimps.quest/api/packages/ryupold/npm/", token = "$CHIMPS_TOKEN" }
