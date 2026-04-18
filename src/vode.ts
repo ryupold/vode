@@ -61,7 +61,7 @@ export type StyleProp =
     | "" | null | undefined; // no style
 
 type EventsMapBase =
-  & { [K in keyof HTMLElementEventMap as `on${K}`]: HTMLElementEventMap[K] }
+    & { [K in keyof HTMLElementEventMap as `on${K}`]: HTMLElementEventMap[K] }
   & { [K in keyof WindowEventMap as `on${K}`]: WindowEventMap[K] }
   & { [K in keyof SVGElementEventMap as `on${K}`]: SVGElementEventMap[K] };
 
@@ -151,6 +151,10 @@ export function app<S extends PatchableState = PatchableState>(
     _vode.stats = { lastSyncRenderTime: 0, lastAsyncRenderTime: 0, syncRenderCount: 0, asyncRenderCount: 0, liveEffectCount: 0, patchCount: 0, syncRenderPatchCount: 0, asyncRenderPatchCount: 0 };
 
     const patchableState = state as PatchableState<S> & { patch: (action: Patch<S>, animate?: boolean) => void };
+
+    if ("patch" in state && typeof state.patch === "function" && Array.isArray((state as any).patch.initialPatches)) {
+        initialPatches = [...(state as any).patch.initialPatches, ...initialPatches];
+    }
 
     Object.defineProperty(state, "patch", {
         enumerable: false, configurable: true,
@@ -388,9 +392,26 @@ export function memo<S = PatchableState>(compare: any[], componentOrProps: Compo
     return componentOrProps as typeof componentOrProps extends ((s: S) => Props<S>) ? ((s: S) => Props<S>) : Component<S>;
 }
 
-/** create a state object used as state for `app()`. it is updated with `PatchableState.patch()` using `merge()` */
+/** 
+ * create a patchable state object for a vode-app.
+ * calls to `patch()` prior to `app()` initialization will queue the patches and apply them before the initial patches.
+ * calls to `patch()` after `app()` initialization will apply the patch immediately and trigger a render as usual. 
+ */
 export function createState<S = PatchableState>(state: S): PatchableState<S> {
     if (!state || typeof state !== "object") throw new Error("createState() must be called with a state object");
+
+    if (!("patch" in state)) {
+        Object.defineProperty(state, "patch", {
+            enumerable: false, configurable: true,
+            writable: false, value: (action: Patch<S>) => {
+                const futureState = (state as any);
+                if (!Array.isArray(futureState.patch.initialPatches)) {
+                    futureState.patch.initialPatches = [];
+                }
+                futureState.patch.initialPatches.push(action);
+            }
+        });
+    }
 
     return state as PatchableState<S>;
 }
