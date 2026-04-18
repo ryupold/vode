@@ -1,6 +1,6 @@
-import { PatchableState, Props } from "./vode.js";
-import { mergeStyle } from "./merge-style.js";
-import { mergeClass } from "./merge-class.js";
+import { PatchableState, Props } from "./vode";
+import { mergeStyle } from "./merge-style";
+import { mergeClass } from "./merge-class";
 
 /** merge `Props` from left to right 
  * utilizing `mergeStyle` for style properties and `mergeClass` for class properties.

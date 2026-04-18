@@ -62,10 +62,10 @@ export type StyleProp =
 
 type EventsMapBase =
     & { [K in keyof HTMLElementEventMap as `on${K}`]: HTMLElementEventMap[K] }
-  & { [K in keyof WindowEventMap as `on${K}`]: WindowEventMap[K] }
-  & { [K in keyof SVGElementEventMap as `on${K}`]: SVGElementEventMap[K] };
+    & { [K in keyof WindowEventMap as `on${K}`]: WindowEventMap[K] }
+    & { [K in keyof SVGElementEventMap as `on${K}`]: SVGElementEventMap[K] };
 
-export interface EventsMap extends EventsMapBase {}
+export interface EventsMap extends EventsMapBase { }
 
 export type PropertyValue<S> =
     | string | boolean | null | undefined | void
@@ -702,11 +702,11 @@ function render<S extends PatchableState>(state: S, parent: Element, childIndex:
     return undefined;
 }
 
-function isNaturalVode(x: ChildVode<any>) {
+function isNaturalVode<S>(x: ChildVode<S>): x is Vode<S> {
     return Array.isArray(x) && x.length > 0 && typeof x[0] === "string";
 }
 
-function isTextVode(x: ChildVode<any>) {
+function isTextVode<S>(x: ChildVode<S>): x is TextVode {
     return typeof x === "string" || (<Text><unknown>x)?.nodeType === Node.TEXT_NODE;
 }
 

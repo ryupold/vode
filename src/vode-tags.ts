@@ -1,4 +1,4 @@
-import { Tag } from "./vode.js";
+import { Tag } from "./vode";
 
 //=== HTML ====================================================
 export const A: Tag = "a" as const;

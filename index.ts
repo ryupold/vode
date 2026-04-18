@@ -1,8 +1,8 @@
-export * from "./src/vode.js";
+export * from "./src/vode";
 
 // utilities
-export * from "./src/vode-tags.js";
-export * from "./src/merge-class.js";
-export * from "./src/merge-style.js";
-export * from "./src/merge-props.js";
-export * from "./src/state-context.js";
+export * from "./src/vode-tags";
+export * from "./src/merge-class";
+export * from "./src/merge-style";
+export * from "./src/merge-props";
+export * from "./src/state-context";

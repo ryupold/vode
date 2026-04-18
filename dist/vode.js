@@ -265,6 +265,9 @@ var V = (() => {
     _vode.qAsync = null;
     _vode.stats = { lastSyncRenderTime: 0, lastAsyncRenderTime: 0, syncRenderCount: 0, asyncRenderCount: 0, liveEffectCount: 0, patchCount: 0, syncRenderPatchCount: 0, asyncRenderPatchCount: 0 };
     const patchableState = state;
+    if ("patch" in state && typeof state.patch === "function" && Array.isArray(state.patch.initialPatches)) {
+      initialPatches = [...state.patch.initialPatches, ...initialPatches];
+    }
     Object.defineProperty(state, "patch", {
       enumerable: false,
       configurable: true,
@@ -479,6 +482,20 @@ var V = (() => {
   }
   function createState(state) {
     if (!state || typeof state !== "object") throw new Error("createState() must be called with a state object");
+    if (!("patch" in state)) {
+      Object.defineProperty(state, "patch", {
+        enumerable: false,
+        configurable: true,
+        writable: false,
+        value: (action) => {
+          const futureState = state;
+          if (!Array.isArray(futureState.patch.initialPatches)) {
+            futureState.patch.initialPatches = [];
+          }
+          futureState.patch.initialPatches.push(action);
+        }
+      });
+    }
     return state;
   }
   function createPatch(p) {

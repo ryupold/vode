@@ -1,4 +1,4 @@
-import { StyleProp } from "./vode.js";
+import { StyleProp } from "./vode";
 
 const tempDivForStyling = document.createElement('div');
 

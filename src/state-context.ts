@@ -1,4 +1,4 @@
-import { AnimatedPatch, DeepPartial, PatchableState, RenderPatch } from "./vode.js";
+import { AnimatedPatch, DeepPartial, PatchableState, RenderPatch } from "./vode";
 
 /**
  * State context for type-safe access and manipulation of nested state paths

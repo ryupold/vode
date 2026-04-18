@@ -127,7 +127,11 @@ export declare function hydrate<S = PatchableState>(element: Element | Text, pre
 /** memoizes the resulting component or props by comparing element by element (===) with the
  * `compare` of the previous render. otherwise skips the render step (not calling `componentOrProps`)*/
 export declare function memo<S = PatchableState>(compare: any[], componentOrProps: Component<S> | ((s: S) => Props<S>)): typeof componentOrProps extends ((s: S) => Props<S>) ? ((s: S) => Props<S>) : Component<S>;
-/** create a state object used as state for `app()`. it is updated with `PatchableState.patch()` using `merge()` */
+/**
+ * create a patchable state object for a vode-app.
+ * calls to `patch()` prior to `app()` initialization will queue the patches and apply them before the initial patches.
+ * calls to `patch()` after `app()` initialization will apply the patch immediately and trigger a render as usual.
+ */
 export declare function createState<S = PatchableState>(state: S): PatchableState<S>;
 /** type safe way to create a patch. useful for type inference and autocompletion. */
 export declare function createPatch<S = PatchableState>(p: DeepPartial<S> | Effect<S> | IgnoredPatch): typeof p;

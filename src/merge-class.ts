@@ -1,4 +1,4 @@
-import { ClassProp } from "./vode.js";
+import { ClassProp } from "./vode";
 
 /** merge `ClassProp`s regardless of structure */
 export function mergeClass(...classes: ClassProp[]): ClassProp {
