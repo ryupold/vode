@@ -1219,13 +1219,11 @@ var V = (() => {
     state;
     keys;
     get() {
-      throw "implemented in ctor";
+      return void 0;
     }
     put(value) {
-      throw "implemented in ctor";
     }
     patch(value) {
-      throw "implemented in ctor";
     }
   };
   return __toCommonJS(index_exports);

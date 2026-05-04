@@ -1,10 +1,10 @@
-import { AnimatedPatch, DeepPartial, PatchableState, RenderPatch } from "./vode";
+import { AnimatedPatch, DeepPartial, Patchable, PatchableState, RenderPatch } from "./vode";
 
 /**
  * State context for type-safe access and manipulation of nested state paths
  * while still be able to access the parent state. 
  */
-export interface StateContext<S extends PatchableState, SubState> extends SubContext<SubState> {
+export interface StateContext<S extends Patchable<S>, SubState> extends SubContext<SubState> {
     /** 
      * parent state
      * @see PatchableState<S>
@@ -21,7 +21,7 @@ export interface SubContext<SubState> {
      * 
      * @returns The current value, or undefined if the path doesn't exist
      */
-    get(): SubState | undefined;
+    get(): SubState;
 
     /**
      * Updates the nested sub-state value WITHOUT triggering a render.
@@ -29,7 +29,7 @@ export interface SubContext<SubState> {
      * 
      * @param {DeepPartial<SubState>} value - The new value or partial update to apply
      */
-    put(value: SubState | Partial<SubState> | DeepPartial<SubState> | undefined | null): void;
+    put(value: SubState | Partial<SubState> | DeepPartial<SubState>): void;
 
     /**
      * Updates the nested sub-state value AND triggers a render.
@@ -37,7 +37,7 @@ export interface SubContext<SubState> {
      * 
      * @param value - The new value or partial update to apply
      */
-    patch(value: SubState | Partial<SubState> | DeepPartial<SubState> | Array<DeepPartial<SubState>> | undefined | null): void;
+    patch(value: SubState | Partial<SubState> | DeepPartial<SubState> | Array<DeepPartial<SubState>>): void;
 }
 
 export type ProxyStateContext<S extends PatchableState, SubState> = StateContext<S, SubState> & {
@@ -63,7 +63,6 @@ export type ProxySubContext<SubState> = SubContext<SubState> & {
  *     settings: { theme: 'dark', lang: 'en' }
  *   }
  * });
- * app(element, state, (s) => [DIV]);
  * 
  * // Create a proxy context for the state
  * const ctx = context(state).user.profile.settings;
@@ -76,7 +75,6 @@ export type ProxySubContext<SubState> = SubContext<SubState> & {
  * 
  * // Update without render (silent mutation)
  * ctx.put({ lang: 'de' });
- * state.patch({}); // trigger render manually later
  * ```
  * 
  * @param state 
@@ -174,7 +172,7 @@ class ProxyStateContextImpl<S extends PatchableState, SubState>
         });
     }
 
-    get(): SubState | undefined { throw 'implemented in ctor' }
-    put(value: SubState | DeepPartial<SubState> | null | undefined): void { throw 'implemented in ctor' }
-    patch(value: SubState | DeepPartial<SubState> | DeepPartial<SubState>[] | null | undefined): void { throw 'implemented in ctor' }
+    get(): SubState { return undefined as unknown as SubState; }
+    put(value: SubState | DeepPartial<SubState>): void { }
+    patch(value: SubState | DeepPartial<SubState> | DeepPartial<SubState>[]): void { }
 }

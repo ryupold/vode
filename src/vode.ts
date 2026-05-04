@@ -27,7 +27,7 @@ export type Effect<S> =
 
 export type EventFunction<S> = (state: S, evt: Event) => Patch<S>;
 
-export interface Props<S> extends Partial<
+export interface Props<S = PatchableState> extends Partial<
     Omit<HTMLElement,
         keyof (DocumentFragment & ElementCSSInlineStyle & GlobalEventHandlers)> &
     { [K in keyof EventsMap]: EventFunction<S> | Patch<S> } // all on* events
@@ -41,7 +41,7 @@ export interface Props<S> extends Partial<
     /** called before the element is detached */
     onUnmount?: MountFunction<S>,
     /** used instead of original vode when an error occurs during rendering */
-    catch?: ((s: S, error: any) => ChildVode<S>) | ChildVode<S>;
+    catch?: ((s: S, error: Error) => ChildVode<S>) | ChildVode<S>;
 };
 
 export type MountFunction<S> =

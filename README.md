@@ -169,7 +169,7 @@ Imagine this HTML:
     </div>
 
     <div class="content">
-      Lorem ipsum dolor sit amet, consectetur adipiscing elit. 
+      Lorem ipsum dolor sit amet, consectetur adipiscing elit.
       <a href="?post=vode">vode</a>. <a href="#">#css</a>
       <a href="#">#responsive</a>
       <br />
@@ -179,7 +179,7 @@ Imagine this HTML:
 </div>
 ```
 
-expressed as *vode* it would look like this:
+expressed as *vode* structure it would look like this:
 
 ```typescript
 [DIV, { class: 'card' },
@@ -207,8 +207,8 @@ expressed as *vode* it would look like this:
             ]
         ],
         [DIV, { class: 'content' },
-            'Lorem ipsum dolor sit amet, consectetur adipiscing elit. ',
-            [A, {href: '?post=vode'}, 'vode'], '. ', [A, { href: '#' }, '#css'],
+            'Lorem ipsum dolor sit amet, consectetur adipiscing elit.',
+            [A, { href: '?post=vode' }, 'vode'], '. ', [A, { href: '#' }, '#css'],
             [A, { href: '#' }, '#responsive'],
             [BR],
             [TIME, { datetime: '2025-09-24' }, '10:09 PM - 24 Sep 2025']
@@ -220,15 +220,60 @@ expressed as *vode* it would look like this:
 Viewed in isolation, it does not provide an obvious benefit (apart from looking better imho), 
 but as the result of a function of state, it can become very useful to express conditional UI this way. 
 
+### app
+
+`app` is a function that takes a HTML node, a state object, and a render function (`Component<State>`).  
+
+```typescript
+const containerNode = document.getElementById('ANY-ELEMENT');
+const state = {
+    counter: 0,
+    pointing: false,
+    loading: false,
+    title: '',
+    body: '',
+};
+
+const patch = app(
+    containerNode, 
+    state, 
+    (s) => 
+        [DIV, 
+            [P, { style: { color: 'red' } }, `${s.counter}`],
+            [BUTTON, { onclick: () => ({ counter: s.counter + 1 }) }, 'Click me'],    
+        ]
+    );
+```
+
+It will analyze the current structure of the given `ContainerNode` and adjust its structure in the first render. 
+When render-patches are applied to the `patch` function or via yield/return of events, 
+the `ContainerNode` is updated to match the vode structure 1:1. 
+
+#### defuse
+
+To release resources associated with the vode app instance, you can call the `defuse` function on the `ContainerNode` that was passed to `app`.
+
+```typescript
+import { app, defuse } from '@ryupold/vode';
+const containerNode = document.getElementById('ANY-ELEMENT');
+const state = { /* ... */ };
+app(containerNode, state, s => /* ... */ );
+//... later ...
+// when you want to clean up the vode app instance
+defuse(containerNode);
+```
+
+The DOM elements created by the vode app will remain in the `ContainerNode`, but all event listeners and references to the state object will be removed, allowing for proper garbage collection.
+
 ### component
 
 ```typescript
 type Component<S> = (s: S) => ChildVode<S>;
 ```
 
-A `Component<State>` is a function that takes a state object and returns a `Vode<State>` or `string`. 
+A `Component<State>` is a function that takes a state object and returns a ChildVode (`Vode<State>` or `string` or `null`). 
 It is used to render the UI based on the current state. 
-A new *vode* must be created on each render, otherwise it would be skipped which could lead to unexpected results. If you seek to improve render performance, have a look at the [`memo`](#memoization) function.
+A new *vode* structure must be created on each render, otherwise it would be skipped which could lead to unexpected results. If you seek to improve render performance, have a look at the [`memo`](#memoization) function.
 
 ```typescript
 // A full vode has a tag, properties, and children. props and children are optional.
@@ -308,51 +353,6 @@ const CompBar = (s) => [DIV, { class: "container" },
     CompFoo(s),
 ];
 ```
-
-### app
-
-`app` is a function that takes a HTML node, a state object, and a render function (`Component<State>`).  
-
-```typescript
-const containerNode = document.getElementById('ANY-ELEMENT');
-const state = {
-    counter: 0,
-    pointing: false,
-    loading: false,
-    title: '',
-    body: '',
-};
-
-const patch = app(
-    containerNode, 
-    state, 
-    (s) => 
-        [DIV, 
-            [P, { style: { color: 'red' } }, `${s.counter}`],
-            [BUTTON, { onclick: () => ({ counter: s.counter + 1 }) }, 'Click me'],    
-        ]
-    );
-```
-
-It will analyze the current structure of the given `ContainerNode` and adjust its structure in the first render. 
-When render-patches are applied to the `patch` function or via yield/return of events, 
-the `ContainerNode` is updated to match the vode structure 1:1. 
-
-#### defuse
-
-To release resources associated with the vode app instance, you can call the `defuse` function on the `ContainerNode` that was passed to `app`.
-
-```typescript
-import { app, defuse } from '@ryupold/vode';
-const containerNode = document.getElementById('ANY-ELEMENT');
-const state = { /* ... */ };
-app(containerNode, state, s => /* ... */ );
-//... later ...
-// when you want to clean up the vode app instance
-defuse(containerNode);
-```
-
-The DOM elements created by the vode app will remain in the `ContainerNode`, but all event listeners and references to the state object will be removed, allowing for proper garbage collection.
 
 ### state & patch
 The state object you pass to [`app`](#app) can be updated directly or via `patch`. 
@@ -476,14 +476,14 @@ You can catch errors during rendering by providing a `catch` property in the vod
 const CompWithError: ChildVode = () =>
     [DIV,
         {
-            catch: (s: unknown, err: any) => [SPAN, { style: { color: 'red' } }, `An error occurred: ${err?.message}`],
+            catch: (s: Patchable, err: Error) => [SPAN, { style: { color: 'red' } }, `An error occurred: ${err.message}`],
         },
 
         [P, "Below error is intentional for testing error boundaries:"],
 
         [DIV, {
             // catch: [SPAN, { style: { color: 'red' } }, `An error occurred!`], // uncomment to catch child error directly here
-            onMount: () => {
+            onMount: (s: Patchable, ele: HTMLElement) => {
                 throw new Error("Test error boundary in post view....");
             }
         }],
@@ -608,14 +608,14 @@ app(element, state,
 );
 
 function SettingsForm(ctx: SubContext<Settings>) {
-    const settings = ctx.get()!; // { theme: 'dark', lang: 'es' }
+    const settings = ctx.get(); // { theme: 'dark', lang: 'es' }
 
     return <Vode>[FORM,
         [P, "current theme:", settings.theme],
         [SELECT,
             {
                 class: 'theme-select',
-                onchange: (s: unknown, e: Event) => ctx.patch({ theme: (<HTMLSelectElement>e.target).value }),
+                onchange: (_: unknown, e: Event) => ctx.patch({ theme: (<HTMLSelectElement>e.target).value }),
                 value: settings.theme,
             },
             [OPTION, { value: 'light', selected: settings.theme === 'light' }, 'light'],
@@ -624,7 +624,7 @@ function SettingsForm(ctx: SubContext<Settings>) {
         [P, "current lang:", settings.lang],
         [SELECT, {
             class: 'lang-select',
-            onchange: (s: unknown, e: Event) => ctx.patch({ lang: (<HTMLSelectElement>e.target).value }),
+            onchange: (_: unknown, e: Event) => ctx.patch({ lang: (<HTMLSelectElement>e.target).value }),
             value: settings.lang,
         },
             [OPTION, { value: 'en', selected: settings.lang === 'en' }, 'en'],

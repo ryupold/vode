@@ -32,7 +32,7 @@ export type DeepPartial<S> = {
 };
 export type Effect<S> = (() => Patch<S>) | EventFunction<S> | Generator<Patch<S>> | AsyncGenerator<Patch<S>>;
 export type EventFunction<S> = (state: S, evt: Event) => Patch<S>;
-export interface Props<S> extends Partial<Omit<HTMLElement, keyof (DocumentFragment & ElementCSSInlineStyle & GlobalEventHandlers)> & {
+export interface Props<S = PatchableState> extends Partial<Omit<HTMLElement, keyof (DocumentFragment & ElementCSSInlineStyle & GlobalEventHandlers)> & {
 	[K in keyof EventsMap]: EventFunction<S> | Patch<S>;
 }> {
 	[_: string]: unknown;
@@ -44,7 +44,7 @@ export interface Props<S> extends Partial<Omit<HTMLElement, keyof (DocumentFragm
 	/** called before the element is detached */
 	onUnmount?: MountFunction<S>;
 	/** used instead of original vode when an error occurs during rendering */
-	catch?: ((s: S, error: any) => ChildVode<S>) | ChildVode<S>;
+	catch?: ((s: S, error: Error) => ChildVode<S>) | ChildVode<S>;
 }
 export type MountFunction<S> = ((s: S, node: HTMLElement) => Patch<S>) | ((s: S, node: SVGSVGElement) => Patch<S>) | ((s: S, node: MathMLElement) => Patch<S>);
 export type ClassProp = "" | false | null | undefined | string | string[] | Record<string, boolean | undefined | null>;
@@ -360,7 +360,7 @@ export declare function mergeProps<S extends PatchableState = PatchableState>(..
  * State context for type-safe access and manipulation of nested state paths
  * while still be able to access the parent state.
  */
-export interface StateContext<S extends PatchableState, SubState> extends SubContext<SubState> {
+export interface StateContext<S extends Patchable<S>, SubState> extends SubContext<SubState> {
 	/**
 	 * parent state
 	 * @see PatchableState<S>
@@ -376,21 +376,21 @@ export interface SubContext<SubState> {
 	 *
 	 * @returns The current value, or undefined if the path doesn't exist
 	 */
-	get(): SubState | undefined;
+	get(): SubState;
 	/**
 	 * Updates the nested sub-state value WITHOUT triggering a render.
 	 * This performs a silent mutation of the parent state object.
 	 *
 	 * @param {DeepPartial<SubState>} value - The new value or partial update to apply
 	 */
-	put(value: SubState | Partial<SubState> | DeepPartial<SubState> | undefined | null): void;
+	put(value: SubState | Partial<SubState> | DeepPartial<SubState>): void;
 	/**
 	 * Updates the nested sub-state value AND triggers a render.
 	 * This is the recommended way to update nested state in most cases.
 	 *
 	 * @param value - The new value or partial update to apply
 	 */
-	patch(value: SubState | Partial<SubState> | DeepPartial<SubState> | Array<DeepPartial<SubState>> | undefined | null): void;
+	patch(value: SubState | Partial<SubState> | DeepPartial<SubState> | Array<DeepPartial<SubState>>): void;
 }
 export type ProxyStateContext<S extends PatchableState, SubState> = StateContext<S, SubState> & {
 	[K in keyof SubState]-?: SubState[K] extends object ? ProxyStateContext<S, SubState[K]> : StateContext<S, SubState[K]>;
@@ -409,7 +409,6 @@ export type ProxySubContext<SubState> = SubContext<SubState> & {
  *     settings: { theme: 'dark', lang: 'en' }
  *   }
  * });
- * app(element, state, (s) => [DIV]);
  *
  * // Create a proxy context for the state
  * const ctx = context(state).user.profile.settings;
@@ -422,7 +421,6 @@ export type ProxySubContext<SubState> = SubContext<SubState> & {
  *
  * // Update without render (silent mutation)
  * ctx.put({ lang: 'de' });
- * state.patch({}); // trigger render manually later
  * ```
  *
  * @param state
