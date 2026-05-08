@@ -946,13 +946,9 @@ var ProxyStateContextImpl = class _ProxyStateContextImpl {
     function put(value) {
       putDeep(value, state);
     }
-    function patch(value) {
-      if (Array.isArray(value)) {
-        const animation = [];
-        for (const v of value) {
-          animation.push(createPatch2(v));
-        }
-        state.patch(animation);
+    function patch(value, isAsync) {
+      if (isAsync) {
+        state.patch([createPatch2(value)]);
       } else {
         state.patch(createPatch2(value));
       }

@@ -37,7 +37,7 @@ export interface SubContext<SubState> {
      * 
      * @param value - The new value or partial update to apply
      */
-    patch(value: SubState | Partial<SubState> | DeepPartial<SubState> | Array<DeepPartial<SubState>>): void;
+    patch(value: SubState | Partial<SubState> | DeepPartial<SubState> | Array<DeepPartial<SubState>>, isAsync?: boolean): void;
 }
 
 export type ProxyStateContext<S extends PatchableState, SubState> = StateContext<S, SubState> & {
@@ -137,13 +137,9 @@ class ProxyStateContextImpl<S extends PatchableState, SubState>
             putDeep(value, state);
         }
 
-        function patch(value: SubState | DeepPartial<SubState> | Array<DeepPartial<SubState>> | undefined | null) {
-            if (Array.isArray(value)) {
-                const animation: AnimatedPatch<S> = [];
-                for (const v of value) {
-                    animation.push(createPatch(v));
-                }
-                state.patch(animation);
+        function patch(value: SubState | DeepPartial<SubState> | Array<DeepPartial<SubState>> | undefined | null, isAsync?: boolean) {
+            if (isAsync) {
+                state.patch([createPatch(value as DeepPartial<SubState>)]);
             }
             else {
                 state.patch(createPatch(value as DeepPartial<SubState>));

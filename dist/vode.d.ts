@@ -390,7 +390,7 @@ export interface SubContext<SubState> {
 	 *
 	 * @param value - The new value or partial update to apply
 	 */
-	patch(value: SubState | Partial<SubState> | DeepPartial<SubState> | Array<DeepPartial<SubState>>): void;
+	patch(value: SubState | Partial<SubState> | DeepPartial<SubState> | Array<DeepPartial<SubState>>, isAsync?: boolean): void;
 }
 export type ProxyStateContext<S extends PatchableState, SubState> = StateContext<S, SubState> & {
 	[K in keyof SubState]-?: SubState[K] extends object ? ProxyStateContext<S, SubState[K]> : StateContext<S, SubState[K]>;
