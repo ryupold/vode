@@ -46,7 +46,8 @@
         "release": "npm run build && npm run build-min && npm run build-classic && npm run build-classic-min && npm run babel && npm run babel-classic && npm run types",
         "publish": "npm publish --access public",
         "clean": "tsc -b --clean && rm dist/*",
-        "watch": "tsc -b -w"
+        "watch": "tsc -b -w",
+        "test": "tsc -p tsconfig.test.json && esbuild test/index.ts --bundle --outfile=test/bundle.js --platform=node && node test/bundle.js"
     },
     "devDependencies": {
         "@babel/cli": "7.28.6",
