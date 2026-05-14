@@ -347,7 +347,7 @@ const CompBar = (s) => [DIV, { class: "container" },
         class: { bar: s.pointing }
     }, "Click me!"],
 
-    // components can be used as child-vodes, they are called lazy on render
+    // components can be used as child-vodes, they are called lazily on render
     CompFoo,
     // or this way
     CompFoo(s),
