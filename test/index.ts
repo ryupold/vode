@@ -16,6 +16,7 @@ import mergeClassTests from "./tests-mergeClass";
 import mergeStyleTests from "./tests-mergeStyle";
 import mergePropsTests from "./tests-mergeProps";
 import stateContextTests from "./tests-state-context";
+import mountUnmountTests from "./tests-mount-unmount";
 
 const tests = {
     ...vodeTests,
@@ -23,6 +24,7 @@ const tests = {
     ...defuseTests,
     ...hydrateTests,
     ...memoTests,
+    ...mountUnmountTests,
 
     ...createStateTests,
     ...createPatchTests,
