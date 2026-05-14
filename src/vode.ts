@@ -349,9 +349,6 @@ export function hydrate<S = PatchableState>(element: Element | Text, prepareForR
             return prepareForRender ? element as Text : (element as Text).nodeValue!;
         return undefined; //ignore (mostly html whitespace)
     }
-    else if (element.nodeType === Node.COMMENT_NODE) {
-        return undefined; //ignore (not interesting)
-    }
     else if (element.nodeType === Node.ELEMENT_NODE) {
         const tag: Tag = (<Element>element).tagName.toLowerCase();
         const root: Vode<S> = [tag];
