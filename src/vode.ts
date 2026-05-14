@@ -727,9 +727,31 @@ function remember<S>(state: S, present: any, past: any): ChildVode<S> | Attached
         }
         if (same) return past;
     }
-    const newRender = unwrap(present, state);
+
+    const result = present(state);
+
+    if (typeof result === "function" && result?.__memo) {
+        const resultMemo = result.__memo;
+        if (Array.isArray(resultMemo) && Array.isArray(pastMemo) && resultMemo.length === pastMemo.length) {
+            let same = true;
+            for (let i = 0; i < resultMemo.length; i++) {
+                if (resultMemo[i] !== pastMemo[i]) {
+                    same = false;
+                    break;
+                }
+            }
+            if (same) return past;
+        }
+        const innerRender = result(state);
+        if (typeof innerRender === "object") {
+            innerRender.__memo = resultMemo;
+        }
+        return innerRender;
+    }
+
+    const newRender = typeof result === "function" ? unwrap(result, state) : result;
     if (typeof newRender === "object") {
-        (<any>newRender).__memo = present?.__memo;
+        (<any>newRender).__memo = result?.__memo || present?.__memo;
     }
     return newRender;
 }

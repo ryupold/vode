@@ -222,6 +222,5 @@ export default {
         state.patch(true);
 
         expect(state.x).toEqual(1);
-    }
-
+    },
 };

@@ -94,4 +94,26 @@ export default {
             ]
         );
     },
+
+    "memo(): can be a nested component function": () => {
+        const state = createState({ count: 12 });
+        const root = document.createElement("div");
+        const container = document.createElement("div");
+        root.appendChild(container);
+
+        let callCount = 0;
+        app<typeof state>(container, state, (s) => [DIV,
+            () => memo(
+                [s.count],
+                (s) => {
+                    callCount++;
+                    return [DIV, [SPAN, `${s.count}`]];
+                }
+            )]);
+
+
+        expect(callCount).toEqual(1);
+        state.patch({ count: 12 }); //same value, should not re-render
+        expect(callCount).toEqual(1);
+    },
 };
