@@ -18,7 +18,7 @@ export class Expectation {
                 return path;
             }
 
-            if (typeof a !== "object") {
+            if (typeof a !== "object" || a === null) {
                 if (path.length === 0) path.push(``);
                 path[path.length - 1] += ` (value: ${a} != ${b})`;
                 return a !== b ? path : null;
@@ -43,7 +43,7 @@ export class Expectation {
             return null;
         }
 
-        if (typeof this.what === "object" && typeof other === "object") {
+        if (typeof this.what === "object" && typeof other === "object" && this.what !== null && other !== null) {
             const unequal = deepCompare(this.what, other, []);
             if (unequal) {
                 throw new ExpectationError(this, `expected \n\n${JSON.stringify(this.what, null, 2)}\n\n to equal \n\n${JSON.stringify(other, null, 2)}\n\nThey differ in: ${unequal.join(".")}`);
@@ -77,10 +77,10 @@ export class Expectation {
         throw new ExpectationError(this, `expected function to fail\n\nbut it succeeded with a result of type ${typeof r}\n\n${r}`);
     }
 
-    toMatch(v: Vode, state?: PatchableState) {
-        if (this.what instanceof MockElement || this.what instanceof MockText) {
+    toMatch(v: ChildVode, state?: PatchableState) {
+        if (this.what instanceof MockElement || this.what instanceof MockText || typeof this.what === "string" || Array.isArray(this.what) || typeof this.what === "function") {
             const that = this;
-            function deepCompare(e: MockElement | MockText, cv: ChildVode, path: string[]): string[] | null {
+            function deepCompare(e: MockElement | MockText | ChildVode, cv: ChildVode, path: string[]): string[] | null {
 
                 // unwrap component
                 while (typeof cv === "function") {
@@ -89,10 +89,21 @@ export class Expectation {
                     }
                     cv = cv(state);
                 }
+                while (typeof e === "function") {
+                    if (!state) {
+                        throw new ExpectationError(that, `expected at\n${path.join(" > ")}\n\na Component\n\nbut got no state passed in [toMatch]`);
+                    }
+                    e = e(state);
+                }
 
                 if (typeof cv === "string" && e instanceof MockText) {
                     if (cv !== e.wholeText) {
                         throw new ExpectationError(that, `expected at\n${path.join(" > ")}\n\na text node with\n${cv}\n\nbut text was\n${e.wholeText}`);
+                    }
+                }
+                else if (typeof cv === "string" && typeof e === "string") {
+                    if (cv !== e) {
+                        throw new ExpectationError(that, `expected at\n${path.join(" > ")}\n\na text node with\n${cv}\n\nbut text was\n${e}`);
                     }
                 }
 
@@ -108,19 +119,38 @@ export class Expectation {
                         throw new ExpectationError(that, `expected at\n${path.join(" > ")}\n\n${kids.length} children\n\nbut <${e.tagName}> has ${e.children.length} children`);
                     }
                 }
+                else if (Array.isArray(cv) && Array.isArray(e)) {
+                    if (tag(cv)?.toLocaleUpperCase() !== tag(e)?.toUpperCase()) {
+                        throw new ExpectationError(that, `expected at\n${path.join(" > ")}\n\nan element [${tag(cv)}]\n\nbut got [${tag(e)}]`);
+                    }
+                    const kids = children(cv) || [];
+                    const otherKids = children(e) || [];
+                    for (let i = 0; i < kids.length; i++) {
+                        deepCompare(otherKids[i], kids[i], [...path, `${tag(kids[i] as Vode) || "#text"}`]);
+                    }
+                    if (kids.length !== otherKids.length) {
+                        throw new ExpectationError(that, `expected at\n${path.join(" > ")}\n\n${kids.length} children\n\nbut [${tag(e)}] has ${otherKids.length} children`);
+                    }
+                }
 
                 else if (typeof cv === "string" && e instanceof MockElement) {
                     throw new ExpectationError(that, `expected at\n${path.join(" > ")}\n\na text node\n\nbut got <${e.tagName}>`);
                 }
+                else if (typeof cv === "string" && Array.isArray(e)) {
+                    throw new ExpectationError(that, `expected at\n${path.join(" > ")}\n\na text node\n\nbut got [${tag(e)}]`);
+                }
 
                 else if (Array.isArray(cv) && e instanceof MockText) {
-                    throw new ExpectationError(that, `expected at\n${path.join(" > ")}\n\nan element <${tag(cv)}>\n\nbut got #text [${e.wholeText}]`);
+                    throw new ExpectationError(that, `expected at\n${path.join(" > ")}\n\nan element <${tag(cv)}>\n\nbut got #text (${e.wholeText})`);
+                }
+                else if (Array.isArray(cv) && typeof e === "string") {
+                    throw new ExpectationError(that, `expected at\n${path.join(" > ")}\n\nan element <${tag(cv)}>\n\nbut got #text (${e})`);
                 }
 
                 return null;
             }
 
-            deepCompare(this.what, v, [tag(v) || "#text"]);
+            deepCompare(this.what, v, [tag(v as Vode) || "#text"]);
         } else {
             throw new ExpectationError(this, `expected an element or text node\n\nbut it is a ${typeof this.what}\n${this.what}`);
         }

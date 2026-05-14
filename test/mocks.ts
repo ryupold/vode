@@ -18,7 +18,9 @@ export class MockElement {
     childNodes: (MockElement | MockText)[] = [];
     children: (MockElement | MockText)[] = [];
     parentElement: MockElement | null = null;
-    attributes: object = {};
+    get attributes() {
+        return Object.entries(this._attrs).map(([name, value]) => ({ name, value }));
+    }
     style: { cssText: string } = { cssText: "" };
     tagName = "UNKNOWN";
     private _attrs: Record<string, string> = {};

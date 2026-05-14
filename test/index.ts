@@ -42,7 +42,7 @@ const tests = {
 const count = {
     total: 0,
     passed: 0,
-    failed: 0,
+    failed: <string[]>[],
 }
 const line = "----------------------------------";
 
@@ -52,14 +52,14 @@ for (const test of Object.entries(tests)) {
     try {
         test[1]()
         count.passed++;
-        console.log(`#${count.total} ${test[0]}\n-> passed\n${line}`);
+        console.log(`#${count.total} ${test[0]}\n-> 🟢 passed\n${line}`);
     } catch (err: any) {
-        count.failed++;
+        console.error(`#${count.total} ${test[0]}\n-> 🔴 failed`);
         if (err instanceof ExpectationError) {
-            console.error(`#${count.total} ${test[0]}\n-> failed:\n${err.message}\n${line}`);
+            count.failed.push(`#${count.total} ${test[0]}\n-> 🔴 failed:\n${err.message}\n${line}`);
         }
         else {
-            console.error(`#${count.total} ${test[0]}\n-> failed:\n${err.message}\n${err.stack}\n${line}`);
+            count.failed.push(`#${count.total} ${test[0]}\n-> 🔴 failed:\n${err.message}\n${err.stack}\n${line}`);
         }
     }
 }
@@ -67,12 +67,14 @@ for (const test of Object.entries(tests)) {
 console.log(`
     total: ${count.total}
     passed: ${count.passed}
-    failed: ${count.failed}
+    failed: ${count.failed.length}
 `);
 
 if (count.passed === count.total) {
     console.log("\n\nall tests passed\n");
 }
 else {
+    console.error(`${line.replaceAll("-", "=")}\nError summary:\n\n${count.failed.join(`\n${line}\n`)}`);
+
     throw "\n\nsome tests failed (see output)\n";
 }
