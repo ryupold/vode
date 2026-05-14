@@ -14,9 +14,20 @@ permissions:
   contents: read
 
 jobs:
+  run-tests:
+    name: run tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v6
+        with:
+          registry-url: "https://registry.npmjs.org"
+      - run: npm ci
+      - run: npm run test
 
   build-and-publish-to-npm:
     name: Build and Publish to NPM
+    needs: run-tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -43,6 +54,7 @@ jobs:
       
   build-and-publish-to-github:
     name: Build and Publish to Github
+    needs: run-tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -68,6 +80,7 @@ jobs:
 
   build-and-publish-to-chimps:
     name: Build and Publish to Chimps
+    needs: run-tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
