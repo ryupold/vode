@@ -1,10 +1,13 @@
 import { StyleProp } from "./vode";
 
-const tempDivForStyling = document.createElement('div');
+let tempDivForStyling: HTMLElement | undefined;
 
 /** merge `StyleProps`s regardless of type 
  * @returns {string} merged StyleProp */
 export function mergeStyle(...props: StyleProp[]): StyleProp {
+    if (!tempDivForStyling) {
+        tempDivForStyling = document.createElement('div');
+    }
     try{
         const merged = tempDivForStyling.style;
         for (const style of props) {
