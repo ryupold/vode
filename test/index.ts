@@ -1,6 +1,6 @@
+import "./mocks";
 import { ExpectationError } from "./helper";
 import appTests from "./tests-app";
-import "./mocks";
 
 const tests = {
     ...appTests,
