@@ -1,11 +1,26 @@
-class MockElement {
-    nodeType = 1;
+const NodeConstants = {
+    ELEMENT_NODE: 1,
+    ATTRIBUTE_NODE: 2,
+    TEXT_NODE: 3,
+    CDATA_SECTION_NODE: 4,
+    ENTITY_REFERENCE_NODE: 5,
+    ENTITY_NODE: 6,
+    PROCESSING_INSTRUCTION_NODE: 7,
+    COMMENT_NODE: 8,
+    DOCUMENT_NODE: 9,
+    DOCUMENT_TYPE_NODE: 10,
+    DOCUMENT_FRAGMENT_NODE: 11,
+    NOTATION_NODE: 12,
+};
+
+export class MockElement {
+    nodeType = NodeConstants.ELEMENT_NODE;
     childNodes: any[] = [];
     children: any[] = [];
     parentElement: any = null;
     attributes: any = {};
     style: any = { cssText: "" };
-    tagName = "DIV";
+    tagName = "UNKNOWN";
     private _attrs: Record<string, string> = {};
 
     constructor(public tag?: string) {
@@ -41,9 +56,9 @@ class MockElement {
     get [Symbol.iterator]() { return Array.prototype[Symbol.iterator].bind(this.children); }
 }
 
-class MockText {
-    nodeType = 3;
-    parentElement: any = null;
+export class MockText {
+    nodeType = NodeConstants.TEXT_NODE;
+    parentElement: MockElement | null = null;
     constructor(public nodeValue: string) { }
     get wholeText() { return this.nodeValue; }
     remove() { if (this.parentElement) { const i = this.parentElement.childNodes.indexOf(this); if (i >= 0) this.parentElement.childNodes.splice(i, 1); } }
@@ -65,7 +80,7 @@ class MockText {
     }
 }
 
-export function resetMocks(){
+export function resetMocks() {
     const mockDoc: any = {
         createElement: (tag: string) => new MockElement(tag),
         createTextNode: (text: string) => new MockText(text),
@@ -79,28 +94,12 @@ export function resetMocks(){
                 finished: Promise.resolve(),
                 ready: Promise.resolve(),
                 updateCallbackDone: Promise.resolve(),
-                skipTransition() {},
+                skipTransition() { },
             };
         }
     };
-    
-    const NodeConstants = {
-        ELEMENT_NODE: 1,
-        ATTRIBUTE_NODE: 2,
-        TEXT_NODE: 3,
-        CDATA_SECTION_NODE: 4,
-        ENTITY_REFERENCE_NODE: 5,
-        ENTITY_NODE: 6,
-        PROCESSING_INSTRUCTION_NODE: 7,
-        COMMENT_NODE: 8,
-        DOCUMENT_NODE: 9,
-        DOCUMENT_TYPE_NODE: 10,
-        DOCUMENT_FRAGMENT_NODE: 11,
-        NOTATION_NODE: 12,
-    };
-    
-    
+
     globalThis.document ??= mockDoc as Document;
-    globalThis.window ??= mockWin as (Window&typeof globalThis);
+    globalThis.window ??= mockWin as (Window & typeof globalThis);
     globalThis.Node ??= NodeConstants as any;
 }

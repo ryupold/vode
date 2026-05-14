@@ -20,11 +20,12 @@ for (const test of Object.entries(tests)) {
         count.passed++;
     } catch (err: any) {
         count.failed++;
+        const line = "----------------------------------";
         if (err instanceof ExpectationError) {
-            console.error(`${test[0]} failed: ${err.message}\n`);
+            console.error(`#${count.total} ${test[0]} failed:\n${err.message}\n${line}`);
         }
         else {
-            console.error(`${test[0]} failed: ${err.message}\n${err.stack}`);
+            console.error(`#${count.total} ${test[0]} failed:\n${err.message}\n${err.stack}\n${line}`);
         }
     }
 }
@@ -39,5 +40,5 @@ if (count.passed === count.total) {
     console.log("\n\nall tests passed\n");
 }
 else {
-    throw "\n\nsome tests failed\n";
+    throw "\n\nsome tests failed (see output)\n";
 }
