@@ -15,11 +15,11 @@ const NodeConstants = {
 
 export class MockElement {
     nodeType = NodeConstants.ELEMENT_NODE;
-    childNodes: any[] = [];
-    children: any[] = [];
-    parentElement: any = null;
-    attributes: any = {};
-    style: any = { cssText: "" };
+    childNodes: (MockElement | MockText)[] = [];
+    children: (MockElement | MockText)[] = [];
+    parentElement: MockElement | null = null;
+    attributes: object = {};
+    style: { cssText: string } = { cssText: "" };
     tagName = "UNKNOWN";
     private _attrs: Record<string, string> = {};
 
@@ -35,9 +35,13 @@ export class MockElement {
     hasChildNodes() { return this.childNodes.length > 0; }
     setAttribute(name: string, value: string) { this._attrs[name] = value; }
     removeAttribute(name: string) { delete this._attrs[name]; }
-    appendChild(child: any) { this.childNodes.push(child); this.children.push(child); if (child.parentElement !== undefined) child.parentElement = this; return child; }
-    remove() { if (this.parentElement) { const i = this.parentElement.childNodes.indexOf(this); if (i >= 0) this.parentElement.childNodes.splice(i, 1); } }
-    replaceWith(...nodes: any[]) {
+    appendChild(child: MockElement | MockText) {
+        this.childNodes.push(child); this.children.push(child); if (child.parentElement !== undefined) child.parentElement = this; return child;
+    }
+    remove() {
+        if (this.parentElement) { const i = this.parentElement.childNodes.indexOf(this); if (i >= 0) this.parentElement.childNodes.splice(i, 1); }
+    }
+    replaceWith(...nodes: (MockElement | MockText)[]) {
         const parent = this.parentElement;
         if (parent) {
             const i = parent.childNodes.indexOf(this);
@@ -45,7 +49,7 @@ export class MockElement {
             for (const n of nodes) n.parentElement = parent;
         }
     }
-    before(...nodes: any[]) {
+    before(...nodes: (MockElement | MockText)[]) {
         const parent = this.parentElement;
         if (parent) {
             const i = parent.childNodes.indexOf(this);
@@ -62,7 +66,7 @@ export class MockText {
     constructor(public nodeValue: string) { }
     get wholeText() { return this.nodeValue; }
     remove() { if (this.parentElement) { const i = this.parentElement.childNodes.indexOf(this); if (i >= 0) this.parentElement.childNodes.splice(i, 1); } }
-    replaceWith(...nodes: any[]) {
+    replaceWith(...nodes: (MockElement | MockText)[]) {
         const parent = this.parentElement;
         if (parent) {
             const i = parent.childNodes.indexOf(this);
@@ -70,7 +74,7 @@ export class MockText {
             for (const n of nodes) n.parentElement = parent;
         }
     }
-    before(...nodes: any[]) {
+    before(...nodes: (MockElement | MockText)[]) {
         const parent = this.parentElement;
         if (parent) {
             const i = parent.childNodes.indexOf(this);

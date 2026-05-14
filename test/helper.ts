@@ -1,4 +1,4 @@
-import { children, ChildVode, PatchableState, tag, TextVode, Vode } from "../src/vode";
+import { children, ChildVode, PatchableState, tag, Vode } from "../src/vode";
 import { MockElement, MockText } from "./mocks";
 
 export class Expectation {
@@ -13,15 +13,28 @@ export class Expectation {
     toEqual(other: any) {
         function deepCompare(a: any, b: any, path: string[]): string[] | null {
             if (typeof a !== typeof b) {
+                if (path.length === 0) path.push(``);
+                path[path.length - 1] += ` (type: ${typeof a} != ${typeof b})`;
                 return path;
             }
 
             if (typeof a !== "object") {
+                if (path.length === 0) path.push(``);
+                path[path.length - 1] += ` (value: ${a} != ${b})`;
                 return a !== b ? path : null;
             }
 
-            for (const prop of Object.getOwnPropertyNames(a)) {
-                const result = deepCompare(a[prop], b[prop], [...path, prop]);
+            for (const prop of Object.entries(a)) {
+                const [k, v] = prop;
+                const result = deepCompare(v, b[k], [...path, k]);
+                if (result) {
+                    return result;
+                }
+            }
+
+            for (const prop of Object.entries(b)) {
+                const [k, v] = prop;
+                const result = deepCompare(a[k], v, [...path, k]);
                 if (result) {
                     return result;
                 }

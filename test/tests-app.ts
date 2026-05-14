@@ -2,7 +2,7 @@ import { expect } from "./helper";
 import { app, ARTICLE, DIV, P, SPAN } from "../index";
 
 export default {
-    "app: init vode-app": () => {
+    "app(): successful initialization": () => {
         const root = document.createElement("div");
         const container = document.createElement("div");
         root.appendChild(container);
@@ -28,7 +28,7 @@ export default {
         );
     },
 
-    "app: init vode-app fails when the container has no parent": () => {
+    "app(): fails when the container has no parent": () => {
         const container = document.createElement("div");
         const err = expect(() => app(container, {}, () => [DIV]))
             .toFail();

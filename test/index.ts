@@ -1,16 +1,22 @@
 import { resetMocks } from "./mocks";
 import { ExpectationError } from "./helper";
+
+//=== REGISTERED TESTS =========================================
+import vodeTests from "./tests-vode";
 import appTests from "./tests-app";
 
 const tests = {
+    ...vodeTests,
     ...appTests,
 };
+//===================================================
 
 const count = {
     total: 0,
     passed: 0,
     failed: 0,
 }
+const line = "----------------------------------";
 
 for (const test of Object.entries(tests)) {
     count.total++;
@@ -18,14 +24,14 @@ for (const test of Object.entries(tests)) {
     try {
         test[1]()
         count.passed++;
+        console.log(`#${count.total} ${test[0]}\n-> passed\n${line}`);
     } catch (err: any) {
         count.failed++;
-        const line = "----------------------------------";
         if (err instanceof ExpectationError) {
-            console.error(`#${count.total} ${test[0]} failed:\n${err.message}\n${line}`);
+            console.error(`#${count.total} ${test[0]}\n-> failed:\n${err.message}\n${line}`);
         }
         else {
-            console.error(`#${count.total} ${test[0]} failed:\n${err.message}\n${err.stack}\n${line}`);
+            console.error(`#${count.total} ${test[0]}\n-> failed:\n${err.message}\n${err.stack}\n${line}`);
         }
     }
 }

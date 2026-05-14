@@ -122,7 +122,7 @@ export function vode<S = PatchableState>(tag: Tag | Vode<S>, props?: Props<S> | 
     if (!tag) throw new Error("first argument to vode() must be a tag name or a vode");
 
     if (Array.isArray(tag)) return tag;
-    else if (props) return [tag, props as Props<S>, ...children];
+    else if (typeof props === "object") return [tag, props as Props<S>, ...children];
     else return [tag, ...children];
 }
 
