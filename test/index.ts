@@ -1,4 +1,4 @@
-import "./mocks";
+import { resetMocks } from "./mocks";
 import { ExpectationError } from "./helper";
 import appTests from "./tests-app";
 
@@ -14,6 +14,7 @@ const count = {
 
 for (const test of Object.entries(tests)) {
     count.total++;
+    resetMocks();
     try {
         test[1]()
         count.passed++;

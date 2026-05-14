@@ -78,8 +78,8 @@ export type PatchableState<S = object> = S & Patchable<S>;
 
 export const globals = {
     currentViewTransition: <ViewTransition | null | undefined>undefined,
-    requestAnimationFrame: !!window.requestAnimationFrame ? window.requestAnimationFrame.bind(window) : ((cb: () => void) => cb()),
-    startViewTransition: !!document.startViewTransition ? document.startViewTransition.bind(document) : null,
+    requestAnimationFrame: typeof window !== "undefined" && !!window.requestAnimationFrame ? window.requestAnimationFrame.bind(window) : ((cb: () => void) => cb()),
+    startViewTransition: typeof document !== "undefined" && !!document.startViewTransition ? document.startViewTransition.bind(document) : null,
 };
 
 export interface ContainerNode<S = PatchableState> extends HTMLElement {

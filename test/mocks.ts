@@ -65,25 +65,42 @@ class MockText {
     }
 }
 
-const mockDoc: any = {
-    createElement: (tag: string) => new MockElement(tag),
-    createTextNode: (text: string) => new MockText(text),
-    createElementNS: (ns: string, tag: string) => new MockElement(tag),
-    hidden: false,
-};
-const mockWin: any = {
-    requestAnimationFrame: (cb: any) => cb(Date.now()),
-    startViewTransition: (callbackOptions: any) => {
-        return {
-            finished: Promise.resolve(),
-            ready: Promise.resolve(),
-            updateCallbackDone: Promise.resolve(),
-            skipTransition() {},
-        };
-    }
-};
-const NodeConstants = { ELEMENT_NODE: 1, TEXT_NODE: 3, COMMENT_NODE: 8 };
-
-globalThis.document ??= mockDoc as any;
-globalThis.window ??= mockWin as any;
-globalThis.Node ??= NodeConstants as any;
+export function resetMocks(){
+    const mockDoc: any = {
+        createElement: (tag: string) => new MockElement(tag),
+        createTextNode: (text: string) => new MockText(text),
+        createElementNS: (ns: string, tag: string) => new MockElement(tag),
+        hidden: false,
+    };
+    const mockWin: any = {
+        requestAnimationFrame: (cb: any) => cb(Date.now()),
+        startViewTransition: (callbackOptions: any) => {
+            return {
+                finished: Promise.resolve(),
+                ready: Promise.resolve(),
+                updateCallbackDone: Promise.resolve(),
+                skipTransition() {},
+            };
+        }
+    };
+    
+    const NodeConstants = {
+        ELEMENT_NODE: 1,
+        ATTRIBUTE_NODE: 2,
+        TEXT_NODE: 3,
+        CDATA_SECTION_NODE: 4,
+        ENTITY_REFERENCE_NODE: 5,
+        ENTITY_NODE: 6,
+        PROCESSING_INSTRUCTION_NODE: 7,
+        COMMENT_NODE: 8,
+        DOCUMENT_NODE: 9,
+        DOCUMENT_TYPE_NODE: 10,
+        DOCUMENT_FRAGMENT_NODE: 11,
+        NOTATION_NODE: 12,
+    };
+    
+    
+    globalThis.document ??= mockDoc as Document;
+    globalThis.window ??= mockWin as (Window&typeof globalThis);
+    globalThis.Node ??= NodeConstants as any;
+}
