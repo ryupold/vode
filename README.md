@@ -539,14 +539,63 @@ children(myVode);   // [[SPAN, 'hello'], [STRONG, 'world']]
 const asVode = hydrate(document.getElementById('my-element'));
 ```
 
+#### onMount & onUnmount
+
 Additionally to the standard HTML attributes, you can define 2 special event attributes: 
 `onMount(State, Element)` and `onUnmount(State, Element)` in the vode props. 
 These are called when the element is created or removed during rendering. 
 They receive the `State` as the first argument and the DOM element as the second argument.
-Like the other events they can be patches too. 
-> Be aware that `onMount/onUnmount` are only called when an element 
-> is actually created/removed which might not always be the case during 
-> rendering, as only a diff of the virtual DOM is applied.
+
+```typescript
+const container = document.createElement(DIV);
+const state = createState({
+    startTime: 0,
+    inputReady: false,
+    showInput: true,
+    showTimer: true
+});
+type State = typeof state;
+
+const patch = app<State>(container, state, (s) =>
+    [DIV,
+        s.showInput && [INPUT, {
+            type: 'text',
+            placeholder: 'Auto-focused on mount',
+            onMount: (s: State, ele: HTMLElement) => {
+                console.log('Input mounted');
+                (ele as HTMLInputElement).focus();
+                return { inputReady: true };
+            },
+            onUnmount: (s: State, ele: HTMLElement) => {
+                console.log('Input removed');
+                return { inputReady: false };
+            }
+        }],
+
+        s.showTimer && [P, {
+            onMount: (s: State, ele: HTMLElement) => {
+                console.log('Timer started');
+                s.patch({ startTime: Date.now() });
+            },
+            onUnmount: (s: State, ele: HTMLElement) => {
+                console.log('Timer stopped after', Date.now() - s.startTime, 'ms');
+            }
+        }, 'Mount/unmount lifecycle demo']
+    ]
+);
+
+
+// OUTPUT:
+
+// 1. Input mounted
+// 2. Timer started
+patch({ showInput: false });
+// 3. Input removed
+patch({ showTimer: false });
+// 4. Timer stopped after XY ms
+```
+
+Like the other events (onclick, onmouseenter, etc.), these can also be attached conditionally and will be added or removed on the fly during rendering. Returning a patch object from these events will patch the same way as with events.
 
 ### SVG & MathML
 SVG and MathML elements are supported but need the namespace defined in properties.
@@ -577,6 +626,7 @@ const CompMathML = (s) =>
 #### state context
 
 The state context utilities can help creating shareable type safe components.
+These do not need to know the 'full' state of the app, but only the part they are interested in. This can be especially useful for differently deep nested components that need access to the same part of the state.
 
 ```typescript
 import { app, context, createState, SubContext, Vode, DIV, FORM, H1, OPTION, P, SELECT } from "@ryupold/vode";
