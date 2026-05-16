@@ -5,7 +5,7 @@ export type JustTagVode = [tag: Tag];
 export type ChildVode<S = PatchableState> = Vode<S> | TextVode | NoVode | Component<S>;
 export type TextVode = string & {};
 export type NoVode = undefined | null | number | boolean | bigint | void;
-export type AttachedVode<S> = Vode<S> & { node: ChildNode, unmountCount: number, unmountStart: number } | Text & { node?: never, unmounts?: never, unmountStart?: never };
+export type AttachedVode<S> = Vode<S> & { node: ChildNode } | Text & { node?: never };
 export type Tag = keyof (HTMLElementTagNameMap & SVGElementTagNameMap & MathMLElementTagNameMap) | (string & {});
 export type Component<S> = (s: S) => ChildVode<S>;
 
@@ -97,7 +97,6 @@ export interface ContainerNode<S = PatchableState> extends HTMLElement {
         qAsync: {} | undefined | null,  // next render-patches to be animated after another
         isRendering: boolean,
         isAnimating: boolean,
-        unmounts: (MountFunction<S> | null)[],
         /** stats about the overall patches & last render time */
         stats: {
             patchCount: number,
@@ -150,7 +149,6 @@ export function app<S extends PatchableState = PatchableState>(
     _vode.qSync = null;
     _vode.qAsync = null;
     _vode.stats = { lastSyncRenderTime: 0, lastAsyncRenderTime: 0, syncRenderCount: 0, asyncRenderCount: 0, liveEffectCount: 0, patchCount: 0, syncRenderPatchCount: 0, asyncRenderPatchCount: 0 };
-    _vode.unmounts = [];
 
     const patchableState = state as PatchableState<S> & { patch: (action: Patch<S>, animate?: boolean) => void };
 
@@ -221,7 +219,7 @@ export function app<S extends PatchableState = PatchableState>(
     function renderDom(isAsync: boolean) {
         const sw = Date.now();
         const vom = dom(_vode.state);
-        _vode.vode = render<S>(_vode.state, container.parentElement as Element, 0, 0, _vode.vode, vom, null, _vode.unmounts, 0)!;
+        _vode.vode = render<S>(_vode.state, container.parentElement as Element, 0, 0, _vode.vode, vom)!;
 
         if ((<ContainerNode<S>>container).tagName.toUpperCase() !== (vom[0] as Tag).toUpperCase()) { //the tag name was changed during render -> update reference to vode-app-root 
             container = _vode.vode.node as Element;
@@ -282,6 +280,7 @@ export function app<S extends PatchableState = PatchableState>(
     const root = container as ContainerNode<S>;
     root._vode = _vode;
     const indexInParent = Array.from(container.parentElement.children).indexOf(container);
+
     _vode.isRendering = true;
     _vode.vode = render(
         <S>state,
@@ -289,10 +288,7 @@ export function app<S extends PatchableState = PatchableState>(
         indexInParent,
         indexInParent,
         hydrate<S>(container, true) as AttachedVode<S>,
-        dom(<S>state),
-        null,
-        _vode.unmounts,
-        0
+        dom(<S>state)
     )!;
     _vode.isRendering = false;
     if (_vode.qSync) _vode.renderSync();
@@ -511,20 +507,14 @@ function mergeState(target: any, source: any, allowDeletion: boolean) {
     return target;
 };
 
-function render<S extends PatchableState>(
-    state: S, parent: Element,
-    childIndex: number, indexInParent: number,
-    oldVode: AttachedVode<S> | undefined, newVode: ChildVode<S>,
-    xmlns: string | null,
-    unmounts: (MountFunction<S> | null)[], unmountStart: number
-): AttachedVode<S> | undefined {
+function render<S extends PatchableState>(state: S, parent: Element, childIndex: number, indexInParent: number, oldVode: AttachedVode<S> | undefined, newVode: ChildVode<S>, xmlns?: string | null): AttachedVode<S> | undefined {
     try {
         // unwrap component if it is memoized
         newVode = remember(state, newVode, oldVode) as ChildVode<S>;
 
         const isNoVode = !newVode || typeof newVode === "number" || typeof newVode === "boolean";
         if (newVode === oldVode || (!oldVode && isNoVode)) {
-            return oldVode as AttachedVode<S>;
+            return oldVode;
         }
 
         const oldIsText = (oldVode as Text)?.nodeType === Node.TEXT_NODE;
@@ -532,17 +522,7 @@ function render<S extends PatchableState>(
 
         // falsy|text|element(A) -> undefined 
         if (isNoVode) {
-            if (!oldIsText && typeof (<any>oldVode)?.unmountCount === "number") {
-                const start = (<any>oldVode).unmountStart;
-                const count = (<any>oldVode).unmountCount;
-                for (let i = count - 1; i >= 0; i--) {
-                    const fn = unmounts[start + i];
-                    if (fn) {
-                        state.patch(fn(state, oldNode as HTMLElement & SVGSVGElement & MathMLElement));
-                        unmounts[start + i] = null;
-                    }
-                }
-            }
+            unmountTree(state, oldVode as AttachedVode<S>);
             oldNode?.remove();
             return undefined;
         }
@@ -566,23 +546,13 @@ function render<S extends PatchableState>(
             if ((<Text>oldNode).nodeValue !== <string>newVode) {
                 (<Text>oldNode).nodeValue = <string>newVode;
             }
-            return oldVode as AttachedVode<S>;
+            return oldVode;
         }
         // falsy|element -> text
         if (isText && (!oldNode || !oldIsText)) {
             const text = document.createTextNode(newVode as string)
             if (oldNode) {
-                if (!oldIsText && typeof (<any>oldVode)?.unmountCount === "number") {
-                    const start = (<any>oldVode).unmountStart;
-                    const count = (<any>oldVode).unmountCount;
-                    for (let i = count - 1; i >= 0; i--) {
-                        const fn = unmounts[start + i];
-                        if (fn) {
-                            state.patch(fn(state, oldNode as HTMLElement & SVGSVGElement & MathMLElement));
-                            unmounts[start + i] = null;
-                        }
-                    }
-                }
+                unmountTree(state, oldVode as AttachedVode<S>);
                 oldNode.replaceWith(text);
             } else {
                 let inserted = false;
@@ -628,21 +598,9 @@ function render<S extends PatchableState>(
             }
 
             if (oldNode) {
-                if (!oldIsText && typeof (<any>oldVode)?.unmountCount === "number") {
-                    const start = (<any>oldVode).unmountStart;
-                    const count = (<any>oldVode).unmountCount;
-                    for (let i = count - 1; i >= 0; i--) {
-                        const fn = unmounts[start + i];
-                        if (fn) {
-                            state.patch(fn(state, oldNode as HTMLElement & SVGSVGElement & MathMLElement));
-                            unmounts[start + i] = null;
-                        }
-                    }
-                }
-                unmounts[unmountStart] = properties?.onUnmount ?? null;
+                unmountTree(state, oldVode as AttachedVode<S>);
                 oldNode.replaceWith(newNode);
             } else {
-                unmounts[unmountStart] = properties?.onUnmount ?? null;
                 let inserted = false;
                 for (let i = indexInParent; i < parent.childNodes.length; i++) {
                     const nextSibling = parent.childNodes[i];
@@ -657,28 +615,23 @@ function render<S extends PatchableState>(
                 }
             }
 
-            let totalChildUnmounts = 0;
-            let childUnmountStart = unmountStart + 1;
             const newKids = children(newVode);
             if (newKids) {
                 const childOffset = !!properties ? 2 : 1;
                 let indexP = 0;
                 for (let i = 0; i < newKids.length; i++) {
                     const child = newKids[i];
-                    const attached = render(state, newNode as Element, i, indexP, undefined, child, xmlns ?? null, unmounts, childUnmountStart);
-                    (<Vode<S>>newVode!)[i + childOffset] = <Vode<S> | undefined>attached;
-                    if (attached) {
-                        indexP++;
-                        const childUnmounts = (<any>attached).unmountCount || 0;
-                        totalChildUnmounts += childUnmounts;
-                        childUnmountStart += childUnmounts;
-                    }
+                    // render child in xml mode to prevent using the dom properties
+                    const attached = render(state, newNode as Element, i, indexP, undefined, child, xmlns ?? null);
+                    (<Vode<S>>newVode!)[i + childOffset] = <Vode<S>>attached;
+                    if (attached) indexP++;
                 }
             }
 
-            (<any>newNode).onMount && state.patch((<any>newNode).onMount(newNode));
-            (<any>newVode).unmountCount = 1 + totalChildUnmounts;
-            (<any>newVode).unmountStart = unmountStart;
+            (<any>newVode)._unmountCount = (properties?.onUnmount ? 1 : 0) + sumChildUnmountCounts(newVode as Vode<S>);
+            if (typeof properties?.onMount === "function") {
+                state.patch(properties.onMount(state, newNode as HTMLElement & SVGSVGElement & MathMLElement));
+            }
             return <AttachedVode<S>>newVode;
         }
 
@@ -710,11 +663,6 @@ function render<S extends PatchableState>(
                 (<any>newVode).node.removeAttribute('catch');
             }
 
-            // own unmount slot (always reserved per element)
-            unmounts[unmountStart] = properties?.onUnmount ?? null;
-
-            let totalChildUnmounts = 0;
-            let childUnmountStart = unmountStart + 1;
             const newKids = children(newVode);
             const oldKids = children(oldVode) as AttachedVode<S>[];
             if (newKids) {
@@ -723,26 +671,21 @@ function render<S extends PatchableState>(
                 for (let i = 0; i < newKids.length; i++) {
                     const child = newKids[i];
                     const oldChild = oldKids && oldKids[i];
-                    const attached = render(state, oldNode as Element, i, indexP, oldChild, child, xmlns, unmounts, childUnmountStart);
+
+                    const attached = render(state, oldNode as Element, i, indexP, oldChild, child, xmlns);
                     (<Vode<S>>newVode)[i + childOffset] = <Vode<S>>attached;
-                    if (attached) {
-                        indexP++;
-                        const childUnmounts = (<any>attached).unmountCount || 0;
-                        totalChildUnmounts += childUnmounts;
-                        childUnmountStart += childUnmounts;
-                    }
+                    if (attached) indexP++;
                 }
             }
 
             if (oldKids) {
                 const newKidsCount = newKids ? newKids.length : 0;
                 for (let i = oldKids.length - 1; i >= newKidsCount; i--) {
-                    render(state, oldNode as Element, i, i, oldKids[i], undefined, xmlns, unmounts, (<any>oldKids[i]).unmountStart);
+                    render(state, oldNode as Element, i, i, oldKids[i], undefined, xmlns);
                 }
             }
 
-            (<any>newVode).unmountCount = 1 + totalChildUnmounts;
-            (<any>newVode).unmountStart = unmountStart;
+            (<any>newVode)._unmountCount = (properties?.onUnmount ? 1 : 0) + sumChildUnmountCounts(newVode as Vode<S>);
             return <AttachedVode<S>>newVode;
         }
     } catch (error) {
@@ -755,13 +698,42 @@ function render<S extends PatchableState>(
             return render(state, parent, childIndex, indexInParent,
                 hydrate(((<AttachedVode<S>>newVode)?.node || oldVode?.node) as Element, true) as AttachedVode<S>,
                 handledVode,
-                xmlns, unmounts, unmountStart);
+                xmlns);
         } else {
             throw error;
         }
     }
 
     return undefined;
+}
+
+function unmountTree<S extends PatchableState>(state: S, v: AttachedVode<S> | ChildVode<S> | undefined): void {
+    if (!v || !Array.isArray(v)) return;
+    if (((<any>v)._unmountCount | 0) === 0) return;
+
+    const kids = children(v as Vode<S>) as AttachedVode<S>[] | null;
+    if (kids) {
+        for (let i = kids.length - 1; i >= 0; i--) {
+            unmountTree(state, kids[i]);
+        }
+    }
+
+    const p = props(v);
+    if (typeof p?.onUnmount === "function") {
+        state.patch(p.onUnmount(state, (v as AttachedVode<S>).node as HTMLElement & SVGSVGElement & MathMLElement));
+    }
+}
+
+function sumChildUnmountCounts<S>(v: Vode<S>): number {
+    const kids = children(v) as AttachedVode<S>[] | null;
+    if (!kids) return 0;
+    let n = 0;
+    for (const k of kids) {
+        if (k && Array.isArray(k)) {
+            n += ((<any>k)._unmountCount | 0);
+        }
+    }
+    return n;
 }
 
 function isNaturalVode<S>(x: ChildVode<S>): x is Vode<S> {

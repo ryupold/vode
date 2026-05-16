@@ -1,4 +1,4 @@
-import { app, createState } from "../src/vode"
+import { app, createState, memo } from "../src/vode"
 import { ARTICLE, ASIDE, DIV, INPUT, MAIN, NAV, P, SECTION, SPAN } from "../src/vode-tags";
 import { expect } from "./helper";
 
@@ -1081,6 +1081,82 @@ export default {
         expect(unmounts).toEqual(["unmount p-inner"]);
     },
 
+    "onUnmount(): memo hit + earlier sibling growth corrupts unmount indices": () => {
+        const container = setup();
+        const fired: string[] = [];
+        const state = createState({ expanded: false, showB: true });
+        const patch = app<typeof state>(container, state, (s) =>
+            [DIV,
+                [SPAN,
+                    {
+                        onUnmount: (s: unknown, ele: HTMLElement) => {
+                            fired.push("unmount A");
+                        }
+                    },
+                    s.expanded && [ASIDE,
+                        {
+                            onUnmount: (s: unknown, ele: HTMLElement) => {
+                                fired.push("unmount A-child");
+                            }
+                        },
+                        "x"
+                    ],
+                ],
+                s.showB && memo([], () => [SECTION,
+                    {
+                        onUnmount: (s: unknown, ele: HTMLElement) => {
+                            fired.push("unmount B");
+                        }
+                    },
+                ])
+            ]
+        );
+
+        expect(fired).toEqual([]);
+
+        patch({ expanded: true });
+        expect(fired).toEqual([]);
+
+        patch({ showB: false });
+        expect(fired).toEqual(["unmount B"]);
+    },
+
+    "onUnmount(): excess child removal + same-render sibling growth": () => {
+        const container = setup();
+        const fired: string[] = [];
+        const state = createState({ expanded: false, showB: true });
+        const patch = app<typeof state>(container, state, (s) =>
+            [DIV,
+                [SPAN,
+                    {
+                        onUnmount: (s: unknown, ele: HTMLElement) => {
+                            fired.push("unmount A");
+                        }
+                    },
+                    s.expanded && [ASIDE,
+                        {
+                            onUnmount: (s: unknown, ele: HTMLElement) => {
+                                fired.push("unmount A-child");
+                            }
+                        },
+                        "x"
+                    ],
+                ],
+                s.showB && [P,
+                    {
+                        onUnmount: (s: unknown, ele: HTMLElement) => {
+                            fired.push("unmount B");
+                        }
+                    },
+                ]
+            ]
+        );
+
+        expect(fired).toEqual([]);
+        patch({ expanded: true, showB: false });
+        expect(fired).toEqual(["unmount B"]);
+    },
+
     "onMount() + onUnmount: symmetry of calls": () => {
         const container = setup();
         const state = createState({
@@ -1136,5 +1212,193 @@ export default {
             'Input removed',
             'Timer removed'
         ]);
+    },
+
+    "onMount(): with catched component, replacement vode's onMount fires when error occurs": () => {
+        const container = setup();
+        const mounts: string[] = [];
+        const broken: any = () => { throw new Error("boom"); };
+        app(container, {}, () =>
+            [DIV,
+                {
+                    catch: [SECTION,
+                        {
+                            onMount: (s: unknown, ele: HTMLElement) => {
+                                mounts.push("mount fallback");
+                            }
+                        },
+                        "fallback"
+                    ]
+                },
+                broken
+            ]
+        );
+
+        expect(mounts).toEqual(["mount fallback"]);
+    },
+
+    "onMount(): with catched component, returned vode's onMount fires and receives error": () => {
+        const container = setup();
+        const mounts: string[] = [];
+        const caughtErrors: string[] = [];
+        const broken: any = () => { throw new Error("boom"); };
+        app(container, {}, () =>
+            [DIV,
+                {
+                    catch: (s: unknown, err: Error) => {
+                        caughtErrors.push(err.message);
+                        return [SECTION,
+                            {
+                                onMount: (s: unknown, ele: HTMLElement) => {
+                                    mounts.push("mount fallback");
+                                }
+                            },
+                            "fallback"
+                        ];
+                    }
+                },
+                broken
+            ]
+        );
+
+        expect(mounts).toEqual(["mount fallback"]);
+        expect(caughtErrors).toEqual(["boom"]);
+    },
+
+    "onUnmount(): with catched component, replacement vode's onUnmount fires when removed": () => {
+        const container = setup();
+        const unmounts: string[] = [];
+        const state = createState({ show: true });
+        const broken: any = () => { throw new Error("boom"); };
+        const patch = app<typeof state>(container, state, (s) =>
+            [DIV,
+                s.show && [SECTION,
+                    {
+                        catch: [ARTICLE,
+                            {
+                                onUnmount: (s: unknown, ele: HTMLElement) => {
+                                    unmounts.push("unmount fallback");
+                                }
+                            },
+                            "fallback"
+                        ]
+                    },
+                    broken
+                ]
+            ]
+        );
+
+        expect(unmounts).toEqual([]);
+        patch({ show: false });
+        expect(unmounts).toEqual(["unmount fallback"]);
+    },
+
+    "onUnmount(): with catched component, deep replacement tree fires in post-order": () => {
+        const container = setup();
+        const unmounts: string[] = [];
+        const state = createState({ show: true });
+        const broken: any = () => { throw new Error("boom"); };
+        const patch = app<typeof state>(container, state, (s) =>
+            [DIV,
+                s.show && [SECTION,
+                    {
+                        catch: [ARTICLE,
+                            {
+                                onUnmount: (s: unknown, ele: HTMLElement) => {
+                                    unmounts.push("unmount article");
+                                }
+                            },
+                            [P,
+                                {
+                                    onUnmount: (s: unknown, ele: HTMLElement) => {
+                                        unmounts.push("unmount p");
+                                    }
+                                },
+                                "x"
+                            ],
+                            [SPAN,
+                                {
+                                    onUnmount: (s: unknown, ele: HTMLElement) => {
+                                        unmounts.push("unmount span");
+                                    }
+                                },
+                                "y"
+                            ]
+                        ]
+                    },
+                    broken
+                ]
+            ]
+        );
+
+        expect(unmounts).toEqual([]);
+        patch({ show: false });
+        expect(unmounts).toEqual(["unmount span", "unmount p", "unmount article"]);
+    },
+
+    "onMount()/onUnmount(): with catched component, full lifecycle symmetry of catch replacement": () => {
+        const container = setup();
+        const logs: string[] = [];
+        const state = createState({ show: true });
+        const broken: any = () => { throw new Error("boom"); };
+        const patch = app<typeof state>(container, state, (s) =>
+            [DIV,
+                s.show && [SECTION,
+                    {
+                        catch: [ARTICLE,
+                            {
+                                onMount: (s: unknown, ele: HTMLElement) => {
+                                    logs.push("mount article");
+                                },
+                                onUnmount: (s: unknown, ele: HTMLElement) => {
+                                    logs.push("unmount article");
+                                }
+                            },
+                            "fallback"
+                        ]
+                    },
+                    broken
+                ]
+            ]
+        );
+
+        expect(logs).toEqual(["mount article"]);
+        patch({ show: false });
+        expect(logs).toEqual(["mount article", "unmount article"]);
+    },
+
+    "onMount(): with catched component, original element's onMount does NOT fire when error caused replacement": () => {
+        const container = setup();
+        const logs: string[] = [];
+        const broken: any = () => { throw new Error("boom"); };
+        app(container, {}, () =>
+            [DIV,
+                {
+                    catch: [ARTICLE,
+                        {
+                            onMount: (s: unknown, ele: HTMLElement) => {
+                                logs.push("mount fallback");
+                            }
+                        },
+                        "fallback"
+                    ]
+                },
+                [SECTION,
+                    {
+                        onMount: (s: unknown, ele: HTMLElement) => {
+                            logs.push("mount original section");
+                        },
+                        onUnmount: (s: unknown, ele: HTMLElement) => {
+                            logs.push("unmount original section");
+                        }
+                    },
+                    broken
+                ]
+            ]
+        );
+
+        // SECTION never finishes mounting (its child broke), so its onMount must not fire.
+        // The catch on DIV replaces the broken subtree with ARTICLE whose onMount must fire.
+        expect(logs).toEqual(["mount fallback"]);
     },
 }
