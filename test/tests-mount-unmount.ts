@@ -1,5 +1,5 @@
 import { app, createState } from "../src/vode"
-import { ARTICLE, ASIDE, DIV, MAIN, NAV, P, SECTION, SPAN } from "../src/vode-tags";
+import { ARTICLE, ASIDE, DIV, INPUT, MAIN, NAV, P, SECTION, SPAN } from "../src/vode-tags";
 import { expect } from "./helper";
 
 function setup() {
@@ -1079,5 +1079,110 @@ export default {
         expect(unmounts).toEqual([]);
         patch({ showArticle: false });
         expect(unmounts).toEqual(["unmount p-inner"]);
+    },
+
+    "onMount() + onUnmount: symmetry of calls": () => {
+        const container = setup();
+        const state = createState({
+            startTime: 0,
+            inputReady: false,
+            showInput: true,
+            showTimer: true
+        });
+        type State = typeof state;
+        const logs: string[] = [];
+
+        const patch = app<State>(container, state, (s) =>
+            [DIV,
+                s.showInput && [INPUT, {
+                    type: 'text',
+                    placeholder: 'Auto-focused on mount',
+                    onMount: (s: State, ele: HTMLElement) => {
+                        //(ele as HTMLInputElement).focus();
+                        logs.push('Input mounted');
+                        return { inputReady: true };
+                    },
+                    onUnmount: (s: State, ele: HTMLElement) => {
+                        // console.log('Input removed');
+                        logs.push('Input removed');
+                        return { inputReady: false };
+                    }
+                }],
+
+                s.showTimer && [P, {
+                    onMount: (s: State, ele: HTMLElement) => {
+                        logs.push('Timer started');
+                        s.patch({ startTime: Date.now() });
+                    },
+                    onUnmount: (s: State, ele: HTMLElement) => {
+                        console.log('Timer stopped after', Date.now() - s.startTime, 'ms');
+                        logs.push('Timer removed');
+                    }
+                }, 'Mount/unmount lifecycle demo']
+            ]
+        );
+
+        expect(state.inputReady)
+            .toEqual(true);
+        expect(state.startTime != 0)
+            .toEqual(true);
+        patch({ showInput: false });
+        expect(state.inputReady)
+            .toEqual(false);
+        patch({ showTimer: false });
+        expect(logs).toEqual([
+            'Input mounted',
+            'Timer started',
+            'Input removed',
+            'Timer removed'
+        ]);
+    },
+
+    "onMount() + onUnmount: README": () => {
+        const container = document.createElement(DIV);
+        const state = createState({
+            startTime: 0,
+            inputReady: false,
+            showInput: true,
+            showTimer: true
+        });
+        type State = typeof state;
+
+        const patch = app<State>(container, state, (s) =>
+            [DIV,
+                s.showInput && [INPUT, {
+                    type: 'text',
+                    placeholder: 'Auto-focused on mount',
+                    onMount: (s: State, ele: HTMLElement) => {
+                        console.log('Input mounted');
+                        (ele as HTMLInputElement).focus();
+                        return { inputReady: true };
+                    },
+                    onUnmount: (s: State, ele: HTMLElement) => {
+                        console.log('Input removed');
+                        return { inputReady: false };
+                    }
+                }],
+
+                s.showTimer && [P, {
+                    onMount: (s: State, ele: HTMLElement) => {
+                        console.log('Timer started');
+                        s.patch({ startTime: Date.now() });
+                    },
+                    onUnmount: (s: State, ele: HTMLElement) => {
+                        console.log('Timer stopped after', Date.now() - s.startTime, 'ms');
+                    }
+                }, 'Mount/unmount lifecycle demo']
+            ]
+        );
+
+        // OUTPUT:
+
+        // 1. Input mounted
+        // 2. Timer started
+        patch({ showInput: false });
+        // 3. Input removed
+        patch({ showTimer: false });
+        // 4. Timer stopped after XY ms
     },
 }

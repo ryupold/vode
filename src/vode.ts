@@ -282,6 +282,7 @@ export function app<S extends PatchableState = PatchableState>(
     const root = container as ContainerNode<S>;
     root._vode = _vode;
     const indexInParent = Array.from(container.parentElement.children).indexOf(container);
+    _vode.isRendering = true;
     _vode.vode = render(
         <S>state,
         container.parentElement,
@@ -293,6 +294,8 @@ export function app<S extends PatchableState = PatchableState>(
         _vode.unmounts,
         0
     )!;
+    _vode.isRendering = false;
+    if (_vode.qSync) _vode.renderSync();
 
     for (const effect of initialPatches) {
         patchableState.patch(effect);
@@ -535,7 +538,7 @@ function render<S extends PatchableState>(
                 for (let i = count - 1; i >= 0; i--) {
                     const fn = unmounts[start + i];
                     if (fn) {
-                        fn(state, oldNode as HTMLElement & SVGSVGElement & MathMLElement);
+                        state.patch(fn(state, oldNode as HTMLElement & SVGSVGElement & MathMLElement));
                         unmounts[start + i] = null;
                     }
                 }
@@ -575,7 +578,7 @@ function render<S extends PatchableState>(
                     for (let i = count - 1; i >= 0; i--) {
                         const fn = unmounts[start + i];
                         if (fn) {
-                            fn(state, oldNode as HTMLElement & SVGSVGElement & MathMLElement);
+                            state.patch(fn(state, oldNode as HTMLElement & SVGSVGElement & MathMLElement));
                             unmounts[start + i] = null;
                         }
                     }
@@ -631,7 +634,7 @@ function render<S extends PatchableState>(
                     for (let i = count - 1; i >= 0; i--) {
                         const fn = unmounts[start + i];
                         if (fn) {
-                            fn(state, oldNode as HTMLElement & SVGSVGElement & MathMLElement);
+                            state.patch(fn(state, oldNode as HTMLElement & SVGSVGElement & MathMLElement));
                             unmounts[start + i] = null;
                         }
                     }
