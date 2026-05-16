@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   run-tests:
-    name: run tests
+    name: Check Unit Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
