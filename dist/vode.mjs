@@ -1,13 +1,13 @@
 // src/vode.ts
 var globals = {
   currentViewTransition: void 0,
-  requestAnimationFrame: !!window.requestAnimationFrame ? window.requestAnimationFrame.bind(window) : ((cb) => cb()),
-  startViewTransition: !!document.startViewTransition ? document.startViewTransition.bind(document) : null
+  requestAnimationFrame: typeof window !== "undefined" && typeof window.requestAnimationFrame === "function" ? window.requestAnimationFrame.bind(window) : ((cb) => cb()),
+  startViewTransition: typeof document !== "undefined" && typeof document.startViewTransition === "function" ? document.startViewTransition.bind(document) : null
 };
 function vode(tag2, props2, ...children2) {
   if (!tag2) throw new Error("first argument to vode() must be a tag name or a vode");
   if (Array.isArray(tag2)) return tag2;
-  else if (props2) return [tag2, props2, ...children2];
+  else if (typeof props2 === "object") return [tag2, props2, ...children2];
   else return [tag2, ...children2];
 }
 function app(container, state, dom, ...initialPatches) {
@@ -20,6 +20,7 @@ function app(container, state, dom, ...initialPatches) {
   _vode.qSync = null;
   _vode.qAsync = null;
   _vode.stats = { lastSyncRenderTime: 0, lastAsyncRenderTime: 0, syncRenderCount: 0, asyncRenderCount: 0, liveEffectCount: 0, patchCount: 0, syncRenderPatchCount: 0, asyncRenderPatchCount: 0 };
+  _vode.unmounts = [];
   const patchableState = state;
   if ("patch" in state && typeof state.patch === "function" && Array.isArray(state.patch.initialPatches)) {
     initialPatches = [...state.patch.initialPatches, ...initialPatches];
@@ -90,7 +91,7 @@ function app(container, state, dom, ...initialPatches) {
   function renderDom(isAsync) {
     const sw = Date.now();
     const vom = dom(_vode.state);
-    _vode.vode = render(_vode.state, container.parentElement, 0, 0, _vode.vode, vom);
+    _vode.vode = render(_vode.state, container.parentElement, 0, 0, _vode.vode, vom, null, _vode.unmounts, 0);
     if (container.tagName.toUpperCase() !== vom[0].toUpperCase()) {
       container = _vode.vode.node;
       container._vode = _vode;
@@ -143,14 +144,20 @@ function app(container, state, dom, ...initialPatches) {
   const root = container;
   root._vode = _vode;
   const indexInParent = Array.from(container.parentElement.children).indexOf(container);
+  _vode.isRendering = true;
   _vode.vode = render(
     state,
     container.parentElement,
     indexInParent,
     indexInParent,
     hydrate(container, true),
-    dom(state)
+    dom(state),
+    null,
+    _vode.unmounts,
+    0
   );
+  _vode.isRendering = false;
+  if (_vode.qSync) _vode.renderSync();
   for (const effect of initialPatches) {
     patchableState.patch(effect);
   }
@@ -199,8 +206,6 @@ function hydrate(element, prepareForRender) {
   if (element?.nodeType === Node.TEXT_NODE) {
     if (element.nodeValue?.trim() !== "")
       return prepareForRender ? element : element.nodeValue;
-    return void 0;
-  } else if (element.nodeType === Node.COMMENT_NODE) {
     return void 0;
   } else if (element.nodeType === Node.ELEMENT_NODE) {
     const tag2 = element.tagName.toLowerCase();
@@ -319,7 +324,7 @@ function mergeState(target, source, allowDeletion) {
   }
   return target;
 }
-function render(state, parent, childIndex, indexInParent, oldVode, newVode, xmlns) {
+function render(state, parent, childIndex, indexInParent, oldVode, newVode, xmlns, unmounts, unmountStart) {
   try {
     newVode = remember(state, newVode, oldVode);
     const isNoVode = !newVode || typeof newVode === "number" || typeof newVode === "boolean";
@@ -329,7 +334,17 @@ function render(state, parent, childIndex, indexInParent, oldVode, newVode, xmln
     const oldIsText = oldVode?.nodeType === Node.TEXT_NODE;
     const oldNode = oldIsText ? oldVode : oldVode?.node;
     if (isNoVode) {
-      oldNode?.onUnmount && state.patch(oldNode.onUnmount(oldNode));
+      if (!oldIsText && typeof oldVode?.unmountCount === "number") {
+        const start = oldVode.unmountStart;
+        const count = oldVode.unmountCount;
+        for (let i = count - 1; i >= 0; i--) {
+          const fn = unmounts[start + i];
+          if (fn) {
+            state.patch(fn(state, oldNode));
+            unmounts[start + i] = null;
+          }
+        }
+      }
       oldNode?.remove();
       return void 0;
     }
@@ -352,7 +367,17 @@ function render(state, parent, childIndex, indexInParent, oldVode, newVode, xmln
     if (isText && (!oldNode || !oldIsText)) {
       const text = document.createTextNode(newVode);
       if (oldNode) {
-        oldNode.onUnmount && state.patch(oldNode.onUnmount(oldNode));
+        if (!oldIsText && typeof oldVode?.unmountCount === "number") {
+          const start = oldVode.unmountStart;
+          const count = oldVode.unmountCount;
+          for (let i = count - 1; i >= 0; i--) {
+            const fn = unmounts[start + i];
+            if (fn) {
+              state.patch(fn(state, oldNode));
+              unmounts[start + i] = null;
+            }
+          }
+        }
         oldNode.replaceWith(text);
       } else {
         let inserted = false;
@@ -385,9 +410,21 @@ function render(state, parent, childIndex, indexInParent, oldVode, newVode, xmln
         newVode.node.removeAttribute("catch");
       }
       if (oldNode) {
-        oldNode.onUnmount && state.patch(oldNode.onUnmount(oldNode));
+        if (!oldIsText && typeof oldVode?.unmountCount === "number") {
+          const start = oldVode.unmountStart;
+          const count = oldVode.unmountCount;
+          for (let i = count - 1; i >= 0; i--) {
+            const fn = unmounts[start + i];
+            if (fn) {
+              state.patch(fn(state, oldNode));
+              unmounts[start + i] = null;
+            }
+          }
+        }
+        unmounts[unmountStart] = properties?.onUnmount ?? null;
         oldNode.replaceWith(newNode);
       } else {
+        unmounts[unmountStart] = properties?.onUnmount ?? null;
         let inserted = false;
         for (let i = indexInParent; i < parent.childNodes.length; i++) {
           const nextSibling = parent.childNodes[i];
@@ -401,18 +438,27 @@ function render(state, parent, childIndex, indexInParent, oldVode, newVode, xmln
           parent.appendChild(newNode);
         }
       }
+      let totalChildUnmounts = 0;
+      let childUnmountStart = unmountStart + 1;
       const newKids = children(newVode);
       if (newKids) {
         const childOffset = !!properties ? 2 : 1;
         let indexP = 0;
         for (let i = 0; i < newKids.length; i++) {
           const child2 = newKids[i];
-          const attached = render(state, newNode, i, indexP, void 0, child2, xmlns ?? null);
+          const attached = render(state, newNode, i, indexP, void 0, child2, xmlns ?? null, unmounts, childUnmountStart);
           newVode[i + childOffset] = attached;
-          if (attached) indexP++;
+          if (attached) {
+            indexP++;
+            const childUnmounts = attached.unmountCount || 0;
+            totalChildUnmounts += childUnmounts;
+            childUnmountStart += childUnmounts;
+          }
         }
       }
       newNode.onMount && state.patch(newNode.onMount(newNode));
+      newVode.unmountCount = 1 + totalChildUnmounts;
+      newVode.unmountStart = unmountStart;
       return newVode;
     }
     if (!oldIsText && isNode && oldVode[0] === newVode[0]) {
@@ -435,6 +481,9 @@ function render(state, parent, childIndex, indexInParent, oldVode, newVode, xmln
         newVode.node["catch"] = null;
         newVode.node.removeAttribute("catch");
       }
+      unmounts[unmountStart] = properties?.onUnmount ?? null;
+      let totalChildUnmounts = 0;
+      let childUnmountStart = unmountStart + 1;
       const newKids = children(newVode);
       const oldKids = children(oldVode);
       if (newKids) {
@@ -443,17 +492,24 @@ function render(state, parent, childIndex, indexInParent, oldVode, newVode, xmln
         for (let i = 0; i < newKids.length; i++) {
           const child2 = newKids[i];
           const oldChild = oldKids && oldKids[i];
-          const attached = render(state, oldNode, i, indexP, oldChild, child2, xmlns);
+          const attached = render(state, oldNode, i, indexP, oldChild, child2, xmlns, unmounts, childUnmountStart);
           newVode[i + childOffset] = attached;
-          if (attached) indexP++;
+          if (attached) {
+            indexP++;
+            const childUnmounts = attached.unmountCount || 0;
+            totalChildUnmounts += childUnmounts;
+            childUnmountStart += childUnmounts;
+          }
         }
       }
       if (oldKids) {
         const newKidsCount = newKids ? newKids.length : 0;
         for (let i = oldKids.length - 1; i >= newKidsCount; i--) {
-          render(state, oldNode, i, i, oldKids[i], void 0, xmlns);
+          render(state, oldNode, i, i, oldKids[i], void 0, xmlns, unmounts, oldKids[i].unmountStart);
         }
       }
+      newVode.unmountCount = 1 + totalChildUnmounts;
+      newVode.unmountStart = unmountStart;
       return newVode;
     }
   } catch (error) {
@@ -467,7 +523,9 @@ function render(state, parent, childIndex, indexInParent, oldVode, newVode, xmln
         indexInParent,
         hydrate(newVode?.node || oldVode?.node, true),
         handledVode,
-        xmlns
+        xmlns,
+        unmounts,
+        unmountStart
       );
     } else {
       throw error;
@@ -496,9 +554,28 @@ function remember(state, present, past) {
     }
     if (same) return past;
   }
-  const newRender = unwrap(present, state);
+  const result = present(state);
+  if (typeof result === "function" && result?.__memo) {
+    const resultMemo = result.__memo;
+    if (Array.isArray(resultMemo) && Array.isArray(pastMemo) && resultMemo.length === pastMemo.length) {
+      let same = true;
+      for (let i = 0; i < resultMemo.length; i++) {
+        if (resultMemo[i] !== pastMemo[i]) {
+          same = false;
+          break;
+        }
+      }
+      if (same) return past;
+    }
+    const innerRender = result(state);
+    if (typeof innerRender === "object") {
+      innerRender.__memo = resultMemo;
+    }
+    return innerRender;
+  }
+  const newRender = typeof result === "function" ? unwrap(result, state) : result;
   if (typeof newRender === "object") {
-    newRender.__memo = present?.__memo;
+    newRender.__memo = result?.__memo || present?.__memo;
   }
   return newRender;
 }
@@ -857,8 +934,11 @@ function mergeClass(...classes) {
 }
 
 // src/merge-style.ts
-var tempDivForStyling = document.createElement("div");
+var tempDivForStyling;
 function mergeStyle(...props2) {
+  if (!tempDivForStyling) {
+    tempDivForStyling = document.createElement("div");
+  }
   try {
     const merged = tempDivForStyling.style;
     for (const style of props2) {
