@@ -18,12 +18,8 @@ export type TextVode = string & {};
 export type NoVode = undefined | null | number | boolean | bigint | void;
 export type AttachedVode<S> = Vode<S> & {
 	node: ChildNode;
-	unmountCount: number;
-	unmountStart: number;
 } | Text & {
 	node?: never;
-	unmounts?: never;
-	unmountStart?: never;
 };
 export type Tag = keyof (HTMLElementTagNameMap & SVGElementTagNameMap & MathMLElementTagNameMap) | (string & {});
 export type Component<S> = (s: S) => ChildVode<S>;
@@ -90,7 +86,6 @@ export interface ContainerNode<S = PatchableState> extends HTMLElement {
 		qAsync: {} | undefined | null;
 		isRendering: boolean;
 		isAnimating: boolean;
-		unmounts: (MountFunction<S> | null)[];
 		/** stats about the overall patches & last render time */
 		stats: {
 			patchCount: number;
