@@ -444,7 +444,7 @@ const CompMemoList: Component<State> = (s) =>
         
         // expensive component to render
         memo(
-            // this array is used to determine when to re-render the component, it is shallow compareded with the one of the previous
+            // this array is used to determine when to re-render the component, it is shallow compared with the array of the previous render
             [s.title, s.body],
 
             // this is the component function that will be 
@@ -693,6 +693,8 @@ function SettingsForm(ctx: SubContext<Settings>) {
     ];
 }
 ```
+
+When you have deeply nested state, context gives you a way to access and patch that slice without manually writing the full path every time.
 
 #### isolated state
 You can have multiple isolated vode app instances on a page, each with its own state and render function.
