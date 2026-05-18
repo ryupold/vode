@@ -433,27 +433,35 @@ This is useful when the creation of the vode is expensive or the rendering of it
 
 
 ```typescript
-const CompMemoList = (s) => 
-    [DIV, { class: "container" }, 
-        [H1, "Hello World"], 
-        [BR], 
+const state = createState({ title: "hello", body: "world" });
+type State = typeof state;
+
+const CompMemoList: Component<State> = (s) =>
+    [DIV, { class: "container" },
+        [H1, "Hello World"],
+        [BR],
         [P, "This is a paragraph."],
         
         // expensive component to render
         memo(
-            // dependency array is shallow compared (using === operator) to the previous renders' memo dependencies
-            [s.title, s.body], 
+            // this array is used to determine when to re-render the component, it is shallow compareded with the one of the previous
+            [s.title, s.body],
+
             // this is the component function that will be 
             // called only when the array changes
             (s) => {
                 const list = [UL];
-                for (let i = 0; i < 1000; i++) {
-                    list.push([LI, `Item ${i}`]);
+                for (let i = 0; i < 10000; i++) {
+                    list.push(LI, `Item ${i}`);
                 }
                 return list;
             },
         )
     ];
+
+app<State>(container, state, (s) => [DIV,
+    CompMemoList,
+]);
 ```
 Passing an empty dependency array means the component is only rendered once and then ignored.
 

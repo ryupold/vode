@@ -48,15 +48,19 @@ const count = {
 }
 const line = "----------------------------------";
 
+const sw = performance.now();
 for (const test of Object.entries(tests)) {
     count.total++;
     resetMocks();
+    const start = performance.now();
     try {
         test[1]()
         count.passed++;
-        console.log(`#${count.total} ${test[0]}\n-> 🟢 passed\n${line}`);
+        const time = (performance.now() - start).toFixed(3) + " ms";
+        console.log(`#${count.total} ${test[0]}\n-> 🟢 passed ${time}\n${line}`);
     } catch (err: any) {
-        console.error(`#${count.total} ${test[0]}\n-> 🔴 failed`);
+        const time = (performance.now() - start).toFixed(3) + " ms";
+        console.error(`#${count.total} ${test[0]}\n-> 🔴 failed ${time}`);
         if (err instanceof ExpectationError) {
             count.failed.push(`#${count.total} ${test[0]}\n-> 🔴 failed:\n${err.message}\n${line}`);
         }
@@ -66,10 +70,14 @@ for (const test of Object.entries(tests)) {
     }
 }
 
+const time = (performance.now() - sw).toFixed(3) + " ms";
+
 console.log(`
     total: ${count.total}
     passed: ${count.passed}
     failed: ${count.failed.length}
+
+    time: ${time}
 `);
 
 if (count.passed === count.total) {

@@ -1,5 +1,5 @@
 import { expect } from "./helper";
-import { memo, DIV, app, createState, SPAN } from "../index";
+import { memo, DIV, app, createState, SPAN, H1, BR, P, UL, LI, Vode, FullVode, ChildVode, Component } from "../index";
 
 export default {
     "memo(): returns the given function": () => {
@@ -115,5 +115,35 @@ export default {
         expect(callCount).toEqual(1);
         state.patch({ count: 12 }); //same value, should not re-render
         expect(callCount).toEqual(1);
+    },
+
+    "memo(): memo with many item list": () => {
+        const root = document.createElement("div");
+        const container = document.createElement("div");
+        root.appendChild(container);
+
+        const state = createState({ title: "hello", body: "world" });
+        type State = typeof state;
+
+        const CompMemoList: Component<State> = (s) =>
+            [DIV, { class: "container" },
+                [H1, "Hello World"],
+                [BR],
+                [P, "This is a paragraph."],
+                memo(
+                    [s.title, s.body],
+                    (s) => {
+                        const list = [UL];
+                        for (let i = 0; i < 10000; i++) {
+                            list.push(LI, `Item ${i}`);
+                        }
+                        return list;
+                    },
+                )
+            ];
+
+        app<State>(container, state, (s) => [DIV,
+            CompMemoList,
+        ]);
     },
 };
