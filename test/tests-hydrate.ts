@@ -1,17 +1,17 @@
 import { expect } from "./helper";
 import { hydrate, DIV, SPAN, P } from "../index";
-import { MockElement, MockText } from "./mocks";
+import { FakeElement, FakeTextNode } from "./mocks";
 
 export default {
     "hydrate(): text node returns its text content": () => {
-        const text = new MockText("hello world");
+        const text = new FakeTextNode("hello world");
 
         expect(hydrate(text as any))
             .toMatch("hello world");
     },
 
     "hydrate(): empty element returns a vode": () => {
-        const el = new MockElement("div");
+        const el = new FakeElement("div");
         const result = hydrate(el as any);
 
         expect(result)
@@ -19,8 +19,8 @@ export default {
     },
 
     "hydrate(): element with children returns full vode tree": () => {
-        const parent = new MockElement("div");
-        const child = new MockElement("span");
+        const parent = new FakeElement("div");
+        const child = new FakeElement("span");
         parent.appendChild(child);
 
         expect(hydrate(parent as any))
@@ -28,8 +28,8 @@ export default {
     },
 
     "hydrate(): element with text child": () => {
-        const parent = new MockElement("p");
-        const text = new MockText("hello");
+        const parent = new FakeElement("p");
+        const text = new FakeTextNode("hello");
         parent.appendChild(text);
 
         expect(hydrate(parent as any))
@@ -37,7 +37,7 @@ export default {
     },
 
     "hydrate(): element with attributes reads them into props": () => {
-        const el = new MockElement("div");
+        const el = new FakeElement("div");
         el.setAttribute("class", "foo");
         el.setAttribute("id", "bar");
 
@@ -53,7 +53,7 @@ export default {
     },
 
     "hydrate(): empty text node returns undefined": () => {
-        const text = new MockText("   ");
+        const text = new FakeTextNode("   ");
 
         expect(hydrate(text as any))
             .toEqual(undefined);

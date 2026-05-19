@@ -559,7 +559,7 @@ function render<S extends PatchableState>(state: S, parent: Element, childIndex:
                 for (let i = indexInParent; i < parent.childNodes.length; i++) {
                     const nextSibling = parent.childNodes[i];
                     if (nextSibling) {
-                        nextSibling.before(text, nextSibling);
+                        nextSibling.before(text);
                         inserted = true;
                         break;
                     }
@@ -605,7 +605,7 @@ function render<S extends PatchableState>(state: S, parent: Element, childIndex:
                 for (let i = indexInParent; i < parent.childNodes.length; i++) {
                     const nextSibling = parent.childNodes[i];
                     if (nextSibling) {
-                        nextSibling.before(newNode, nextSibling);
+                        nextSibling.before(newNode);
                         inserted = true;
                         break;
                     }
@@ -615,12 +615,12 @@ function render<S extends PatchableState>(state: S, parent: Element, childIndex:
                 }
             }
 
-            const newKids = children(newVode);
-            if (newKids) {
+            const newStart = childrenStart(newVode);
+            if (newStart > 0) {
                 const childOffset = !!properties ? 2 : 1;
                 let indexP = 0;
-                for (let i = 0; i < newKids.length; i++) {
-                    const child = newKids[i];
+                for (let i = 0; i < (<Vode<S>>newVode).length - newStart; i++) {
+                    const child = (<Vode<S>>newVode)[i + newStart] as ChildVode<S>;
                     // render child in xml mode to prevent using the dom properties
                     const attached = render(state, newNode as Element, i, indexP, undefined, child, xmlns ?? null);
                     (<Vode<S>>newVode!)[i + childOffset] = <Vode<S>>attached;
@@ -639,49 +639,37 @@ function render<S extends PatchableState>(state: S, parent: Element, childIndex:
         if (!oldIsText && isNode && (<Vode<S>>oldVode)[0] === (<Vode<S>>newVode)[0]) {
             (<AttachedVode<S>>newVode).node = oldNode;
 
-            const newvode = <Vode<S>>newVode;
-            const oldvode = <Vode<S>>oldVode;
-
             const properties = props(newVode);
             const oldProps = props(oldVode);
 
-            if (properties?.xmlns !== undefined) xmlns = properties.xmlns;
+            if (properties?.xmlns !== undefined)
+                xmlns = properties.xmlns;
 
-            if ((<any>newvode[1])?.__memo) {
-                const prev = newvode[1] as any;
-                newvode[1] = remember(state, newvode[1], oldvode[1]) as Vode<S>;
-                if (prev !== newvode[1]) {
-                    patchProperties(state, oldNode!, oldProps, properties, xmlns);
-                }
-            }
-            else {
-                patchProperties(state, oldNode!, oldProps, properties, xmlns);
-            }
+            patchProperties(state, oldNode!, oldProps, properties, xmlns);
 
             if (!!properties?.catch && oldProps?.catch !== properties.catch) {
                 (<any>newVode).node['catch'] = null;
                 (<any>newVode).node.removeAttribute('catch');
             }
 
-            const newKids = children(newVode);
-            const oldKids = children(oldVode) as AttachedVode<S>[];
-            if (newKids) {
-                const childOffset = !!properties ? 2 : 1;
+            const newStart = childrenStart(newVode);
+            const oldStart = childrenStart(oldVode);
+            if (newStart > 0) {
                 let indexP = 0;
-                for (let i = 0; i < newKids.length; i++) {
-                    const child = newKids[i];
-                    const oldChild = oldKids && oldKids[i];
+                for (let i = 0; i < (<Vode<S>>newVode).length - newStart; i++) {
+                    const child = (<Vode<S>>newVode)[i + newStart] as ChildVode<S>;
+                    const oldChild = oldStart > 0 ? (<Vode<S>>oldVode)[i + oldStart] as AttachedVode<S> : undefined;
 
                     const attached = render(state, oldNode as Element, i, indexP, oldChild, child, xmlns);
-                    (<Vode<S>>newVode)[i + childOffset] = <Vode<S>>attached;
+                    (<any>newVode)[i + newStart] = attached;
                     if (attached) indexP++;
                 }
             }
 
-            if (oldKids) {
-                const newKidsCount = newKids ? newKids.length : 0;
-                for (let i = oldKids.length - 1; i >= newKidsCount; i--) {
-                    render(state, oldNode as Element, i, i, oldKids[i], undefined, xmlns);
+            if (oldStart > 0) {
+                const newKidsCount = newStart > 0 ? (<Vode<S>>newVode).length - newStart : 0;
+                for (let i = (<Vode<S>>oldVode).length - 1 - oldStart; i >= newKidsCount; i--) {
+                    render(state, oldNode as Element, i, i, (<any>oldVode)[i + oldStart], undefined, xmlns);
                 }
             }
 

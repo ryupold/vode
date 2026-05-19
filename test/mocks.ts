@@ -13,84 +13,178 @@ const NodeConstants = {
     NOTATION_NODE: 12,
 };
 
-export class MockElement {
+class FakeNodeList implements NodeListOf<ChildNode> {
+    [index: number]: ChildNode;
+    public readonly data: ChildNode[] = [];
+
+    constructor() {
+        let self = this;
+
+        return new Proxy(this, {
+            get(target, prop) {
+                const key: string = typeof prop === "symbol" ? String(prop) : prop;
+
+                if (<any>Number(key) == key && !(prop in target)) {
+                    return self.data[parseInt(key)];
+                }
+                return target[prop as any];
+            }
+        });
+    }
+
+
+    item(index: number): ChildNode {
+        return this.data[index] ?? null;
+    }
+    forEach(callbackfn: (value: ChildNode, key: number, parent: NodeListOf<ChildNode>) => void, thisArg?: any): void {
+        for (let i = 0; i < this.length; i++) {
+            callbackfn.bind(thisArg)(this.data[i], i, this);
+        }
+    }
+    entries(): ArrayIterator<[number, ChildNode]> {
+        return new Array(this.length).fill(0).map((_, i) => [i, this[i]] as [number, ChildNode])[Symbol.iterator]();
+    }
+    keys(): ArrayIterator<number> {
+        return new Array(this.data.length).fill(0).map((_, i) => i)[Symbol.iterator]();
+    }
+    values(): ArrayIterator<ChildNode> {
+        return new Array(this.data.length).fill(0).map((_, i) => this[i])[Symbol.iterator]();
+    }
+    [Symbol.iterator](): ArrayIterator<ChildNode> {
+        return new Array(this.data.length).fill(0).map((_, i) => this[i])[Symbol.iterator]();
+    }
+    get length() {
+        return this.data.length;
+    }
+}
+
+export class FakeElement {
+    public fakeAttributes: Record<string, string> = {};
+
     nodeType = NodeConstants.ELEMENT_NODE;
-    childNodes: (MockElement | MockText)[] = [];
-    children: (MockElement | MockText)[] = [];
-    parentElement: MockElement | null = null;
-    get attributes() {
-        return Object.entries(this._attrs).map(([name, value]) => ({ name, value }));
+    parentElement: HTMLElement | null = null;
+    childNodes: NodeListOf<ChildNode> = new FakeNodeList();
+    get children(): HTMLCollection {
+        return this.childNodes as unknown as HTMLCollection;
     }
     style: { cssText: string } = { cssText: "" };
-    tagName = "UNKNOWN";
-    private _attrs: Record<string, string> = {};
+
+    readonly tagName: string;
 
     constructor(public tag?: string) {
-        if (tag) this.tagName = tag.toUpperCase();
+        this.tagName = tag?.toUpperCase() || "???";
     }
 
     get firstChild() { return this.childNodes[0] ?? null; }
     get lastChild() { return this.childNodes[this.childNodes.length - 1] ?? null; }
     get nextSibling() { return null; }
+    get attributes() {
+        return Object.entries(this.fakeAttributes).map(([name, value]) => ({ name, value })) as any;
+    }
 
-    hasAttributes() { return Object.keys(this._attrs).length > 0; }
+    hasAttributes() { return Object.keys(this.fakeAttributes).length > 0; }
     hasChildNodes() { return this.childNodes.length > 0; }
-    setAttribute(name: string, value: string) { this._attrs[name] = value; }
-    removeAttribute(name: string) { delete this._attrs[name]; }
-    appendChild(child: MockElement | MockText) {
-        this.childNodes.push(child); this.children.push(child); if (child.parentElement !== undefined) child.parentElement = this; return child;
+    setAttribute(name: string, value: string) { this.fakeAttributes[name] = value; }
+    removeAttribute(name: string) { delete this.fakeAttributes[name]; }
+
+    appendChild(child: FakeElement | FakeTextNode): FakeElement | FakeTextNode {
+        (this.childNodes as FakeNodeList).data.push(child as any);
+        (child as any).parentElement = this;
+        return child;
     }
     remove() {
-        if (this.parentElement) { const i = this.parentElement.childNodes.indexOf(this); if (i >= 0) this.parentElement.childNodes.splice(i, 1); }
-    }
-    replaceWith(...nodes: (MockElement | MockText)[]) {
-        const parent = this.parentElement;
-        if (parent) {
-            const i = parent.childNodes.indexOf(this);
-            if (i >= 0) { parent.childNodes.splice(i, 1, ...nodes); }
-            for (const n of nodes) n.parentElement = parent;
+        if (this.parentElement) {
+            const i = (this.parentElement.childNodes as FakeNodeList).data.indexOf(this as any);
+            if (i >= 0)
+                (this.parentElement.childNodes as FakeNodeList).data.splice(i, 1);
         }
     }
-    before(...nodes: (MockElement | MockText)[]) {
+    replaceWith(...nodes: (FakeElement | FakeTextNode)[]) {
         const parent = this.parentElement;
         if (parent) {
-            const i = parent.childNodes.indexOf(this);
-            if (i >= 0) { parent.childNodes.splice(i, 0, ...nodes); }
-            for (const n of nodes) n.parentElement = parent;
+            const i = (<FakeNodeList>parent.childNodes).data.indexOf(this as any);
+            if (i >= 0) {
+                (<FakeNodeList>parent.childNodes).data.splice(i, 1, ...nodes as any);
+            }
+            for (const n of nodes) {
+                n.parentElement = parent;
+            }
         }
     }
-    get [Symbol.iterator]() { return Array.prototype[Symbol.iterator].bind(this.children); }
+    before(...nodes: (FakeElement | FakeTextNode)[]) {
+        const parent = this.parentElement;
+        if (parent) {
+            const i = (<FakeNodeList>parent.childNodes).data.indexOf(this as any);
+            if (i >= 0) {
+                for (const n of nodes) {
+                    if (n === this) continue;
+                    if (n.parentElement) {
+                        const ni = (<FakeNodeList>n.parentElement.childNodes).data.indexOf(n as any);
+                        if (ni >= 0) (<FakeNodeList>n.parentElement.childNodes).data.splice(ni, 1);
+                    }
+                }
+                const filtered = nodes.filter(n => n !== this);
+                (<FakeNodeList>parent.childNodes).data.splice(i, 0, ...filtered as any);
+                for (const n of filtered) {
+                    n.parentElement = parent;
+                }
+            }
+        }
+    }
+    get [Symbol.iterator]() {
+        return Array.prototype[Symbol.iterator].bind(this.children);
+    }
 }
 
-export class MockText {
+export class FakeTextNode {
     nodeType = NodeConstants.TEXT_NODE;
-    parentElement: MockElement | null = null;
+    parentElement: HTMLElement | null = null;
     constructor(public nodeValue: string) { }
     get wholeText() { return this.nodeValue; }
-    remove() { if (this.parentElement) { const i = this.parentElement.childNodes.indexOf(this); if (i >= 0) this.parentElement.childNodes.splice(i, 1); } }
-    replaceWith(...nodes: (MockElement | MockText)[]) {
-        const parent = this.parentElement;
-        if (parent) {
-            const i = parent.childNodes.indexOf(this);
-            if (i >= 0) { parent.childNodes.splice(i, 1, ...nodes); }
-            for (const n of nodes) n.parentElement = parent;
+    remove() {
+        if (this.parentElement) {
+            const i = (<FakeNodeList>this.parentElement.childNodes).data.indexOf(this as any);
+            if (i >= 0)
+                (<FakeNodeList>this.parentElement.childNodes).data.splice(i, 1);
         }
     }
-    before(...nodes: (MockElement | MockText)[]) {
+    replaceWith(...nodes: (FakeElement | FakeTextNode)[]) {
         const parent = this.parentElement;
         if (parent) {
-            const i = parent.childNodes.indexOf(this);
-            if (i >= 0) { parent.childNodes.splice(i, 0, ...nodes); }
-            for (const n of nodes) n.parentElement = parent;
+            const i = (<FakeNodeList>parent.childNodes).data.indexOf(this as any);
+            if (i >= 0) { (<FakeNodeList>parent.childNodes).data.splice(i, 1, ...nodes as any); }
+            for (const n of nodes) {
+                n.parentElement = parent;
+            }
+        }
+    }
+    before(...nodes: (FakeElement | FakeTextNode)[]) {
+        const parent = this.parentElement;
+        if (parent) {
+            const i = (<FakeNodeList>parent.childNodes).data.indexOf(this as any);
+            if (i >= 0) {
+                for (const n of nodes) {
+                    if (n === this) continue;
+                    if (n.parentElement) {
+                        const ni = (<FakeNodeList>n.parentElement.childNodes).data.indexOf(n as any);
+                        if (ni >= 0) (<FakeNodeList>n.parentElement.childNodes).data.splice(ni, 1);
+                    }
+                }
+                const filtered = nodes.filter(n => n !== this);
+                (<FakeNodeList>parent.childNodes).data.splice(i, 0, ...filtered as any);
+                for (const n of filtered) {
+                    n.parentElement = parent;
+                }
+            }
         }
     }
 }
 
 export function resetMocks() {
     const mockDoc: any = {
-        createElement: (tag: string) => new MockElement(tag),
-        createTextNode: (text: string) => new MockText(text),
-        createElementNS: (ns: string, tag: string) => new MockElement(tag),
+        createElement: (tag: string) => new FakeElement(tag),
+        createTextNode: (text: string) => new FakeTextNode(text),
+        createElementNS: (ns: string, tag: string) => new FakeElement(tag),
         hidden: false,
     };
     const mockWin: any = {
