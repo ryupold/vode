@@ -1,5 +1,5 @@
 import { expect } from "./helper";
-import { app, ARTICLE, DIV, P, SPAN } from "../index";
+import { app, ARTICLE, BUTTON, createState, DIV, P, SPAN } from "../index";
 
 export default {
     "app(): successful initialization": () => {
@@ -222,5 +222,90 @@ export default {
         state.patch(true);
 
         expect(state.x).toEqual(1);
+    },
+
+    "app(): isolated state of multiple independent vode app instances": () => {
+        const root = document.createElement("div");
+
+        // APP 1 (foo) //
+        const containerFoo = document.createElement("div");
+        root.appendChild(containerFoo);
+        const stateFoo = createState({ count: 0 });
+        const patchFoo = app<typeof stateFoo>(containerFoo, stateFoo, (s) => [
+            DIV,
+            [P, `App 1 count: ${s.count}`],
+            [BUTTON, {
+                onclick: () => {
+                    // sync state2 from app1 via the returned patch function
+                    patchBar({ count: stateBar.count + 1 });
+                    return { count: s.count + 1 };
+                }
+            }, "Sync +1"],
+        ]);
+        /////////////////
+
+        // APP 2 (bar) //
+        const containerBar = document.createElement("div");
+        root.appendChild(containerBar);
+        const stateBar = createState({ count: 0 });
+        const patchBar = app<typeof stateBar>(containerBar, stateBar, (s) => [
+            DIV,
+            [P, `App 2 count: ${s.count}`],
+        ]);
+        /////////////////
+
+        expect(containerFoo).toMatch(
+            [DIV,
+                [P, "App 1 count: 0"],
+                [BUTTON, "Sync +1"],
+            ]
+        );
+
+        expect(containerBar).toMatch(
+            [DIV,
+                [P, "App 2 count: 0"],
+            ]
+        );
+
+        // Patch state1 independently: no effect on state2
+        patchFoo({ count: 5 });
+
+        expect(containerFoo).toMatch(
+            [DIV,
+                [P, "App 1 count: 5"],
+                [BUTTON, "Sync +1"],
+            ]
+        );
+
+        expect(containerBar).toMatch(
+            [DIV,
+                [P, "App 2 count: 0"],
+            ]
+        );
+
+        // Patch state2 independently: no effect on state1
+        patchBar({ count: 3 });
+
+        expect(containerFoo).toMatch(
+            [DIV,
+                [P, "App 1 count: 5"],
+                [BUTTON, "Sync +1"],
+            ]
+        );
+
+        expect(containerBar).toMatch(
+            [DIV,
+                [P, "App 2 count: 3"],
+            ]
+        );
+
+        // Sync state2 via the returned patch function
+        patchBar({ count: 10 });
+
+        expect(containerBar).toMatch(
+            [DIV,
+                [P, "App 2 count: 10"],
+            ]
+        );
     },
 };

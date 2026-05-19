@@ -93,9 +93,9 @@ export default {
 
 
         expect(callCount).toEqual(2);
-        state.patch({ test: "foo" }); 
+        state.patch({ test: "foo" });
         expect(callCount).toEqual(2);
-        state.patch({ test: "bar" }); 
+        state.patch({ test: "bar" });
         expect(callCount).toEqual(4);
     },
 
