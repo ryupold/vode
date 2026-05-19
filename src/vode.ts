@@ -217,7 +217,7 @@ export function app<S extends PatchableState = PatchableState>(
     });
 
     function renderDom(isAsync: boolean) {
-        const sw = Date.now();
+        const sw = performance.now();
         const vom = dom(_vode.state);
         _vode.vode = render<S>(_vode.state, container.parentElement as Element, 0, 0, _vode.vode, vom)!;
 
@@ -227,7 +227,7 @@ export function app<S extends PatchableState = PatchableState>(
         }
 
         if (!isAsync) {
-            _vode.stats.lastSyncRenderTime = Date.now() - sw;
+            _vode.stats.lastSyncRenderTime = performance.now() - sw;
             _vode.stats.syncRenderCount++;
             _vode.isRendering = false;
             if (_vode.qSync) _vode.renderSync();
@@ -258,7 +258,7 @@ export function app<S extends PatchableState = PatchableState>(
             if (_vode.isAnimating || !_vode.qAsync || document.hidden) return;
 
             _vode.isAnimating = true;
-            const sw = Date.now();
+            const sw = performance.now();
             try {
                 _vode.state = mergeState(_vode.state, _vode.qAsync, true);
                 _vode.qAsync = null;
@@ -267,7 +267,7 @@ export function app<S extends PatchableState = PatchableState>(
 
                 await globals.currentViewTransition?.updateCallbackDone;
             } finally {
-                _vode.stats.lastAsyncRenderTime = Date.now() - sw;
+                _vode.stats.lastAsyncRenderTime = performance.now() - sw;
                 _vode.stats.asyncRenderCount++;
                 _vode.isAnimating = false;
             }
