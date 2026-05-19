@@ -384,13 +384,20 @@ export function hydrate<S = PatchableState>(element: Element | Text, prepareForR
 }
 
 /** memoizes the resulting component or props by comparing element by element (===) with the
- * `compare` of the previous render. otherwise skips the render step (not calling `componentOrProps`)*/
-export function memo<S = PatchableState>(compare: any[], componentOrProps: Component<S> | ((s: S) => Props<S>)): typeof componentOrProps extends ((s: S) => Props<S>) ? ((s: S) => Props<S>) : Component<S> {
+ * `compare` of the previous render. otherwise skips the render step (not calling `componentOrProps`)
+ */
+export function memo<S = PatchableState>(compare: any[], component: Component<S>): Component<S> {
     if (!compare || !Array.isArray(compare)) throw new Error("first argument to memo() must be an array of values to compare");
-    if (typeof componentOrProps !== "function") throw new Error("second argument to memo() must be a function that returns a vode or props object");
+    if (typeof component !== "function") throw new Error("second argument to memo() must be a function that returns a child vode");
 
-    (<any>componentOrProps).__memo = compare;
-    return componentOrProps as typeof componentOrProps extends ((s: S) => Props<S>) ? ((s: S) => Props<S>) : Component<S>;
+    if ((<any>component).__memo) { // wrap to prevent double memoization
+        const comp = component;
+        component = (s: S) => comp(s);
+    }
+
+    (<any>component).__memo = compare;
+
+    return component;
 }
 
 /** 
@@ -733,14 +740,19 @@ function isTextVode<S>(x: ChildVode<S>): x is TextVode {
 }
 
 function remember<S>(state: S, present: any, past: any): ChildVode<S> | AttachedVode<S> {
+    while (typeof present === "function" && !present.__memo) {
+        present = present(state);
+    }
+
     if (typeof present !== "function")
         return present;
 
-    const presentMemo = present?.__memo;
-    const pastMemo = past?.__memo;
 
-    if (Array.isArray(presentMemo)
-        && Array.isArray(pastMemo)
+    const presentMemo: unknown[] = present?.__memo;
+    const pastMemo: unknown[] = past?.__memo;
+
+    if (
+        Array.isArray(presentMemo) && Array.isArray(pastMemo)
         && presentMemo.length === pastMemo.length
     ) {
         let same = true;
@@ -753,40 +765,17 @@ function remember<S>(state: S, present: any, past: any): ChildVode<S> | Attached
         if (same) return past;
     }
 
-    const result = present(state);
-
-    if (typeof result === "function" && result?.__memo) {
-        const resultMemo = result.__memo;
-        if (Array.isArray(resultMemo) && Array.isArray(pastMemo) && resultMemo.length === pastMemo.length) {
-            let same = true;
-            for (let i = 0; i < resultMemo.length; i++) {
-                if (resultMemo[i] !== pastMemo[i]) {
-                    same = false;
-                    break;
-                }
-            }
-            if (same) return past;
-        }
-        const innerRender = result(state);
-        if (typeof innerRender === "object") {
-            innerRender.__memo = resultMemo;
-        }
-        return innerRender;
+    // memos are not equal so we unwrap the present
+    while (typeof present === "function") {
+        present = present(state);
     }
 
-    const newRender = typeof result === "function" ? unwrap(result, state) : result;
-    if (typeof newRender === "object") {
-        (<any>newRender).__memo = result?.__memo || present?.__memo;
+    // attach memo to the unwrapped present for future comparisons
+    if (typeof present === "object") {
+        (<any>present).__memo = presentMemo;
     }
-    return newRender;
-}
 
-function unwrap<S>(c: Component<S> | ChildVode<S>, s: S): ChildVode<S> {
-    if (typeof c === "function") {
-        return unwrap(c(s), s);
-    } else {
-        return c;
-    }
+    return present;
 }
 
 function patchProperties<S extends PatchableState>(
