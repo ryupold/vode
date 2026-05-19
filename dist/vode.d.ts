@@ -22,7 +22,7 @@ export type AttachedVode<S> = Vode<S> & {
 	node?: never;
 };
 export type Tag = keyof (HTMLElementTagNameMap & SVGElementTagNameMap & MathMLElementTagNameMap) | (string & {});
-export type Component<S> = (s: S) => ChildVode<S>;
+export type Component<S = PatchableState> = (s: S) => ChildVode<S>;
 export type Patch<S> = IgnoredPatch | RenderPatch<S> | Promise<Patch<S>> | Effect<S>;
 export type IgnoredPatch = undefined | null | number | boolean | bigint | string | symbol | void;
 export type RenderPatch<S> = {} | DeepPartial<S>;
@@ -125,8 +125,9 @@ export declare function defuse(container: ContainerNode<any>): void;
 /** return vode representation of given DOM node */
 export declare function hydrate<S = PatchableState>(element: Element | Text, prepareForRender?: boolean): Vode<S> | string | AttachedVode<S> | undefined;
 /** memoizes the resulting component or props by comparing element by element (===) with the
- * `compare` of the previous render. otherwise skips the render step (not calling `componentOrProps`)*/
-export declare function memo<S = PatchableState>(compare: any[], componentOrProps: Component<S> | ((s: S) => Props<S>)): typeof componentOrProps extends ((s: S) => Props<S>) ? ((s: S) => Props<S>) : Component<S>;
+ * `compare` of the previous render. otherwise skips the render step (not calling `componentOrProps`)
+ */
+export declare function memo<S = PatchableState>(compare: any[], component: Component<S>): Component<S>;
 /**
  * create a patchable state object for a vode-app.
  * calls to `patch()` prior to `app()` initialization will queue the patches and apply them before the initial patches.
@@ -393,10 +394,10 @@ export interface SubContext<SubState> {
 	patch(value: SubState | Partial<SubState> | DeepPartial<SubState> | Array<DeepPartial<SubState>>, isAsync?: boolean): void;
 }
 export type ProxyStateContext<S extends PatchableState, SubState> = StateContext<S, SubState> & {
-	[K in keyof SubState]-?: SubState[K] extends object ? ProxyStateContext<S, SubState[K]> : StateContext<S, SubState[K]>;
+	[K in keyof SubState]-?: SubState[K] extends object | null ? ProxyStateContext<S, SubState[K]> : StateContext<S, SubState[K]>;
 };
 export type ProxySubContext<SubState> = SubContext<SubState> & {
-	[K in keyof SubState]-?: SubState[K] extends object ? ProxySubContext<SubState[K]> : SubContext<SubState[K]>;
+	[K in keyof SubState]-?: SubState[K] extends object | null ? ProxySubContext<SubState[K]> : SubContext<SubState[K]>;
 };
 /**
  * create a ProxyStateContext for type-safe dynamic access to nested state

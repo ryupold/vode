@@ -332,7 +332,7 @@ var V = (() => {
       }
     });
     function renderDom(isAsync) {
-      const sw = Date.now();
+      const sw = performance.now();
       const vom = dom(_vode.state);
       _vode.vode = render(_vode.state, container.parentElement, 0, 0, _vode.vode, vom);
       if (container.tagName.toUpperCase() !== vom[0].toUpperCase()) {
@@ -340,7 +340,7 @@ var V = (() => {
         container._vode = _vode;
       }
       if (!isAsync) {
-        _vode.stats.lastSyncRenderTime = Date.now() - sw;
+        _vode.stats.lastSyncRenderTime = performance.now() - sw;
         _vode.stats.syncRenderCount++;
         _vode.isRendering = false;
         if (_vode.qSync) _vode.renderSync();
@@ -369,14 +369,14 @@ var V = (() => {
         await globals.currentViewTransition?.updateCallbackDone;
         if (_vode.isAnimating || !_vode.qAsync || document.hidden) return;
         _vode.isAnimating = true;
-        const sw = Date.now();
+        const sw = performance.now();
         try {
           _vode.state = mergeState(_vode.state, _vode.qAsync, true);
           _vode.qAsync = null;
           globals.currentViewTransition = _vode.asyncRenderer(ar);
           await globals.currentViewTransition?.updateCallbackDone;
         } finally {
-          _vode.stats.lastAsyncRenderTime = Date.now() - sw;
+          _vode.stats.lastAsyncRenderTime = performance.now() - sw;
           _vode.stats.asyncRenderCount++;
           _vode.isAnimating = false;
         }
@@ -475,11 +475,15 @@ var V = (() => {
       return void 0;
     }
   }
-  function memo(compare, componentOrProps) {
+  function memo(compare, component) {
     if (!compare || !Array.isArray(compare)) throw new Error("first argument to memo() must be an array of values to compare");
-    if (typeof componentOrProps !== "function") throw new Error("second argument to memo() must be a function that returns a vode or props object");
-    componentOrProps.__memo = compare;
-    return componentOrProps;
+    if (typeof component !== "function") throw new Error("second argument to memo() must be a function that returns a child vode");
+    if (component.__memo) {
+      const comp = component;
+      component = (s) => comp(s);
+    }
+    component.__memo = compare;
+    return component;
   }
   function createState(state) {
     if (!state || typeof state !== "object") throw new Error("createState() must be called with a state object");
@@ -604,7 +608,7 @@ var V = (() => {
           for (let i = indexInParent; i < parent.childNodes.length; i++) {
             const nextSibling = parent.childNodes[i];
             if (nextSibling) {
-              nextSibling.before(text, nextSibling);
+              nextSibling.before(text);
               inserted = true;
               break;
             }
@@ -637,7 +641,7 @@ var V = (() => {
           for (let i = indexInParent; i < parent.childNodes.length; i++) {
             const nextSibling = parent.childNodes[i];
             if (nextSibling) {
-              nextSibling.before(newNode, nextSibling);
+              nextSibling.before(newNode);
               inserted = true;
               break;
             }
@@ -646,12 +650,12 @@ var V = (() => {
             parent.appendChild(newNode);
           }
         }
-        const newKids = children(newVode);
-        if (newKids) {
+        const newStart = childrenStart(newVode);
+        if (newStart > 0) {
           const childOffset = !!properties ? 2 : 1;
           let indexP = 0;
-          for (let i = 0; i < newKids.length; i++) {
-            const child2 = newKids[i];
+          for (let i = 0; i < newVode.length - newStart; i++) {
+            const child2 = newVode[i + newStart];
             const attached = render(state, newNode, i, indexP, void 0, child2, xmlns ?? null);
             newVode[i + childOffset] = attached;
             if (attached) indexP++;
@@ -665,41 +669,31 @@ var V = (() => {
       }
       if (!oldIsText && isNode && oldVode[0] === newVode[0]) {
         newVode.node = oldNode;
-        const newvode = newVode;
-        const oldvode = oldVode;
         const properties = props(newVode);
         const oldProps = props(oldVode);
-        if (properties?.xmlns !== void 0) xmlns = properties.xmlns;
-        if (newvode[1]?.__memo) {
-          const prev = newvode[1];
-          newvode[1] = remember(state, newvode[1], oldvode[1]);
-          if (prev !== newvode[1]) {
-            patchProperties(state, oldNode, oldProps, properties, xmlns);
-          }
-        } else {
-          patchProperties(state, oldNode, oldProps, properties, xmlns);
-        }
+        if (properties?.xmlns !== void 0)
+          xmlns = properties.xmlns;
+        patchProperties(state, oldNode, oldProps, properties, xmlns);
         if (!!properties?.catch && oldProps?.catch !== properties.catch) {
           newVode.node["catch"] = null;
           newVode.node.removeAttribute("catch");
         }
-        const newKids = children(newVode);
-        const oldKids = children(oldVode);
-        if (newKids) {
-          const childOffset = !!properties ? 2 : 1;
+        const newStart = childrenStart(newVode);
+        const oldStart = childrenStart(oldVode);
+        if (newStart > 0) {
           let indexP = 0;
-          for (let i = 0; i < newKids.length; i++) {
-            const child2 = newKids[i];
-            const oldChild = oldKids && oldKids[i];
+          for (let i = 0; i < newVode.length - newStart; i++) {
+            const child2 = newVode[i + newStart];
+            const oldChild = oldStart > 0 ? oldVode[i + oldStart] : void 0;
             const attached = render(state, oldNode, i, indexP, oldChild, child2, xmlns);
-            newVode[i + childOffset] = attached;
+            newVode[i + newStart] = attached;
             if (attached) indexP++;
           }
         }
-        if (oldKids) {
-          const newKidsCount = newKids ? newKids.length : 0;
-          for (let i = oldKids.length - 1; i >= newKidsCount; i--) {
-            render(state, oldNode, i, i, oldKids[i], void 0, xmlns);
+        if (oldStart > 0) {
+          const newKidsCount = newStart > 0 ? newVode.length - newStart : 0;
+          for (let i = oldVode.length - 1 - oldStart; i >= newKidsCount; i--) {
+            render(state, oldNode, i, i, oldVode[i + oldStart], void 0, xmlns);
           }
         }
         newVode._unmountCount = (properties?.onUnmount ? 1 : 0) + sumChildUnmountCounts(newVode);
@@ -756,6 +750,9 @@ var V = (() => {
     return typeof x === "string" || x?.nodeType === Node.TEXT_NODE;
   }
   function remember(state, present, past) {
+    while (typeof present === "function" && !present.__memo) {
+      present = present(state);
+    }
     if (typeof present !== "function")
       return present;
     const presentMemo = present?.__memo;
@@ -770,37 +767,13 @@ var V = (() => {
       }
       if (same) return past;
     }
-    const result = present(state);
-    if (typeof result === "function" && result?.__memo) {
-      const resultMemo = result.__memo;
-      if (Array.isArray(resultMemo) && Array.isArray(pastMemo) && resultMemo.length === pastMemo.length) {
-        let same = true;
-        for (let i = 0; i < resultMemo.length; i++) {
-          if (resultMemo[i] !== pastMemo[i]) {
-            same = false;
-            break;
-          }
-        }
-        if (same) return past;
-      }
-      const innerRender = result(state);
-      if (typeof innerRender === "object") {
-        innerRender.__memo = resultMemo;
-      }
-      return innerRender;
+    while (typeof present === "function") {
+      present = present(state);
     }
-    const newRender = typeof result === "function" ? unwrap(result, state) : result;
-    if (typeof newRender === "object") {
-      newRender.__memo = result?.__memo || present?.__memo;
+    if (typeof present === "object") {
+      present.__memo = presentMemo;
     }
-    return newRender;
-  }
-  function unwrap(c, s) {
-    if (typeof c === "function") {
-      return unwrap(c(s), s);
-    } else {
-      return c;
-    }
+    return present;
   }
   function patchProperties(s, node, oldProps, newProps, xmlns) {
     if (!newProps && !oldProps) return;
@@ -1217,10 +1190,11 @@ var V = (() => {
           }
           raw[keys[i]] = value;
         } else if (keys.length === 1) {
-          if (typeof target[keys[0]] === "object" && typeof value === "object")
+          if (typeof target[keys[0]] === "object" && typeof value === "object" && value !== null) {
             Object.assign(target[keys[0]], value);
-          else
+          } else {
             target[keys[0]] = value;
+          }
         } else {
           Object.assign(target, value);
         }
