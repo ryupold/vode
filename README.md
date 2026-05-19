@@ -5,7 +5,7 @@
 
 ---
 
-A compact web framework for minimalist developers. Zero dependencies, no build step except for typescript compilation, and a simple virtual DOM implementation that is easy to understand and use. Autocompletion out of the box thanks to `lib.dom.d.ts`.
+A compact web framework for minimalist developers. Zero dependencies, no build step except for TypeScript compilation, and a simple virtual DOM implementation that is easy to understand and use. Autocompletion out of the box thanks to `lib.dom.d.ts`.
 
 It brings a primitive building block to the table that gives flexibility in composition and makes refactoring easy. 
 The use cases can be single page applications or isolated components with complex state.
@@ -128,7 +128,7 @@ app<State>(appNode, state,
 
 ## `[V,{},d,e]`
 
-Lets describe UI as data structures that map 1:1 to DOM elements.
+Let's describe UI as data structures that map 1:1 to DOM elements.
 
 A `vode` is a representation of a virtual DOM node, which is a tree structure of HTML elements. It is written as tuple:
 
@@ -217,8 +217,8 @@ expressed as *vode* structure it would look like this:
 ]
 ```
 
-Viewed in isolation, it does not provide an obvious benefit (apart from looking better imho), 
-but as the result of a function of state, it can become very useful to express conditional UI this way. 
+Viewed in isolation, it does not provide an obvious benefit (apart from looking better IMHO), 
+but as a function of state, it can become very useful to express conditional UI this way. 
 
 ### app
 
@@ -419,7 +419,7 @@ const ComponentEwww = (s) => {
 // patch with a render via view transition
 s.patch([{}, (s) => {/*...*/}]); //all given patches will be part of a view transition
 
-// empty array patches command to skip the current view transition
+// an empty array tells vode to skip the current view transition
 // and set the queued animated patches until now as current state with a sync patch
 s.patch([]);
 
@@ -428,7 +428,7 @@ s.patch([[], { loading: true }]);
 ```
 
 ### memoization
-To optimize performance, you can use `memo(depsArray, Component | PropsFactory)` to cache the result of a component function. If the array of dependencies does not change (shallow compare), the component function is not called again, indicating for the render to skip this node and all its children.
+To optimize performance, you can use `memo(depsArray, Component)` to cache the result of a component function. If the array of dependencies does not change (shallow compare), the component function is not called again, indicating for the render to skip this node and all its children.
 This is useful when the creation of the vode is expensive or the rendering of it takes a significant amount of time.
 
 
@@ -463,18 +463,8 @@ app<State>(container, state, (s) => [DIV,
     CompMemoList,
 ]);
 ```
+
 Passing an empty dependency array means the component is only rendered once and then ignored.
-
-You can also pass a function that returns the Props object to memoize the attributes.
-
-```typescript
-const CompMemoProps = (s) => [DIV, 
-    memo([s.isActive], (s) => ({ 
-        class: s.isActive ? 'active' : 'inactive' 
-    })),
-    "Content"
-];
-```
 
 ### error handling
 
@@ -487,7 +477,7 @@ const CompWithError: ChildVode = () =>
             catch: (s: Patchable, err: Error) => [SPAN, { style: { color: 'red' } }, `An error occurred: ${err.message}`],
         },
 
-        [P, "Below error is intentional for testing error boundaries:"],
+        [P, "The error below is intentional for testing error boundaries:"],
 
         [DIV, {
             // catch: [SPAN, { style: { color: 'red' } }, `An error occurred!`], // uncomment to catch child error directly here
@@ -633,7 +623,7 @@ const CompMathML = (s) =>
 
 #### state context
 
-The state context utilities can help creating shareable type safe components.
+The state context utilities can help create shareable, type-safe components.
 These do not need to know the 'full' state of the app, but only the part they are interested in. This can be especially useful for differently deep nested components that need access to the same part of the state.
 
 ```typescript
@@ -700,40 +690,18 @@ When you have deeply nested state, context gives you a way to access and patch t
 You can have multiple isolated vode app instances on a page, each with its own state and render function.
 The returned patch function from `app` can be used to synchronize the state between them.
 
-#### nested vode-app
-It is possible to nest vode-apps inside vode-apps, but the library is not opinionated on how you do that. 
-One can imagine this type of component:
+#### advances examples
 
-```typescript
-export function IsolatedVodeApp<OuterState, InnerState>(
-    tag: Tag,
-    state: InnerState,
-    View: (ins: InnerState) => Vode<InnerState>,
-): ChildVode<OuterState> {
-    return memo<OuterState>([],
-        () => [tag,
-            {
-                onMount: (s: OuterState, container: Element) => {
-                    app<InnerState>(container, state, View);
-                }
-            }
-        ]
-    );
-}
-```
-
-The memo with empty dependency array prevents further render calls from the outer app
-so rendering of the subtree inside is controlled by the inner app.
-Take note of the fact that the top-level element of the inner app refers to the surrounding element and will change its state accordingly.
+See [test/tests-examples.ts](./test/tests-examples.ts) for more advanced examples of the features described here.
 
 #### view transitions
-The library has experimental support for [View Transitions API](https://developer.mozilla.org/en-US/docs/Web/API/View_Transition_API).
+The library has experimental support for the [View Transitions API](https://developer.mozilla.org/en-US/docs/Web/API/View_Transition_API).
 You can pass an array of patches to the `patch` function where each patch will be applied with the next available view transition.
 
 Patching an empty array `[]` will skip the current view transition and set the queued animated patches until now as current state with a sync patch. 
 > Keep in mind that view transitions are not supported in all browsers yet and only one active transition can happen at a time. This feature may change significantly in the future, so do not rely on it heavily.
 
-Scheduling behaviour can in theory be overridden with `containerNode._vode.asyncRenderer`.
+Scheduling behavior can be overridden with `containerNode._vode.asyncRenderer`.
 
 ```javascript
 // or globally disable view transitions for the vode framework
@@ -781,13 +749,13 @@ The library is optimized for small to medium sized applications. In my own tests
 This being said, the library does not focus on performance.
 It is designed to feel nice while coding, by providing a primitive that is simple to bend & form.
 I want the mental model to be easy to grasp and the API surface to be small 
-so that a developer can focus on building a web application instead of learning the framework and get to a flow state as quick as possible.
+so that a developer can focus on building a web application instead of learning the framework and get to a flow state as quickly as possible.
 
 ## Thanks
 
-The simplicity of [hyperapp](https://github.com/jorgebucaran/hyperapp) demonstrated that powerful frameworks don't require complexity, which inspired this library's design philosophy.
+The simplicity of [Hyperapp](https://github.com/jorgebucaran/hyperapp) demonstrated that powerful frameworks don't require complexity, which inspired this library's design philosophy.
 
-Not planning to add more features, just keeping it simple and easy (and hopefully bug free).
+I'm not planning to add more features, just keeping it simple and easy (and hopefully bug free).
 
 But if you find bugs or have suggestions, 
 feel free to open an [issue](https://github.com/ryupold/vode/issues) or a pull request.
