@@ -1,5 +1,5 @@
 import { expect } from "./helper";
-import { memo, DIV, app, createState, SPAN, H1, BR, P, UL, LI, Vode, FullVode, ChildVode, Component } from "../index";
+import { memo, DIV, app, createState, SPAN, H1, BR, P, UL, LI, Component } from "../index";
 
 export default {
     "memo(): throws when compare is not an array": () => {
@@ -127,5 +127,34 @@ export default {
         app<State>(container, state, (s) => [DIV,
             CompMemoList,
         ]);
+    },
+
+    "memo(): double-wrapping ignores the inner memo dependencies, only the outer memo is checked": () => {
+        const state = createState({ outer: 1, inner: 1 });
+        const root = document.createElement("div");
+        const container = document.createElement("div");
+        root.appendChild(container);
+
+        let callCount = 0;
+        const comp = (s: typeof state) => {
+            callCount++;
+            return [DIV, `${s.outer}`];
+        };
+
+        const memoed = (s: typeof state) => memo([s.inner], comp);
+        const doubleMemoed = (s: typeof state) => memo([s.outer], memoed);
+
+        expect(() => app(container, state, () => [DIV, doubleMemoed]))
+            .toSucceed();
+
+        expect(callCount).toEqual(1);
+        expect(container).toMatch([DIV, [DIV, "1"]]);
+
+        state.patch({ outer: 2 });
+        expect(callCount).toEqual(2);
+        state.patch({ inner: 2 });
+        expect(callCount).toEqual(2);
+        state.patch({ outer: 3 });
+        expect(callCount).toEqual(3);
     },
 };

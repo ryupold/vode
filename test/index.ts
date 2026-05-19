@@ -18,6 +18,9 @@ import mergePropsTests from "./tests-mergeProps";
 import stateContextTests from "./tests-state-context";
 import mountUnmountTests from "./tests-mount-unmount";
 import exampleTests from "./tests-examples";
+import catchTests from "./tests-catch";
+import patchAdvancedTests from "./tests-patch-advanced";
+import patchMergeTests from "./tests-patch-merge";
 
 const tests = {
     ...vodeTests,
@@ -40,6 +43,9 @@ const tests = {
 
     ...stateContextTests,
     ...exampleTests,
+    ...catchTests,
+    ...patchAdvancedTests,
+    ...patchMergeTests,
 };
 //===================================================
 
@@ -50,13 +56,15 @@ const count = {
 }
 const line = "----------------------------------";
 
-const sw = performance.now();
-for (const test of Object.entries(tests)) {
+async function runTest(test: [string, () => any]) {
     count.total++;
     resetMocks();
     const start = performance.now();
     try {
-        test[1]()
+        const result = test[1]();
+        if (result && typeof (result as any)?.then === "function") {
+            await result;
+        }
         count.passed++;
         const time = (performance.now() - start).toFixed(3) + " ms";
         console.log(`#${count.total} ${test[0]}\n-> 🟢 passed ${time}\n${line}`);
@@ -72,21 +80,28 @@ for (const test of Object.entries(tests)) {
     }
 }
 
-const time = (performance.now() - sw).toFixed(3) + " ms";
+const sw = performance.now();
+(async () => {
+    for (const test of Object.entries(tests)) {
+        await runTest(test);
+    }
 
-console.log(`
-    total: ${count.total}
-    passed: ${count.passed}
-    failed: ${count.failed.length}
+    const time = (performance.now() - sw).toFixed(3) + " ms";
 
-    time: ${time}
-`);
+    console.log(`
+        total: ${count.total}
+        passed: ${count.passed}
+        failed: ${count.failed.length}
 
-if (count.passed === count.total) {
-    console.log("\n\nall tests passed\n");
-}
-else {
-    console.error(`${line.replaceAll("-", "=")}\nError summary:\n\n${count.failed.join(`\n${line}\n`)}`);
+        time: ${time}
+    `);
 
-    throw "\n\nsome tests failed (see output)\n";
-}
+    if (count.passed === count.total) {
+        console.log("\n\nall tests passed\n");
+    }
+    else {
+        console.error(`${line.replaceAll("-", "=")}\nError summary:\n\n${count.failed.join(`\n${line}\n`)}`);
+
+        throw "\n\nsome tests failed (see output)\n";
+    }
+})();

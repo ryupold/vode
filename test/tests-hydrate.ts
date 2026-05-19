@@ -65,4 +65,38 @@ export default {
         expect(hydrate(comment))
             .toEqual(undefined);
     },
+
+    "hydrate(): prepareForRender returns text node for text input": () => {
+        const text = new FakeTextNode("hello");
+
+        const result = hydrate(text as any, true);
+
+        expect(result instanceof FakeTextNode).toEqual(true);
+        expect((result as any).nodeValue).toEqual("hello");
+    },
+
+    "hydrate(): prepareForRender attaches .node to element vode": () => {
+        const el = new FakeElement("div");
+
+        const result = hydrate(el as any, true) as any;
+
+        expect(Array.isArray(result)).toEqual(true);
+        expect(result[0]).toEqual("div");
+        expect(result.node instanceof FakeElement).toEqual(true);
+        expect(result.node.tagName).toEqual("DIV");
+    },
+
+    "hydrate(): prepareForRender removes whitespace text nodes": () => {
+        const el = new FakeElement("div");
+        el.appendChild(new FakeTextNode("   "));
+        el.appendChild(new FakeElement("span"));
+        el.appendChild(new FakeTextNode("  "));
+
+        expect(el.childNodes.length).toEqual(3);
+
+        const result = hydrate(el as any, true);
+
+        expect(el.childNodes.length).toEqual(1);
+        expect((el.childNodes[0] as any).tagName).toEqual("SPAN");
+    },
 };

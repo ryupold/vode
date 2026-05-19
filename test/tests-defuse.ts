@@ -70,5 +70,26 @@ export default {
 
         expect(state.patch)
             .toEqual(undefined);
-    }
+    },
+
+    "defuse(): clears event listeners from child vodes without _vode": () => {
+        const root = document.createElement("div");
+        const container = document.createElement("div");
+        root.appendChild(container);
+        app(container, {}, () => [DIV, { onclick: () => ({}) },
+            [DIV, { onclick: () => ({}) }]
+        ] as any);
+        const v = (container as any)._vode.vode;
+        const child1 = (v as any).node;
+        const child1onclick = child1.onclick;
+        const child2 = (v as any)[2].node;
+        expect(typeof child1onclick).toEqual("function");
+        expect(typeof child2.onclick).toEqual("function");
+        defuse(container as any);
+
+        expect(child1.onclick)
+            .toEqual(null);
+        expect(child2.onclick)
+            .toEqual(null);
+    },
 };

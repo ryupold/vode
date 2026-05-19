@@ -1,5 +1,5 @@
 import { expect } from "./helper";
-import { app, ARTICLE, BUTTON, createState, DIV, P, SPAN } from "../index";
+import { app, ARTICLE, BUTTON, createState, DIV, P, SPAN, SECTION } from "../index";
 
 export default {
     "app(): successful initialization": () => {
@@ -307,5 +307,36 @@ export default {
                 [P, "App 2 count: 10"],
             ]
         );
+    },
+
+    "app(): root tag changes between renders": () => {
+        const root = document.createElement("div");
+        const container = document.createElement("div");
+        root.appendChild(container);
+        const state = createState({ useSection: false });
+
+        const patch = app<typeof state>(container, state, (s) =>
+            s.useSection ? [SECTION, "section mode"] : [DIV, "div mode"]
+        );
+
+        expect(container).toMatch([DIV, "div mode"]);
+
+        patch({ useSection: true });
+
+        expect(root).toMatch([DIV, [SECTION, "section mode"]]);
+    },
+
+    "app(): event handler with object patch": () => {
+        const root = document.createElement("div");
+        const container = document.createElement("div");
+        root.appendChild(container);
+        const state: any = { count: 0 };
+
+        app(container, state, (s: any) =>
+            [DIV, { onclick: { count: 42 } }, "click me"]
+        );
+
+        const el = (container as any)._vode.vode.node;
+        expect(el.onclick).toBeA("function");
     },
 };

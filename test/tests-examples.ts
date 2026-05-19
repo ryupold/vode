@@ -891,4 +891,102 @@ export default {
             ]
         );
     },
+
+    "Example 11: Error Boundary - isolated component crash with catch recovery": () => {
+        const container = setup();
+        const state = createState({
+            users: [
+                { id: 1, name: "Alice" },
+                { id: 2, name: "Bob" },
+                { id: 3, name: "Charlie" },
+            ],
+            corruptId: 2,
+        });
+        const broken = (msg: string) => (() => { throw new Error(msg); }) as Component;
+
+        app<typeof state>(container, state, (s) =>
+            <Vode>[DIV,
+                [H1, "User List"],
+                ...s.users.map(user =>
+                    [SECTION,
+                        {
+                            class: "card",
+                            key: user.id,
+                            catch: [P, { class: "error" }, `⚠ Failed to load ${user.name}`],
+                        },
+                        user.id === s.corruptId
+                            ? broken(`crash ${user.id}`)
+                            : [P, user.name],
+                    ]
+                )
+            ]
+        );
+
+        expect(container).toMatch(
+            [DIV,
+                [H1, "User List"],
+                [SECTION, [P, "Alice"]],
+                [P, { class: "error" }, "⚠ Failed to load Bob"],
+                [SECTION, [P, "Charlie"]],
+            ]
+        );
+
+        state.patch({ corruptId: 1 });
+
+        expect(container).toMatch(
+            [DIV,
+                [H1, "User List"],
+                [P, { class: "error" }, "⚠ Failed to load Alice"],
+                [SECTION, [P, "Bob"]],
+                [SECTION, [P, "Charlie"]],
+            ]
+        );
+    },
+
+    "Example 12: State Machine - sequential phase transitions via function patches": () => {
+        const container = setup();
+        const state = createState({ phase: "idle", count: 0 });
+        type State = typeof state;
+
+        app<State>(container, state, (s) =>
+            [DIV,
+                [P, `Phase: ${s.phase}`],
+                [P, `Count: ${s.count}`],
+            ]
+        );
+
+        state.patch((s) => ({ phase: "running", count: 1 }));
+        expect(state.phase).toEqual("running");
+        expect(state.count).toEqual(1);
+
+        function step(s: State) {
+            const next = s.count < 5
+                ? { count: s.count + 1 }
+                : { phase: "done", count: s.count };
+            return next;
+        }
+        state.patch(step);
+
+        expect(state.count).toEqual(2);
+        
+        state.patch(step);
+        
+        expect(container).toMatch(
+            [DIV,
+                [P, "Phase: running"],
+                [P, "Count: 3"],
+            ]
+        );
+        
+        state.patch(step);
+        state.patch(step);
+        
+        expect(state.count).toEqual(5);
+        expect(state.phase).toEqual("running");
+        
+        state.patch(step);
+        
+        expect(state.count).toEqual(5);
+        expect(state.phase).toEqual("done", "reached done phase");
+    },
 };
