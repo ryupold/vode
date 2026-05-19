@@ -41,13 +41,13 @@ export interface SubContext<SubState> {
 }
 
 export type ProxyStateContext<S extends PatchableState, SubState> = StateContext<S, SubState> & {
-    [K in keyof SubState]-?: SubState[K] extends object
+    [K in keyof SubState]-?: SubState[K] extends object | null
     ? ProxyStateContext<S, SubState[K]>
     : StateContext<S, SubState[K]>
 };
 
 export type ProxySubContext<SubState> = SubContext<SubState> & {
-    [K in keyof SubState]-?: SubState[K] extends object
+    [K in keyof SubState]-?: SubState[K] extends object | null
     ? ProxySubContext<SubState[K]>
     : SubContext<SubState[K]>
 };
@@ -107,10 +107,12 @@ class ProxyStateContextImpl<S extends PatchableState, SubState>
                 }
                 raw[keys[i]] = value;
             } else if (keys.length === 1) {
-                if (typeof (<any>target)[keys[0]] === "object" && typeof value === "object")
+                if (typeof (<any>target)[keys[0]] === "object" && typeof value === "object" && value !== null) {
                     Object.assign((<any>target)[keys[0]], value);
-                else
+                }
+                else {
                     (<any>target)[keys[0]] = value;
+                }
             } else {
                 Object.assign(target, value as DeepPartial<S>);
             }

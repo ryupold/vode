@@ -1,5 +1,5 @@
 import { expect } from "./helper";
-import { context } from "../src/state-context";
+import { context, ProxySubContext } from "../src/state-context";
 import { createState } from "../src/vode";
 
 export default {
@@ -102,5 +102,36 @@ export default {
             .toEqual(1);
         expect(patches[0])
             .toEqual({ x: { y: { z: 100 } } });
+    },
+
+    "StateContext.put() with intermediate null creates objects along the path": () => {
+        const state = createState({ a: null as { b: number } | null });
+        const ctx = context(state);
+
+        ctx.a.b.put(42);
+        expect(state.a?.b).toEqual(42);
+
+        ctx.a.put(null);
+        expect(state.a).toEqual(null);
+        expect(state.a?.b).toEqual(undefined);
+    },
+
+    "StateContext.put() with three-level intermediate null": () => {
+        const state = createState({ a: null as { b: { c: number } } | null });
+        const ctx = context(state);
+
+        ctx.a.b.c.put(99);
+
+        expect(state.a?.b.c).toEqual(99);
+    },
+
+    "StateContext.put() with multiple intermediate nulls": () => {
+        const state = createState({ a: { x: null as { z: string } | null, y: 1 } });
+        const ctx = context(state);
+
+        ctx.a.x.z.put("deep");
+
+        expect(state.a.x?.z).toEqual("deep");
+        expect(state.a.y).toEqual(1);
     },
 };
