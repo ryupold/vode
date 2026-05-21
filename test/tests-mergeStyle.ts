@@ -1,39 +1,53 @@
 import { mergeStyle } from "../index";
 import { expect } from "./helper";
 
+// Helper to normalize style strings for comparison (browser normalizes CSS differently)
+function normalizeStyle(s: string): string {
+    return s.replace(/;\s*/g, ';').replace(/:\s*/g, ':').replace(/^;/, '').replace(/;$/, '').toLowerCase();
+}
+
+function hasStyle(result: string, prop: string, value: string): boolean {
+    const normalized = normalizeStyle(result);
+    return normalized.includes(`${prop}:${value}`.toLowerCase());
+}
+
 export default {
-    "mergeStyle(): no args returns empty string": () => {
-        expect(mergeStyle()).toEqual("");
+    "mergeStyle(): no args returns empty string": async () => {
+        await expect(mergeStyle()).toEqual("");
     },
 
-    "mergeStyle(): object style sets properties, returns cssText": () => {
+    "mergeStyle(): object style sets properties, returns cssText": async () => {
         const result = mergeStyle({ color: "red", fontSize: "14px" });
-        expect(typeof result).toEqual("string");
+        await expect(typeof result).toEqual("string");
     },
 
-    "mergeStyle(): single string starts with semicolon": () => {
-        expect(mergeStyle("color: red")).toEqual(";color: red");
+    "mergeStyle(): single string includes the style": async () => {
+        const result = mergeStyle("color: red") as string;
+        await expect(hasStyle(result, "color", "red")).toEqual(true);
     },
 
-    "mergeStyle(): two strings are concatenated": () => {
-        expect(mergeStyle("color: red", "font-size: 14px")).toEqual(";color: red;font-size: 14px");
+    "mergeStyle(): two strings are concatenated": async () => {
+        const result = mergeStyle("color: red", "font-size: 14px") as string;
+        await expect(hasStyle(result, "color", "red")).toEqual(true);
+        await expect(hasStyle(result, "font-size", "14px")).toEqual(true);
     },
 
-    "mergeStyle(): object then string": () => {
+    "mergeStyle(): object then string": async () => {
         const result = mergeStyle({ color: "red" }, "font-size: 14px") as string;
-        expect(result.indexOf("font-size: 14px") > 0).toEqual(true);
+        await expect(hasStyle(result, "font-size", "14px")).toEqual(true);
     },
 
-    "mergeStyle(): null and undefined entries are skipped": () => {
-        expect(mergeStyle(null, "color: red", undefined)).toEqual(";color: red");
+    "mergeStyle(): null and undefined entries are skipped": async () => {
+        const result = mergeStyle(null, "color: red", undefined) as string;
+        await expect(hasStyle(result, "color", "red")).toEqual(true);
     },
 
-    "mergeStyle(): multiple objects and strings alternate": () => {
+    "mergeStyle(): multiple objects and strings alternate": async () => {
         const result = mergeStyle(
             { color: "red" },
             "font-size: 14px",
             { background: "blue" }
         ) as string;
-        expect(result.includes("font-size: 14px")).toEqual(true);
+        await expect(hasStyle(result, "font-size", "14px")).toEqual(true);
     }
 };

@@ -9,7 +9,7 @@ function setup() {
 }
 
 export default {
-    "Example 1: Counter - increment/reset buttons, basic state patching": () => {
+    "Example 1: Counter - increment/reset buttons, basic state patching": async () => {
         const container = setup();
         const state = createState({ count: 0 });
 
@@ -19,7 +19,7 @@ export default {
             [BUTTON, { onclick: () => ({ count: 0 }), disabled: s.count === 0 }, "Reset"],
         ]);
 
-        expect(container).toMatch(
+        await expect(container).toMatch(
             [DIV,
                 [H1, "Count: 0"],
                 [BUTTON, "Increment"],
@@ -29,7 +29,7 @@ export default {
 
         state.patch({ count: 1 });
 
-        expect(container).toMatch(
+        await expect(container).toMatch(
             [DIV,
                 [H1, "Count: 1"],
                 [BUTTON, "Increment"],
@@ -39,8 +39,8 @@ export default {
 
         state.patch({ count: 0 });
 
-        expect(state.count).toEqual(0);
-        expect(container).toMatch(
+        await expect(state.count).toEqual(0);
+        await expect(container).toMatch(
             [DIV,
                 [H1, "Count: 0"],
                 [BUTTON, "Increment"],
@@ -49,7 +49,7 @@ export default {
         );
     },
 
-    "Example 2: Todo List with State Context - nested state via context(), list rendering": () => {
+    "Example 2: Todo List with State Context - nested state via context(), list rendering": async () => {
         const container = setup();
         const state = createState({
             todos: {
@@ -85,7 +85,7 @@ export default {
             ];
         });
 
-        expect(container).toMatch(
+        await expect(container).toMatch(
             [DIV,
                 [H1, "Todos"],
                 [INPUT],
@@ -105,10 +105,10 @@ export default {
 
         state.patch({ todos: { filter: "active" } });
 
-        expect(state.todos.filter).toEqual("active");
-        expect(state.todos.items.length).toEqual(3);
+        await expect(state.todos.filter).toEqual("active");
+        await expect(state.todos.items.length).toEqual(3);
 
-        expect(container).toMatch(
+        await expect(container).toMatch(
             [DIV,
                 [H1, "Todos"],
                 [INPUT],
@@ -127,7 +127,7 @@ export default {
 
         state.patch({ todos: { filter: "done" } });
 
-        expect(container).toMatch(
+        await expect(container).toMatch(
             [DIV,
                 [H1, "Todos"],
                 [INPUT],
@@ -144,10 +144,10 @@ export default {
         );
 
         state.patch({ todos: { filter: "all" } });
-        expect(state.todos.items.length).toEqual(3);
+        await expect(state.todos.items.length).toEqual(3);
     },
 
-    "Example 3: Data Fetching - loading/error/success state machine with ternary branches": () => {
+    "Example 3: Data Fetching - loading/error/success state machine with ternary branches": async () => {
         const container = setup();
         const state = createState({
             fetch: {
@@ -170,7 +170,7 @@ export default {
             ];
         });
 
-        expect(container).toMatch(
+        await expect(container).toMatch(
             [DIV,
                 [P, "Loading..."],
             ]
@@ -178,7 +178,7 @@ export default {
 
         state.patch({ fetch: { status: "success", result: "Fetched data" } });
 
-        expect(container).toMatch(
+        await expect(container).toMatch(
             [DIV,
                 [DIV, { class: "success" },
                     [P, "Result: ", "Fetched data"],
@@ -189,7 +189,7 @@ export default {
 
         state.patch({ fetch: { status: "error", error: "Network error", result: null } });
 
-        expect(container).toMatch(
+        await expect(container).toMatch(
             [DIV,
                 [DIV, { class: "error" },
                     [P, "Error: ", "Network error"],
@@ -200,7 +200,7 @@ export default {
         );
     },
 
-    "Example 4: Tabbed Panel - tab switching via conditional rendering": () => {
+    "Example 4: Tabbed Panel - tab switching via conditional rendering": async () => {
         const container = setup();
         const state = createState({
             ui: {
@@ -227,7 +227,7 @@ export default {
             ];
         });
 
-        expect(container).toMatch(
+        await expect(container).toMatch(
             [DIV,
                 [NAV, { class: "tabs" },
                     [BUTTON, "Home"],
@@ -246,7 +246,7 @@ export default {
         const ctx = context(state).ui;
         ctx.activeTab.patch("settings");
 
-        expect(container).toMatch(
+        await expect(container).toMatch(
             [DIV,
                 [NAV, { class: "tabs" },
                     [BUTTON, "Home"],
@@ -264,7 +264,7 @@ export default {
 
         ctx.activeTab.patch("profile");
 
-        expect(container).toMatch(
+        await expect(container).toMatch(
             [DIV,
                 [NAV, { class: "tabs" },
                     [BUTTON, "Home"],
@@ -281,7 +281,7 @@ export default {
         );
     },
 
-    "Example 5: Form Validation - live input validation with conditional error display": () => {
+    "Example 5: Form Validation - live input validation with conditional error display": async () => {
         const container = setup();
         const state = createState({
             form: {
@@ -309,7 +309,7 @@ export default {
             ];
         });
 
-        expect(container).toMatch(
+        await expect(container).toMatch(
             [DIV,
                 [FORM,
                     [LABEL, "Email:"],
@@ -331,7 +331,7 @@ export default {
             }
         });
 
-        expect(container).toMatch(
+        await expect(container).toMatch(
             [DIV,
                 [FORM,
                     [LABEL, "Email:"],
@@ -358,7 +358,7 @@ export default {
             },
         });
 
-        expect(container).toMatch(
+        await expect(container).toMatch(
             [DIV,
                 [FORM,
                     [LABEL, "Email:"],
@@ -381,7 +381,7 @@ export default {
             },
         });
 
-        expect(container).toMatch(
+        await expect(container).toMatch(
             [DIV,
                 [FORM,
                     [LABEL, "Email:"],
@@ -397,7 +397,7 @@ export default {
         );
     },
 
-    "Example 6: Component Composition - nested components with dynamic props": () => {
+    "Example 6: Component Composition - nested components with dynamic props": async () => {
         const container = setup();
         const state = createState({
             theme: "light" as "light" | "dark",
@@ -434,7 +434,7 @@ export default {
             }, "Toggle Theme"],
         ]);
 
-        expect(container).toMatch(
+        await expect(container).toMatch(
             [DIV,
                 [HEADER, { class: "header header-light" },
                     [H1, "App"],
@@ -453,7 +453,7 @@ export default {
 
         state.patch({ theme: "dark" });
 
-        expect(container).toMatch(
+        await expect(container).toMatch(
             [DIV,
                 [HEADER, { class: "header header-dark" },
                     [H1, "App"],
@@ -472,9 +472,9 @@ export default {
 
         state.patch({ user: { name: "Bob", role: "User" } });
 
-        expect(state.user.name).toEqual("Bob");
-        expect(state.user.role).toEqual("User");
-        expect(container).toMatch(
+        await expect(state.user.name).toEqual("Bob");
+        await expect(state.user.role).toEqual("User");
+        await expect(container).toMatch(
             [DIV,
                 [HEADER, { class: "header header-dark" },
                     [H1, "App"],
@@ -492,7 +492,7 @@ export default {
         );
     },
 
-    "Example 7: Multi-Context - multiple independent state contexts": () => {
+    "Example 7: Multi-Context - multiple independent state contexts": async () => {
         const container = setup();
         const state = createState({
             panelA: {
@@ -523,7 +523,7 @@ export default {
             ];
         });
 
-        expect(container).toMatch(
+        await expect(container).toMatch(
             [DIV,
                 [SECTION, { class: "panel-a" },
                     [H2, "Panel A"],
@@ -541,10 +541,10 @@ export default {
         const ctxA = context(state).panelA;
         ctxA.count.patch(5);
 
-        expect(state.panelA.count).toEqual(5);
-        expect(state.panelB.count).toEqual(0);
+        await expect(state.panelA.count).toEqual(5);
+        await expect(state.panelB.count).toEqual(0);
 
-        expect(container).toMatch(
+        await expect(container).toMatch(
             [DIV,
                 [SECTION, { class: "panel-a" },
                     [H2, "Panel A"],
@@ -562,10 +562,10 @@ export default {
         const ctxB = context(state).panelB;
         ctxB.count.patch(10);
 
-        expect(state.panelA.count).toEqual(5);
-        expect(state.panelB.count).toEqual(10);
+        await expect(state.panelA.count).toEqual(5);
+        await expect(state.panelB.count).toEqual(10);
 
-        expect(container).toMatch(
+        await expect(container).toMatch(
             [DIV,
                 [SECTION, { class: "panel-a" },
                     [H2, "Panel A"],
@@ -580,11 +580,11 @@ export default {
             ]
         );
 
-        expect(ctxA.label.get()).toEqual("Panel A");
-        expect(ctxB.label.get()).toEqual("Panel B");
+        await expect(ctxA.label.get()).toEqual("Panel A");
+        await expect(ctxB.label.get()).toEqual("Panel B");
     },
 
-    "Example 8: SVG Dynamic - SVG circle with dynamic radius/color": () => {
+    "Example 8: SVG Dynamic - SVG circle with dynamic radius/color": async () => {
         const container = setup();
         const state = createState({
             svg: {
@@ -611,7 +611,7 @@ export default {
             ];
         });
 
-        expect(container).toMatch(
+        await expect(container).toMatch(
             [DIV,
                 [SVG, { xmlns: "http://www.w3.org/2000/svg", width: "200", height: "200" },
                     [CIRCLE, {
@@ -631,10 +631,10 @@ export default {
         ctx.radius.patch(30);
         ctx.color.patch("green");
 
-        expect(state.svg.radius).toEqual(30);
-        expect(state.svg.color).toEqual("green");
+        await expect(state.svg.radius).toEqual(30);
+        await expect(state.svg.color).toEqual("green");
 
-        expect(container).toMatch(
+        await expect(container).toMatch(
             [DIV,
                 [SVG, { xmlns: "http://www.w3.org/2000/svg", width: "200", height: "200" },
                     [CIRCLE, {
@@ -653,7 +653,7 @@ export default {
         ctx.radius.patch(50);
         ctx.color.patch("blue");
 
-        expect(container).toMatch(
+        await expect(container).toMatch(
             [DIV,
                 [SVG, { xmlns: "http://www.w3.org/2000/svg", width: "200", height: "200" },
                     [CIRCLE, {
@@ -670,7 +670,7 @@ export default {
         );
     },
 
-    "Example 9: Dynamic Attributes - conditional elements + attribute changes": () => {
+    "Example 9: Dynamic Attributes - conditional elements + attribute changes": async () => {
         const container = setup();
         const state = createState({
             config: {
@@ -711,7 +711,7 @@ export default {
             ];
         });
 
-        expect(container).toMatch(
+        await expect(container).toMatch(
             [DIV,
                 [BUTTON, "Show Image"],
                 [A, {
@@ -726,7 +726,7 @@ export default {
 
         state.patch({ config: { showImage: true } });
 
-        expect(container).toMatch(
+        await expect(container).toMatch(
             [DIV,
                 [IMG, {
                     src: "https://example.com/image.png",
@@ -747,7 +747,7 @@ export default {
 
         state.patch({ config: { showImage: false } });
 
-        expect(container).toMatch(
+        await expect(container).toMatch(
             [DIV,
                 [BUTTON, "Show Image"],
                 [A, {
@@ -762,7 +762,7 @@ export default {
 
         state.patch({ config: { linkEnabled: false } });
 
-        expect(container).toMatch(
+        await expect(container).toMatch(
             [DIV,
                 [BUTTON, "Show Image"],
                 [A, {
@@ -776,11 +776,11 @@ export default {
 
         state.patch({ config: { boxWidth: "200px", boxColor: "blue" } });
 
-        expect(state.config.boxWidth).toEqual("200px");
-        expect(state.config.boxColor).toEqual("blue");
+        await expect(state.config.boxWidth).toEqual("200px");
+        await expect(state.config.boxColor).toEqual("blue");
     },
 
-    "Example 10: Nested Vode-App - inner app with isolated state via memo + onMount": () => {
+    "Example 10: Nested Vode-App - inner app with isolated state via memo + onMount": async () => {
         const container = setup();
 
         const outerState = createState({ title: "Outer", visible: true });
@@ -831,7 +831,7 @@ export default {
         ]);
 
         // initial state
-        expect(container).toMatch(
+        await expect(container).toMatch(
             [DIV,
                 [H1, "Outer"],
                 [P, "Outer content"],
@@ -847,7 +847,7 @@ export default {
         // patch inner state independently: inner updates, outer unchanged
         innerState.patch({ counter: 7 });
 
-        expect(container).toMatch(
+        await expect(container).toMatch(
             [DIV,
                 [H1, "Outer"],
                 [P, "Outer content"],
@@ -864,10 +864,10 @@ export default {
         // so the inner counter stays at 7 (not reset to 0).
         outerState.patch({ title: "Outer Updated" });
 
-        expect(outerState.title).toEqual("Outer Updated");
-        expect(innerState.counter).toEqual(7);
+        await expect(outerState.title).toEqual("Outer Updated");
+        await expect(innerState.counter).toEqual(7);
 
-        expect(container).toMatch(
+        await expect(container).toMatch(
             [DIV,
                 [H1, "Outer Updated"],
                 [P, "Outer content"],
@@ -883,7 +883,7 @@ export default {
         // hiding the outer wrapper removes the inner app entirely
         outerState.patch({ visible: false });
 
-        expect(container).toMatch(
+        await expect(container).toMatch(
             [DIV,
                 [H1, "Outer Updated"],
                 [P, "Outer content"],
@@ -892,7 +892,7 @@ export default {
         );
     },
 
-    "Example 11: Error Boundary - isolated component crash with catch recovery": () => {
+    "Example 11: Error Boundary - isolated component crash with catch recovery": async () => {
         const container = setup();
         const state = createState({
             users: [
@@ -922,7 +922,7 @@ export default {
             ]
         );
 
-        expect(container).toMatch(
+        await expect(container).toMatch(
             [DIV,
                 [H1, "User List"],
                 [SECTION, [P, "Alice"]],
@@ -933,7 +933,7 @@ export default {
 
         state.patch({ corruptId: 1 });
 
-        expect(container).toMatch(
+        await expect(container).toMatch(
             [DIV,
                 [H1, "User List"],
                 [P, { class: "error" }, "⚠ Failed to load Alice"],
@@ -943,7 +943,7 @@ export default {
         );
     },
 
-    "Example 12: State Machine - sequential phase transitions via function patches": () => {
+    "Example 12: State Machine - sequential phase transitions via function patches": async () => {
         const container = setup();
         const state = createState({ phase: "idle", count: 0 });
         type State = typeof state;
@@ -956,8 +956,8 @@ export default {
         );
 
         state.patch((s) => ({ phase: "running", count: 1 }));
-        expect(state.phase).toEqual("running");
-        expect(state.count).toEqual(1);
+        await expect(state.phase).toEqual("running");
+        await expect(state.count).toEqual(1);
 
         function step(s: State) {
             const next = s.count < 5
@@ -967,26 +967,26 @@ export default {
         }
         state.patch(step);
 
-        expect(state.count).toEqual(2);
-        
+        await expect(state.count).toEqual(2);
+
         state.patch(step);
-        
-        expect(container).toMatch(
+
+        await expect(container).toMatch(
             [DIV,
                 [P, "Phase: running"],
                 [P, "Count: 3"],
             ]
         );
-        
+
         state.patch(step);
         state.patch(step);
-        
-        expect(state.count).toEqual(5);
-        expect(state.phase).toEqual("running");
-        
+
+        await expect(state.count).toEqual(5);
+        await expect(state.phase).toEqual("running");
+
         state.patch(step);
-        
-        expect(state.count).toEqual(5);
-        expect(state.phase).toEqual("done", "reached done phase");
+
+        await expect(state.count).toEqual(5);
+        await expect(state.phase).toEqual("done", "reached done phase");
     },
 };

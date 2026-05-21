@@ -2,43 +2,44 @@ import { expect } from "./helper";
 import { memo, DIV, app, createState, SPAN, H1, BR, P, UL, LI, Component } from "../index";
 
 export default {
-    "memo(): throws when compare is not an array": () => {
+    "memo(): throws when compare is not an array": async () => {
         const err = expect(() => memo(null as any, (s: any) => [DIV]))
             .toFail();
-        expect(err.message)
+        await expect(err.message)
             .toEqual("first argument to memo() must be an array of values to compare");
     },
 
-    "memo(): throws when componentOrProps is not a function": () => {
+    "memo(): throws when componentOrProps is not a function": async () => {
         const err = expect(() => memo([1], null as any))
             .toFail();
-        expect(err.message)
+        await expect(err.message)
             .toEqual("second argument to memo() must be a function that returns a child vode");
     },
 
-    "memo(): integration with app prevents re-render when deps match": () => {
+    "memo(): integration with app prevents re-render when deps match": async () => {
         const state = createState({ count: 12 });
         const root = document.createElement("div");
         const container = document.createElement("div");
         root.appendChild(container);
 
-        let callCount = 0;
+        let box: { callCount: number } = { callCount: 0 };
         app<typeof state>(container, state, (s) => [DIV, memo(
             [s.count],
             (s) => {
-                callCount++;
+                box.callCount++;
                 return [DIV, [SPAN, `${s.count}`]];
             }
         )]);
 
 
-        expect(callCount).toEqual(1);
+        await expect(box).toEqual({ callCount: 1 });
 
         state.patch({ count: 12 }); //same value, should not re-render
-        expect(callCount).toEqual(1);
+        await expect(box).toEqual({ callCount: 1 });
         state.patch({ count: 13 }); //different value, should re-render
-        expect(callCount).toEqual(2);
-        expect(container).toMatch(
+
+        await expect(box).toEqual({ callCount: 2 });
+        await expect(container).toMatch(
             [DIV,
                 [DIV,
                     [SPAN, "13"]
@@ -47,7 +48,7 @@ export default {
         );
     },
 
-    "memo(): can be used with a nested component function": () => {
+    "memo(): can be used with a nested component function": async () => {
         const state = createState({ count: 12 });
         const root = document.createElement("div");
         const container = document.createElement("div");
@@ -64,20 +65,20 @@ export default {
             )]);
 
 
-        expect(callCount).toEqual(1);
+        await expect(callCount).toEqual(1);
         state.patch({ count: 12 }); //same value, should not re-render
-        expect(callCount).toEqual(1);
+        await expect(callCount).toEqual(1);
     },
 
-    "memo(): can be used with the same component function": () => {
+    "memo(): can be used with the same component function": async () => {
         const state = createState({ test: "foo" });
         const root = document.createElement("div");
         const container = document.createElement("div");
         root.appendChild(container);
 
-        let callCount = 0;
+        let box: { callCount: number } = { callCount: 0 };
         const Comp: Component<typeof state> = (s) => {
-            callCount++;
+            box.callCount++;
             return [DIV, [SPAN, s.test]];
         };
         app<typeof state>(container, state, (s) => [DIV,
@@ -92,11 +93,11 @@ export default {
         ]);
 
 
-        expect(callCount).toEqual(2);
+        await expect(box).toEqual({ callCount: 2 }, "Each memo should call the component function once on initial render, even if they are the same function");
         state.patch({ test: "foo" });
-        expect(callCount).toEqual(2);
+        await expect(box).toEqual({ callCount: 2 }, "Patching with the same value should not cause a re-render");
         state.patch({ test: "bar" });
-        expect(callCount).toEqual(4);
+        await expect(box).toEqual({ callCount: 4 }, "Patching with a different value should cause both memos to re-render, even if they use the same component function");
     },
 
     "memo(): memo with many item list": () => {
@@ -129,15 +130,15 @@ export default {
         ]);
     },
 
-    "memo(): double-wrapping ignores the inner memo dependencies, only the outer memo is checked": () => {
+    "memo(): double-wrapping ignores the inner memo dependencies, only the outer memo is checked": async () => {
         const state = createState({ outer: 1, inner: 1 });
         const root = document.createElement("div");
         const container = document.createElement("div");
         root.appendChild(container);
 
-        let callCount = 0;
+        let box: { callCount: number } = { callCount: 0 };
         const comp = (s: typeof state) => {
-            callCount++;
+            box.callCount++;
             return [DIV, `${s.outer}`];
         };
 
@@ -147,14 +148,14 @@ export default {
         expect(() => app(container, state, () => [DIV, doubleMemoed]))
             .toSucceed();
 
-        expect(callCount).toEqual(1);
-        expect(container).toMatch([DIV, [DIV, "1"]]);
+        await expect(box).toEqual({ callCount: 1 });
+        await expect(container).toMatch([DIV, [DIV, "1"]]);
 
         state.patch({ outer: 2 });
-        expect(callCount).toEqual(2);
+        await expect(box).toEqual({ callCount: 2 });
         state.patch({ inner: 2 });
-        expect(callCount).toEqual(2);
+        await expect(box).toEqual({ callCount: 2 });
         state.patch({ outer: 3 });
-        expect(callCount).toEqual(3);
+        await expect(box).toEqual({ callCount: 3 });
     },
 };

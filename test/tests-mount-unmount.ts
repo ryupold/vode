@@ -1,6 +1,6 @@
 import { app, createState, memo } from "../src/vode"
 import { ARTICLE, ASIDE, DIV, INPUT, MAIN, NAV, P, SECTION, SPAN } from "../src/vode-tags";
-import { expect } from "./helper";
+import { delay, expect, ExpectationError } from "./helper";
 
 function setup() {
     const root = document.createElement("div");
@@ -10,7 +10,7 @@ function setup() {
 }
 
 export default {
-    "onMount(): called when node is attached to the DOM": () => {
+    "onMount(): called when node is attached to the DOM": async () => {
         const container = setup();
         let mountCalled = false;
         app(container, {}, () =>
@@ -18,7 +18,7 @@ export default {
                 [ARTICLE,
                     {
                         onMount: (s: unknown, ele: HTMLElement) => {
-                            expect(ele.tagName).toEqual("ARTICLE");
+                            if (ele.tagName !== "ARTICLE") throw new ExpectationError(expect(ele), `Expected ARTICLE, got ${ele.tagName}`);
                             mountCalled = true;
                         }
                     },
@@ -27,11 +27,11 @@ export default {
             ]
         );
 
-        expect(mountCalled)
+        await expect(mountCalled)
             .toEqual(true);
     },
 
-    "onMount(): called in order of child nodes first, then parent onMounts": () => {
+    "onMount(): called in order of child nodes first, then parent onMounts": async () => {
         const container = setup();
         const mounts: string[] = [];
         app(container, {}, () =>
@@ -55,11 +55,11 @@ export default {
             ]
         );
 
-        expect(mounts)
+        await expect(mounts)
             .toEqual(["mount inner", "mount outer"]);
     },
 
-    "onMount(): deep nesting 4+ levels with onMount at each level": () => {
+    "onMount(): deep nesting 4+ levels with onMount at each level": async () => {
         const container = setup();
         const mounts: string[] = [];
         app(container, {}, () =>
@@ -96,7 +96,7 @@ export default {
             ]
         );
 
-        expect(mounts)
+        await expect(mounts)
             .toEqual([
                 "mount article",
                 "mount section",
@@ -105,7 +105,7 @@ export default {
             ]);
     },
 
-    "onMount(): multiple siblings with onMount on initial render": () => {
+    "onMount(): multiple siblings with onMount on initial render": async () => {
         const container = setup();
         const mounts: string[] = [];
         app(container, {}, () =>
@@ -129,11 +129,11 @@ export default {
             ]
         );
 
-        expect(mounts)
+        await expect(mounts)
             .toEqual(["mount p", "mount span"]);
     },
 
-    "onMount(): A->A path - onMount added during update does NOT fire": () => {
+    "onMount(): A->A path - onMount added during update does NOT fire": async () => {
         const container = setup();
         const mounts: string[] = [];
         const state = createState({ addMount: false });
@@ -150,12 +150,12 @@ export default {
             ]
         );
 
-        expect(mounts).toEqual([]);
+        await expect(mounts).toEqual([]);
         patch({ addMount: true });
-        expect(mounts).toEqual([]);
+        await expect(mounts).toEqual([]);
     },
 
-    "onMount(): A->A path - onMount removed during update does not cause issues": () => {
+    "onMount(): A->A path - onMount removed during update does not cause issues": async () => {
         const container = setup();
         const mounts: string[] = [];
         const state = createState({ removeMount: false });
@@ -172,12 +172,12 @@ export default {
             ]
         );
 
-        expect(mounts).toEqual(["mount p"]);
+        await expect(mounts).toEqual(["mount p"]);
         patch({ removeMount: true });
-        expect(mounts).toEqual(["mount p"]);
+        await expect(mounts).toEqual(["mount p"]);
     },
 
-    "onMount(): A->A path - onMount changed during update does NOT fire the new one": () => {
+    "onMount(): A->A path - onMount changed during update does NOT fire the new one": async () => {
         const container = setup();
         const mounts: string[] = [];
         const state = createState({ version: "a" });
@@ -194,12 +194,12 @@ export default {
             ]
         );
 
-        expect(mounts).toEqual(["mount a"]);
+        await expect(mounts).toEqual(["mount a"]);
         patch({ version: "b" });
-        expect(mounts).toEqual(["mount a"]);
+        await expect(mounts).toEqual(["mount a"]);
     },
 
-    "onMount(): A->B path - element replaced with different tag fires new onMount": () => {
+    "onMount(): A->B path - element replaced with different tag fires new onMount": async () => {
         const container = setup();
         const mounts: string[] = [];
         const state = createState({ showArticle: true });
@@ -225,12 +225,12 @@ export default {
             ]
         );
 
-        expect(mounts).toEqual(["mount article"]);
+        await expect(mounts).toEqual(["mount article"]);
         patch({ showArticle: false });
-        expect(mounts).toEqual(["mount article", "mount aside"]);
+        await expect(mounts).toEqual(["mount article", "mount aside"]);
     },
 
-    "onMount(): A->B path - swap back fires the other element's onMount": () => {
+    "onMount(): A->B path - swap back fires the other element's onMount": async () => {
         const container = setup();
         const mounts: string[] = [];
         const state = createState({ showArticle: true });
@@ -256,13 +256,13 @@ export default {
             ]
         );
 
-        expect(mounts).toEqual(["mount article"]);
+        await expect(mounts).toEqual(["mount article"]);
         patch({ showArticle: false });
-        expect(mounts).toEqual(["mount article", "mount aside"]);
+        await expect(mounts).toEqual(["mount article", "mount aside"]);
         patch({ showArticle: true });
-        expect(mounts).toEqual(["mount article", "mount aside", "mount article"]);
+        await expect(mounts).toEqual(["mount article", "mount aside", "mount article"]);
         patch({ showArticle: false });
-        expect(mounts)
+        await expect(mounts)
             .toEqual([
                 "mount article",
                 "mount aside",
@@ -271,7 +271,7 @@ export default {
             ]);
     },
 
-    "onMount(): A->B path - children's onMounts also fire in new tree": () => {
+    "onMount(): A->B path - children's onMounts also fire in new tree": async () => {
         const container = setup();
         const mounts: string[] = [];
         const state = createState({ showArticle: true });
@@ -301,12 +301,12 @@ export default {
             ]
         );
 
-        expect(mounts).toEqual(["mount p"]);
+        await expect(mounts).toEqual(["mount p"]);
         patch({ showArticle: false });
-        expect(mounts).toEqual(["mount p", "mount div"]);
+        await expect(mounts).toEqual(["mount p", "mount div"]);
     },
 
-    "onMount(): text -> element fires new element's onMount": () => {
+    "onMount(): text -> element fires new element's onMount": async () => {
         const container = setup();
         const mounts: string[] = [];
         const state = createState({ showElement: false });
@@ -325,12 +325,12 @@ export default {
             ]
         );
 
-        expect(mounts).toEqual([]);
+        await expect(mounts).toEqual([]);
         patch({ showElement: true });
-        expect(mounts).toEqual(["mount article"]);
+        await expect(mounts).toEqual(["mount article"]);
     },
 
-    "onMount(): mixed onMount presence in tree": () => {
+    "onMount(): mixed onMount presence in tree": async () => {
         const container = setup();
         const mounts: string[] = [];
         app(container, {}, () =>
@@ -358,10 +358,10 @@ export default {
             ]
         );
 
-        expect(mounts).toEqual(["mount p", "mount section"]);
+        await expect(mounts).toEqual(["mount p", "mount section"]);
     },
 
-    "onMount(): sibling subtree depths fire in correct order": () => {
+    "onMount(): sibling subtree depths fire in correct order": async () => {
         const container = setup();
         const mounts: string[] = [];
         app(container, {}, () =>
@@ -394,7 +394,7 @@ export default {
             ]
         );
 
-        expect(mounts)
+        await expect(mounts)
             .toEqual([
                 "mount p-deep",
                 "mount div",
@@ -402,7 +402,7 @@ export default {
             ]);
     },
 
-    "onMount(): added children from count increase fire onMount": () => {
+    "onMount(): added children from count increase fire onMount": async () => {
         const container = setup();
         const mounts: string[] = [];
         const state = createState({ count: 1 });
@@ -416,14 +416,14 @@ export default {
             ]
         );
 
-        expect(mounts).toEqual(["mount p0"]);
+        await expect(mounts).toEqual(["mount p0"]);
         patch({ count: 2 });
-        expect(mounts).toEqual(["mount p0", "mount p1"]);
+        await expect(mounts).toEqual(["mount p0", "mount p1"]);
         patch({ count: 3 });
-        expect(mounts).toEqual(["mount p0", "mount p1", "mount p2"]);
+        await expect(mounts).toEqual(["mount p0", "mount p1", "mount p2"]);
     },
 
-    "onMount(): conditional child fires onMount when added": () => {
+    "onMount(): conditional child fires onMount when added": async () => {
         const container = setup();
         const mounts: string[] = [];
         const state = createState({ show: false });
@@ -443,12 +443,12 @@ export default {
             ]
         );
 
-        expect(mounts).toEqual([]);
+        await expect(mounts).toEqual([]);
         patch({ show: true });
-        expect(mounts).toEqual(["mount span"]);
+        await expect(mounts).toEqual(["mount span"]);
     },
 
-    "onUnmount(): called when node is removed from the DOM": () => {
+    "onUnmount(): called when node is removed from the DOM": async () => {
         const container = setup();
         const unmounts: string[] = [];
         const state = createState({ showArticle: true });
@@ -465,12 +465,12 @@ export default {
             ]
         );
 
-        expect(unmounts).toEqual([]);
+        await expect(unmounts).toEqual([]);
         patch({ showArticle: false });
-        expect(unmounts).toEqual(["unmount article"]);
+        await expect(unmounts).toEqual(["unmount article"]);
     },
 
-    "onUnmount(): called for all child nodes that have registerd when parent node is removed from the DOM": () => {
+    "onUnmount(): called for all child nodes that have registerd when parent node is removed from the DOM": async () => {
         const container = setup();
         const unmounts: string[] = [];
         const state = createState({ showArticle: true });
@@ -495,12 +495,12 @@ export default {
             ]
         );
 
-        expect(unmounts).toEqual([]);
+        await expect(unmounts).toEqual([]);
         patch({ showArticle: false });
-        expect(unmounts).toEqual(["unmount inner", "unmount outer"]);
+        await expect(unmounts).toEqual(["unmount inner", "unmount outer"]);
     },
 
-    "onUnmount(): A->A path - onUnmount added during update fires on later removal": () => {
+    "onUnmount(): A->A path - onUnmount added during update fires on later removal": async () => {
         const container = setup();
         const unmounts: string[] = [];
         const state = createState({ toggle: false, remove: false });
@@ -517,14 +517,15 @@ export default {
             ]
         );
 
-        expect(unmounts).toEqual([]);
+        await expect(unmounts).toEqual([]);
         patch({ toggle: true });
-        expect(unmounts).toEqual([]);
+        await delay(50);
+        await expect(unmounts).toEqual([]);
         patch({ remove: true });
-        expect(unmounts).toEqual(["unmount section"]);
+        await expect(unmounts).toEqual(["unmount section"]);
     },
 
-    "onUnmount(): A->A path - onUnmount removed during update does not fire": () => {
+    "onUnmount(): A->A path - onUnmount removed during update does not fire": async () => {
         const container = setup();
         const unmounts: string[] = [];
         const state = createState({ toggle: false, remove: false });
@@ -541,14 +542,14 @@ export default {
             ]
         );
 
-        expect(unmounts).toEqual([]);
+        await expect(unmounts).toEqual([]);
         patch({ toggle: true });
-        expect(unmounts).toEqual([]);
+        await expect(unmounts).toEqual([]);
         patch({ remove: true });
-        expect(unmounts).toEqual([]);
+        await expect(unmounts).toEqual([]);
     },
 
-    "onUnmount(): A->A path - onUnmount changed during update fires the new one": () => {
+    "onUnmount(): A->A path - onUnmount changed during update fires the new one": async () => {
         const container = setup();
         const unmounts: string[] = [];
         const state = createState({ version: "a", remove: false });
@@ -565,14 +566,15 @@ export default {
             ]
         );
 
-        expect(unmounts).toEqual([]);
+        await expect(unmounts).toEqual([]);
         patch({ version: "b" });
-        expect(unmounts).toEqual([]);
+        await delay(10);
+        await expect(unmounts).toEqual([]);
         patch({ remove: true });
-        expect(unmounts).toEqual(["unmount b"]);
+        await expect(unmounts).toEqual(["unmount b"]);
     },
 
-    "onUnmount(): A->B path - element replaced with different tag fires old onUnmount": () => {
+    "onUnmount(): A->B path - element replaced with different tag fires old onUnmount": async () => {
         const container = setup();
         const unmounts: string[] = [];
         const state = createState({ showArticle: true });
@@ -598,12 +600,13 @@ export default {
             ]
         );
 
-        expect(unmounts).toEqual([]);
+        await expect(unmounts).toEqual([]);
         patch({ showArticle: false });
-        expect(unmounts).toEqual(["unmount article"]);
+        await delay(10);
+        await expect(unmounts).toEqual(["unmount article"]);
     },
 
-    "onUnmount(): A->B path - swap back fires the other element's onUnmount": () => {
+    "onUnmount(): A->B path - swap back fires the other element's onUnmount": async () => {
         const container = setup();
         const unmounts: string[] = [];
         const state = createState({ showArticle: true });
@@ -629,18 +632,18 @@ export default {
             ]
         );
 
-        expect(unmounts).toEqual([]);
+        await expect(unmounts).toEqual([]);
         patch({ showArticle: false });
-        expect(unmounts).toEqual(["unmount article"]);
+        await expect(unmounts).toEqual(["unmount article"]);
         unmounts.length = 0;
         patch({ showArticle: true });
-        expect(unmounts).toEqual(["unmount aside"]);
+        await expect(unmounts).toEqual(["unmount aside"]);
         unmounts.length = 0;
         patch({ showArticle: false });
-        expect(unmounts).toEqual(["unmount article"]);
+        await expect(unmounts).toEqual(["unmount article"]);
     },
 
-    "onUnmount(): A->B path - replaced element's children onUnmounts also fire": () => {
+    "onUnmount(): A->B path - replaced element's children onUnmounts also fire": async () => {
         const container = setup();
         const unmounts: string[] = [];
         const state = createState({ showArticle: true });
@@ -673,12 +676,12 @@ export default {
             ]
         );
 
-        expect(unmounts).toEqual([]);
+        await expect(unmounts).toEqual([]);
         patch({ showArticle: false });
-        expect(unmounts).toEqual(["unmount p", "unmount article"]);
+        await expect(unmounts).toEqual(["unmount p", "unmount article"]);
     },
 
-    "onUnmount(): element -> text fires onUnmount": () => {
+    "onUnmount(): element -> text fires onUnmount": async () => {
         const container = setup();
         const unmounts: string[] = [];
         const state = createState({ showElement: true });
@@ -697,12 +700,12 @@ export default {
             ]
         );
 
-        expect(unmounts).toEqual([]);
+        await expect(unmounts).toEqual([]);
         patch({ showElement: false });
-        expect(unmounts).toEqual(["unmount article"]);
+        await expect(unmounts).toEqual(["unmount article"]);
     },
 
-    "onUnmount(): text -> element registers onUnmount that fires later": () => {
+    "onUnmount(): text -> element registers onUnmount that fires later": async () => {
         const container = setup();
         const unmounts: string[] = [];
         const state = createState({ showElement: false, remove: false });
@@ -722,14 +725,14 @@ export default {
             ]
         );
 
-        expect(unmounts).toEqual([]);
+        await expect(unmounts).toEqual([]);
         patch({ showElement: true });
-        expect(unmounts).toEqual([]);
+        await expect(unmounts).toEqual([]);
         patch({ remove: true });
-        expect(unmounts).toEqual(["unmount article"]);
+        await expect(unmounts).toEqual(["unmount article"]);
     },
 
-    "onUnmount(): deep nesting 4+ levels with onUnmount at each level": () => {
+    "onUnmount(): deep nesting 4+ levels with onUnmount at each level": async () => {
         const container = setup();
         const unmounts: string[] = [];
         const state = createState({ show: true });
@@ -767,9 +770,9 @@ export default {
             ]
         );
 
-        expect(unmounts).toEqual([]);
+        await expect(unmounts).toEqual([]);
         patch({ show: false });
-        expect(unmounts)
+        await expect(unmounts)
             .toEqual([
                 "unmount article",
                 "unmount section",
@@ -778,7 +781,7 @@ export default {
             ]);
     },
 
-    "onUnmount(): multiple siblings - remove one fires only that sibling's subtree": () => {
+    "onUnmount(): multiple siblings - remove one fires only that sibling's subtree": async () => {
         const container = setup();
         const unmounts: string[] = [];
         const state = createState({ showFirst: true, showSecond: true });
@@ -817,12 +820,12 @@ export default {
             ]
         );
 
-        expect(unmounts).toEqual([]);
+        await expect(unmounts).toEqual([]);
         patch({ showFirst: false });
-        expect(unmounts).toEqual(["unmount first-child", "unmount first"]);
+        await expect(unmounts).toEqual(["unmount first-child", "unmount first"]);
     },
 
-    "onUnmount(): multiple siblings - remove parent fires all": () => {
+    "onUnmount(): multiple siblings - remove parent fires all": async () => {
         const container = setup();
         const unmounts: string[] = [];
         const state = createState({ show: true });
@@ -849,12 +852,12 @@ export default {
             ]
         );
 
-        expect(unmounts).toEqual([]);
+        await expect(unmounts).toEqual([]);
         patch({ show: false });
-        expect(unmounts).toEqual(["unmount second", "unmount first"]);
+        await expect(unmounts).toEqual(["unmount second", "unmount first"]);
     },
 
-    "onUnmount(): stale children cleanup - fewer new children than old fires removed children's onUnmounts": () => {
+    "onUnmount(): stale children cleanup - fewer new children than old fires removed children's onUnmounts": async () => {
         const container = setup();
         const unmounts: string[] = [];
         const state = createState({ count: 3 });
@@ -868,12 +871,12 @@ export default {
             ]
         );
 
-        expect(unmounts).toEqual([]);
+        await expect(unmounts).toEqual([]);
         patch({ count: 1 });
-        expect(unmounts).toEqual(["unmount p1", "unmount p2"]);
+        await expect(unmounts).toEqual(["unmount p1", "unmount p2"]);
     },
 
-    "onUnmount(): mixed onUnmount presence in tree - only elements with onUnmount fire": () => {
+    "onUnmount(): mixed onUnmount presence in tree - only elements with onUnmount fire": async () => {
         const container = setup();
         const unmounts: string[] = [];
         const state = createState({ show: true });
@@ -902,12 +905,12 @@ export default {
             ]
         );
 
-        expect(unmounts).toEqual([]);
+        await expect(unmounts).toEqual([]);
         patch({ show: false });
-        expect(unmounts).toEqual(["unmount p", "unmount section"]);
+        await expect(unmounts).toEqual(["unmount p", "unmount section"]);
     },
 
-    "onUnmount(): sibling ordering - sibling subtree depths": () => {
+    "onUnmount(): sibling ordering - sibling subtree depths": async () => {
         const container = setup();
         const unmounts: string[] = [];
         const state = createState({ show: true });
@@ -941,12 +944,12 @@ export default {
             ]
         );
 
-        expect(unmounts).toEqual([]);
+        await expect(unmounts).toEqual([]);
         patch({ show: false });
-        expect(unmounts).toEqual(["unmount nav", "unmount p-deep", "unmount div"]);
+        await expect(unmounts).toEqual(["unmount nav", "unmount p-deep", "unmount div"]);
     },
 
-    "onUnmount(): A->A path - children's unmounts shift when previous sibling's subtree changes": () => {
+    "onUnmount(): A->A path - children's unmounts shift when previous sibling's subtree changes": async () => {
         const container = setup();
         const unmounts: string[] = [];
         const state = createState({ showExtraChild: true, remove: false });
@@ -981,11 +984,11 @@ export default {
             ]
         );
 
-        expect(unmounts).toEqual([]);
+        await expect(unmounts).toEqual([]);
         patch({ showExtraChild: false });
-        expect(unmounts).toEqual(["unmount span"]);
+        await expect(unmounts).toEqual(["unmount span"]);
         patch({ remove: true });
-        expect(unmounts)
+        await expect(unmounts)
             .toEqual([
                 "unmount span",
                 "unmount aside",
@@ -993,7 +996,7 @@ export default {
             ]);
     },
 
-    "onUnmount(): root element replacement fires root's onUnmount": () => {
+    "onUnmount(): root element replacement fires root's onUnmount": async () => {
         const container = setup();
         const unmounts: string[] = [];
         const state = createState({ showDiv: true });
@@ -1017,12 +1020,12 @@ export default {
                 ]
         );
 
-        expect(unmounts).toEqual([]);
+        await expect(unmounts).toEqual([]);
         patch({ showDiv: false });
-        expect(unmounts).toEqual(["unmount div"]);
+        await expect(unmounts).toEqual(["unmount div"]);
     },
 
-    "onUnmount(): child onUnmount fires when element is falsified after onUnmount was added via A->A update": () => {
+    "onUnmount(): child onUnmount fires when element is falsified after onUnmount was added via A->A update": async () => {
         const container = setup();
         const unmounts: string[] = [];
         const state = createState({ addUnmount: false, show: true });
@@ -1039,14 +1042,16 @@ export default {
             ]
         );
 
-        expect(unmounts).toEqual([]);
+        await expect(unmounts).toEqual([]);
         patch({ addUnmount: true });
-        expect(unmounts).toEqual([]);
+        await delay(10);
+        await expect(unmounts).toEqual([]);
         patch({ show: false });
-        expect(unmounts).toEqual(["unmount article"]);
+        await delay(10);
+        await expect(unmounts).toEqual(["unmount article"]);
     },
 
-    "onUnmount(): A->B path - onUnmount from old children fire when switching tags": () => {
+    "onUnmount(): A->B path - onUnmount from old children fire when switching tags": async () => {
         const container = setup();
         const unmounts: string[] = [];
         const state = createState({ showArticle: true });
@@ -1076,12 +1081,12 @@ export default {
             ]
         );
 
-        expect(unmounts).toEqual([]);
+        await expect(unmounts).toEqual([]);
         patch({ showArticle: false });
-        expect(unmounts).toEqual(["unmount p-inner"]);
+        await expect(unmounts).toEqual(["unmount p-inner"]);
     },
 
-    "onUnmount(): memo hit + earlier sibling growth corrupts unmount indices": () => {
+    "onUnmount(): memo hit + earlier sibling growth corrupts unmount indices": async () => {
         const container = setup();
         const fired: string[] = [];
         const state = createState({ expanded: false, showB: true });
@@ -1112,16 +1117,16 @@ export default {
             ]
         );
 
-        expect(fired).toEqual([]);
+        await expect(fired).toEqual([]);
 
         patch({ expanded: true });
-        expect(fired).toEqual([]);
+        await expect(fired).toEqual([]);
 
         patch({ showB: false });
-        expect(fired).toEqual(["unmount B"]);
+        await expect(fired).toEqual(["unmount B"]);
     },
 
-    "onUnmount(): excess child removal + same-render sibling growth": () => {
+    "onUnmount(): excess child removal + same-render sibling growth": async () => {
         const container = setup();
         const fired: string[] = [];
         const state = createState({ expanded: false, showB: true });
@@ -1152,12 +1157,12 @@ export default {
             ]
         );
 
-        expect(fired).toEqual([]);
+        await expect(fired).toEqual([]);
         patch({ expanded: true, showB: false });
-        expect(fired).toEqual(["unmount B"]);
+        await expect(fired).toEqual(["unmount B"]);
     },
 
-    "onMount() + onUnmount: symmetry of calls": () => {
+    "onMount() + onUnmount: symmetry of calls": async () => {
         const container = setup();
         const state = createState({
             startTime: 0,
@@ -1174,12 +1179,10 @@ export default {
                     type: 'text',
                     placeholder: 'Auto-focused on mount',
                     onMount: (s: State, ele: HTMLElement) => {
-                        //(ele as HTMLInputElement).focus();
                         logs.push('Input mounted');
                         return { inputReady: true };
                     },
                     onUnmount: (s: State, ele: HTMLElement) => {
-                        // console.log('Input removed');
                         logs.push('Input removed');
                         return { inputReady: false };
                     }
@@ -1191,22 +1194,21 @@ export default {
                         s.patch({ startTime: Date.now() });
                     },
                     onUnmount: (s: State, ele: HTMLElement) => {
-                        console.log('Timer stopped after', Date.now() - s.startTime, 'ms');
                         logs.push('Timer removed');
                     }
                 }, 'Mount/unmount lifecycle demo']
             ]
         );
 
-        expect(state.inputReady)
+        await expect(state.inputReady)
             .toEqual(true);
-        expect(state.startTime != 0)
+        await expect(state.startTime != 0)
             .toEqual(true);
         patch({ showInput: false });
-        expect(state.inputReady)
-            .toEqual(false);
+        await expect(state)
+            .toEqual({ ...state, inputReady: false });
         patch({ showTimer: false });
-        expect(logs).toEqual([
+        await expect(logs).toEqual([
             'Input mounted',
             'Timer started',
             'Input removed',
@@ -1214,7 +1216,7 @@ export default {
         ]);
     },
 
-    "onMount(): with catched component, replacement vode's onMount fires when error occurs": () => {
+    "onMount(): with catched component, replacement vode's onMount fires when error occurs": async () => {
         const container = setup();
         const mounts: string[] = [];
         const broken: any = () => { throw new Error("boom"); };
@@ -1234,10 +1236,10 @@ export default {
             ]
         );
 
-        expect(mounts).toEqual(["mount fallback"]);
+        await expect(mounts).toEqual(["mount fallback"]);
     },
 
-    "onMount(): with catched component, returned vode's onMount fires and receives error": () => {
+    "onMount(): with catched component, returned vode's onMount fires and receives error": async () => {
         const container = setup();
         const mounts: string[] = [];
         const caughtErrors: string[] = [];
@@ -1261,11 +1263,11 @@ export default {
             ]
         );
 
-        expect(mounts).toEqual(["mount fallback"]);
-        expect(caughtErrors).toEqual(["boom"]);
+        await expect(mounts).toEqual(["mount fallback"]);
+        await expect(caughtErrors).toEqual(["boom"]);
     },
 
-    "onUnmount(): with catched component, replacement vode's onUnmount fires when removed": () => {
+    "onUnmount(): with catched component, replacement vode's onUnmount fires when removed": async () => {
         const container = setup();
         const unmounts: string[] = [];
         const state = createState({ show: true });
@@ -1288,12 +1290,12 @@ export default {
             ]
         );
 
-        expect(unmounts).toEqual([]);
+        await expect(unmounts).toEqual([]);
         patch({ show: false });
-        expect(unmounts).toEqual(["unmount fallback"]);
+        await expect(unmounts).toEqual(["unmount fallback"]);
     },
 
-    "onUnmount(): with catched component, deep replacement tree fires in post-order": () => {
+    "onUnmount(): with catched component, deep replacement tree fires in post-order": async () => {
         const container = setup();
         const unmounts: string[] = [];
         const state = createState({ show: true });
@@ -1331,12 +1333,12 @@ export default {
             ]
         );
 
-        expect(unmounts).toEqual([]);
+        await expect(unmounts).toEqual([]);
         patch({ show: false });
-        expect(unmounts).toEqual(["unmount span", "unmount p", "unmount article"]);
+        await expect(unmounts).toEqual(["unmount span", "unmount p", "unmount article"]);
     },
 
-    "onMount()/onUnmount(): with catched component, full lifecycle symmetry of catch replacement": () => {
+    "onMount()/onUnmount(): with catched component, full lifecycle symmetry of catch replacement": async () => {
         const container = setup();
         const logs: string[] = [];
         const state = createState({ show: true });
@@ -1362,12 +1364,12 @@ export default {
             ]
         );
 
-        expect(logs).toEqual(["mount article"]);
+        await expect(logs).toEqual(["mount article"]);
         patch({ show: false });
-        expect(logs).toEqual(["mount article", "unmount article"]);
+        await expect(logs).toEqual(["mount article", "unmount article"]);
     },
 
-    "onMount(): with catched component, original element's onMount does NOT fire when error caused replacement": () => {
+    "onMount(): with catched component, original element's onMount does NOT fire when error caused replacement": async () => {
         const container = setup();
         const logs: string[] = [];
         const broken: any = () => { throw new Error("boom"); };
@@ -1399,6 +1401,6 @@ export default {
 
         // SECTION never finishes mounting (its child broke), so its onMount must not fire.
         // The catch on DIV replaces the broken subtree with ARTICLE whose onMount must fire.
-        expect(logs).toEqual(["mount fallback"]);
+        await expect(logs).toEqual(["mount fallback"]);
     },
 }

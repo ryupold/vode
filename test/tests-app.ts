@@ -2,7 +2,7 @@ import { expect } from "./helper";
 import { app, ARTICLE, BUTTON, createState, DIV, P, SPAN, SECTION } from "../index";
 
 export default {
-    "app(): successful initialization": () => {
+    "app(): successful initialization": async () => {
         const root = document.createElement("div");
         const container = document.createElement("div");
         root.appendChild(container);
@@ -19,7 +19,7 @@ export default {
 
         expect(patch).toBeA("function");
 
-        expect(container).toMatch(
+        await expect(container).toMatch(
             [DIV,
                 [ARTICLE,
                     [P, "foo", [SPAN, "bar"]]
@@ -30,15 +30,15 @@ export default {
 
     //=== FAILURE CASES ===
 
-    "app(): fails when the container has no parent": () => {
+    "app(): fails when the container has no parent": async () => {
         const container = document.createElement("div");
         const err = expect(() => app(container, {}, () => [DIV]))
             .toFail();
 
-        expect(err.message).toEqual("first argument to app() must be a valid HTMLElement inside the <html></html> document");
+        await expect(err.message).toEqual("first argument to app() must be a valid HTMLElement inside the <html></html> document");
     },
 
-    "app(): fails when the state is not an object": () => {
+    "app(): fails when the state is not an object": async () => {
         const root = document.createElement("div");
         const container = document.createElement("div");
         root.appendChild(container);
@@ -46,10 +46,10 @@ export default {
         const err = expect(() => app(container, "oops", () => [DIV]))
             .toFail();
 
-        expect(err.message).toEqual("second argument to app() must be a state object");
+        await expect(err.message).toEqual("second argument to app() must be a state object");
     },
 
-    "app(): fails when the dom factory is not a function": () => {
+    "app(): fails when the dom factory is not a function": async () => {
         const root = document.createElement("div");
         const container = document.createElement("div");
         root.appendChild(container);
@@ -57,12 +57,12 @@ export default {
         const err = expect(() => app(container, {}, [DIV] as any))
             .toFail();
 
-        expect(err.message).toEqual("third argument to app() must be a function that returns a vode");
+        await expect(err.message).toEqual("third argument to app() must be a function that returns a vode");
     },
 
     //=== INITIAL PATCHES ===
 
-    "app(): executes initial patches after first render": () => {
+    "app(): executes initial patches after first render": async () => {
         const root = document.createElement("div");
         const container = document.createElement("div");
         root.appendChild(container);
@@ -74,12 +74,12 @@ export default {
             () => ({ start: 2 })
         );
 
-        expect(state).toEqual({ count: 7, start: 2 });
+        await expect(state).toEqual({ count: 7, start: 2 });
     },
 
     //=== STATE PATCHING ===
 
-    "app(): patch with object updates state and re-renders DOM": () => {
+    "app(): patch with object updates state and re-renders DOM": async () => {
         const root = document.createElement("div");
         const container = document.createElement("div");
         root.appendChild(container);
@@ -87,16 +87,16 @@ export default {
         const state: any = { msg: "hello" };
         app(container, state, (s: any) => [DIV, s.msg]);
 
-        expect(state.msg).toEqual("hello");
-        expect(container).toMatch([DIV, "hello"]);
+        await expect(state.msg).toEqual("hello");
+        await expect(container).toMatch([DIV, "hello"]);
 
         state.patch({ msg: "world" });
 
-        expect(state.msg).toEqual("world");
-        expect(container).toMatch([DIV, "world"]);
+        await expect(state.msg).toEqual("world");
+        await expect(container).toMatch([DIV, "world"]);
     },
 
-    "app(): patch with effect function executes and applies result": () => {
+    "app(): patch with effect function executes and applies result": async () => {
         const root = document.createElement("div");
         const container = document.createElement("div");
         root.appendChild(container);
@@ -106,11 +106,11 @@ export default {
 
         state.patch(() => ({ count: 5 }));
 
-        expect(state.count).toEqual(5);
-        expect(container).toMatch([DIV, "5"]);
+        await expect(state.count).toEqual(5);
+        await expect(container).toMatch([DIV, "5"]);
     },
 
-    "app(): patch with array applies multiple patches in sequence": () => {
+    "app(): patch with array applies multiple patches in sequence": async () => {
         const root = document.createElement("div");
         const container = document.createElement("div");
         root.appendChild(container);
@@ -118,13 +118,13 @@ export default {
         const state: any = { a: 1, b: 2 };
         app(container, state, () => [DIV]);
 
-        state.patch([{ a: 10 }, { b: 20 }]);
+        await state.patch([{ a: 10 }, { b: 20 }]);
 
-        expect(state.a).toEqual(10);
-        expect(state.b).toEqual(20);
+        await expect(state.a).toEqual(10);
+        await expect(state.b).toEqual(20);
     },
 
-    "app(): multiple sequential patches both apply": () => {
+    "app(): multiple sequential patches both apply": async () => {
         const root = document.createElement("div");
         const container = document.createElement("div");
         root.appendChild(container);
@@ -135,12 +135,12 @@ export default {
         state.patch({ x: 1 });
         state.patch({ y: 2 });
 
-        expect(state).toEqual({ x: 1, y: 2 });
+        await expect(state).toEqual({ x: 1, y: 2 });
     },
 
     //=== LIFECYCLE ===
 
-    "app(): onMount callback is called on newly created child elements": () => {
+    "app(): onMount callback is called on newly created child elements": async () => {
         const root = document.createElement("div");
         const container = document.createElement("div");
         root.appendChild(container);
@@ -152,12 +152,12 @@ export default {
             ] as any
         );
 
-        expect(mountCalled).toEqual(true);
+        await expect(mountCalled).toEqual(true);
     },
 
     //=== COMPONENTS ===
 
-    "app(): component function as child renders correctly": () => {
+    "app(): component function as child renders correctly": async () => {
         const root = document.createElement("div");
         const container = document.createElement("div");
         root.appendChild(container);
@@ -168,12 +168,12 @@ export default {
             ]
         );
 
-        expect(container).toMatch(
+        await expect(container).toMatch(
             [DIV, [SPAN, "component rendered"]]
         );
     },
 
-    "app(): component accesses state and renders dynamic content": () => {
+    "app(): component accesses state and renders dynamic content": async () => {
         const root = document.createElement("div");
         const container = document.createElement("div");
         root.appendChild(container);
@@ -185,12 +185,12 @@ export default {
             ]
         );
 
-        expect(container).toMatch([DIV, [SPAN, "dynamic"]]);
+        await expect(container).toMatch([DIV, [SPAN, "dynamic"]]);
     },
 
     //=== DEEP STATE ===
 
-    "app(): deep nested state merges correctly via patch": () => {
+    "app(): deep nested state merges correctly via patch": async () => {
         const root = document.createElement("div");
         const container = document.createElement("div");
         root.appendChild(container);
@@ -200,14 +200,14 @@ export default {
 
         state.patch({ nested: { value: 2 } });
 
-        expect(state.nested.value).toEqual(2);
-        expect(state.nested.other).toEqual("keep");
-        expect(container).toMatch([DIV, "2"]);
+        await expect(state.nested.value).toEqual(2);
+        await expect(state.nested.other).toEqual("keep");
+        await expect(container).toMatch([DIV, "2"]);
     },
 
     //=== IGNORED PATCHES ===
 
-    "app(): patching with ignored types is a no-op": () => {
+    "app(): patching with ignored types is a no-op": async () => {
         const root = document.createElement("div");
         const container = document.createElement("div");
         root.appendChild(container);
@@ -221,10 +221,10 @@ export default {
         state.patch("ignored");
         state.patch(true);
 
-        expect(state.x).toEqual(1);
+        await expect(state.x).toEqual(1);
     },
 
-    "app(): isolated state of multiple independent vode app instances": () => {
+    "app(): isolated state of multiple independent vode app instances": async () => {
         const root = document.createElement("div");
 
         // APP 1 (foo) //
@@ -254,14 +254,14 @@ export default {
         ]);
         /////////////////
 
-        expect(containerFoo).toMatch(
+        await expect(containerFoo).toMatch(
             [DIV,
                 [P, "App 1 count: 0"],
                 [BUTTON, "Sync +1"],
             ]
         );
 
-        expect(containerBar).toMatch(
+        await expect(containerBar).toMatch(
             [DIV,
                 [P, "App 2 count: 0"],
             ]
@@ -270,14 +270,14 @@ export default {
         // Patch state1 independently: no effect on state2
         patchFoo({ count: 5 });
 
-        expect(containerFoo).toMatch(
+        await expect(containerFoo).toMatch(
             [DIV,
                 [P, "App 1 count: 5"],
                 [BUTTON, "Sync +1"],
             ]
         );
 
-        expect(containerBar).toMatch(
+        await expect(containerBar).toMatch(
             [DIV,
                 [P, "App 2 count: 0"],
             ]
@@ -286,14 +286,14 @@ export default {
         // Patch state2 independently: no effect on state1
         patchBar({ count: 3 });
 
-        expect(containerFoo).toMatch(
+        await expect(containerFoo).toMatch(
             [DIV,
                 [P, "App 1 count: 5"],
                 [BUTTON, "Sync +1"],
             ]
         );
 
-        expect(containerBar).toMatch(
+        await expect(containerBar).toMatch(
             [DIV,
                 [P, "App 2 count: 3"],
             ]
@@ -302,14 +302,14 @@ export default {
         // Sync state2 via the returned patch function
         patchBar({ count: 10 });
 
-        expect(containerBar).toMatch(
+        await expect(containerBar).toMatch(
             [DIV,
                 [P, "App 2 count: 10"],
             ]
         );
     },
 
-    "app(): root tag changes between renders": () => {
+    "app(): root tag changes between renders": async () => {
         const root = document.createElement("div");
         const container = document.createElement("div");
         root.appendChild(container);
@@ -319,11 +319,11 @@ export default {
             s.useSection ? [SECTION, "section mode"] : [DIV, "div mode"]
         );
 
-        expect(container).toMatch([DIV, "div mode"]);
+        await expect(container).toMatch([DIV, "div mode"]);
 
         patch({ useSection: true });
 
-        expect(root).toMatch([DIV, [SECTION, "section mode"]]);
+        await expect(root).toMatch([DIV, [SECTION, "section mode"]]);
     },
 
     "app(): event handler with object patch": () => {

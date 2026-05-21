@@ -9,56 +9,56 @@ export default {
             .toSucceed();
     },
 
-    "defuse(): removes _vode from container": () => {
+    "defuse(): removes _vode from container": async () => {
         const root = document.createElement("div");
         const container = document.createElement("div");
         root.appendChild(container);
         app(container, {}, () => [DIV]);
-        expect(typeof (container as any)._vode).toEqual("object");
+        await expect(typeof (container as any)._vode).toEqual("object");
         defuse(container as any);
 
-        expect((container as any)._vode)
+        await expect((container as any)._vode)
             .toEqual(undefined);
     },
 
-    "defuse(): removes patch function from state": () => {
+    "defuse(): removes patch function from state": async () => {
         const root = document.createElement("div");
         const container = document.createElement("div");
         root.appendChild(container);
         const state: any = {};
         app(container, state, () => [DIV]);
-        expect(typeof state.patch).toEqual("function");
+        await expect(typeof state.patch).toEqual("function");
         defuse(container as any);
 
-        expect(state.patch)
+        await expect(state.patch)
             .toEqual(undefined);
     },
 
-    "defuse(): disables renderSync and renderAsync": () => {
+    "defuse(): disables renderSync and renderAsync": async () => {
         const root = document.createElement("div");
         const container = document.createElement("div");
         root.appendChild(container);
         app(container, {}, () => [DIV]);
         defuse(container as any);
 
-        expect((container as any)._vode)
+        await expect((container as any)._vode)
             .toEqual(undefined);
     },
 
-    "defuse(): clears event listeners from rendered elements": () => {
+    "defuse(): clears event listeners from rendered elements": async () => {
         const root = document.createElement("div");
         const container = document.createElement("div");
         root.appendChild(container);
         app(container, {}, () => [DIV, { onclick: () => ({}) }] as any);
         const node = (container as any)._vode.vode.node;
-        expect(typeof node.onclick).toEqual("function");
+        await expect(typeof node.onclick).toEqual("function");
         defuse(container as any);
 
-        expect(node.onclick)
+        await expect(node.onclick)
             .toEqual(null);
     },
 
-    "defuse(): recurses into child containers": () => {
+    "defuse(): recurses into child containers": async () => {
         const root = document.createElement("div");
         const outer = document.createElement("div");
         const inner = document.createElement("div");
@@ -68,11 +68,11 @@ export default {
         app(inner, state, () => [DIV]);
         defuse(outer as any);
 
-        expect(state.patch)
+        await expect(state.patch)
             .toEqual(undefined);
     },
 
-    "defuse(): clears event listeners from child vodes without _vode": () => {
+    "defuse(): clears event listeners from child vodes without _vode": async () => {
         const root = document.createElement("div");
         const container = document.createElement("div");
         root.appendChild(container);
@@ -83,13 +83,13 @@ export default {
         const child1 = (v as any).node;
         const child1onclick = child1.onclick;
         const child2 = (v as any)[2].node;
-        expect(typeof child1onclick).toEqual("function");
-        expect(typeof child2.onclick).toEqual("function");
+        await expect(typeof child1onclick).toEqual("function");
+        await expect(typeof child2.onclick).toEqual("function");
         defuse(container as any);
 
-        expect(child1.onclick)
+        await expect(child1.onclick)
             .toEqual(null);
-        expect(child2.onclick)
+        await expect(child2.onclick)
             .toEqual(null);
     },
 };

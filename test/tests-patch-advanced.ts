@@ -1,4 +1,4 @@
-import { expect } from "./helper";
+import { delay, expect } from "./helper";
 import { app, createState, DIV } from "../index";
 
 function setup() {
@@ -14,7 +14,7 @@ export default {
         const state: any = createState({ count: 0 });
         app(container, state, (s: any) => [DIV, String(s.count)]);
 
-        expect(state.count).toEqual(0);
+        await expect(state.count).toEqual(0);
 
         state.patch(function* () {
             yield { count: 1 };
@@ -24,8 +24,8 @@ export default {
 
         await new Promise(r => setTimeout(r, 0));
 
-        expect(state.count).toEqual(3);
-        expect(container).toMatch([DIV, "3"]);
+        await expect(state.count).toEqual(3);
+        await expect(container).toMatch([DIV, "3"]);
     },
 
     "patch(): async generator yields over time": async () => {
@@ -33,7 +33,7 @@ export default {
         const state: any = createState({ phase: "start", value: 0 });
         app(container, state, (s: any) => [DIV, s.phase, String(s.value)]);
 
-        expect(state.phase).toEqual("start");
+        await expect(state.phase).toEqual("start");
 
         state.patch(async function* () {
             yield { phase: "working", value: 10 };
@@ -43,9 +43,9 @@ export default {
 
         await new Promise(r => setTimeout(r, 0));
 
-        expect(state.phase).toEqual("done");
-        expect(state.value).toEqual(30);
-        expect(container).toMatch([DIV, "done", "30"]);
+        await expect(state.phase).toEqual("done");
+        await expect(state.value).toEqual(30);
+        await expect(container).toMatch([DIV, "done", "30"]);
     },
 
     "patch(): Promise resolves and applies patch": async () => {
@@ -57,28 +57,30 @@ export default {
 
         await new Promise(r => setTimeout(r, 0));
 
-        expect(state.msg).toEqual("after");
-        expect(container).toMatch([DIV, "after"]);
+        await expect(state.msg).toEqual("after");
+        await expect(container).toMatch([DIV, "after"]);
     },
 
-    "patch(): array with empty patches applies nothing": () => {
+    "patch(): array with empty patches applies nothing": async () => {
         const container = setup();
         const state: any = createState({ x: 1, y: 2 });
         app(container, state, (s: any) => [DIV]);
 
         state.patch([{}, {}]);
-        expect(state.x).toEqual(1);
-        expect(state.y).toEqual(2);
+        await expect(state.x).toEqual(1);
+        await expect(state.y).toEqual(2);
     },
 
-    "patch(): array with null/undefined items skips them": () => {
+    "patch(): array with null/undefined items skips them": async () => {
         const container = setup();
         const state: any = createState({ x: 0, y: 0 });
         app(container, state, (s: any) => [DIV, String(s.x), String(s.y)]);
 
-        state.patch([null, { x: 10 }, undefined, { y: 20 }]);
+        await state.patch([null, { x: 10 }, undefined, { y: 20 }]);
 
-        expect(state.x).toEqual(10);
-        expect(state.y).toEqual(20);
+        await delay(10);
+
+        await expect(state.x).toEqual(10);
+        await expect(state.y).toEqual(20);
     },
 };

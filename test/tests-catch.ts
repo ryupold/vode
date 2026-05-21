@@ -9,7 +9,7 @@ function setup() {
 }
 
 export default {
-    "catch: function fallback renders instead of broken component": () => {
+    "catch: function fallback renders instead of broken component": async () => {
         const container = setup();
         const broken = () => { throw new Error("boom"); };
 
@@ -22,14 +22,14 @@ export default {
             ]
         );
 
-        expect(container).toMatch(
+        await expect(container).toMatch(
             [DIV,
                 [P, "caught: boom"]
             ]
         );
     },
 
-    "catch: static vode fallback renders instead of broken component": () => {
+    "catch: static vode fallback renders instead of broken component": async () => {
         const container = setup();
         const broken = () => { throw new Error("boom"); };
 
@@ -42,14 +42,14 @@ export default {
             ]
         );
 
-        expect(container).toMatch(
+        await expect(container).toMatch(
             [DIV,
                 [ARTICLE, "error occurred"]
             ]
         );
     },
 
-    "catch: nested error boundaries — inner catch handles inner error": () => {
+    "catch: nested error boundaries — inner catch handles inner error": async () => {
         const container = setup();
         const broken = () => { throw new Error("inner boom"); };
 
@@ -66,7 +66,7 @@ export default {
             ]
         );
 
-        expect(container).toMatch(
+        await expect(container).toMatch(
             [DIV,
                 [SECTION,
                     [ARTICLE, "inner fallback"]
@@ -75,7 +75,7 @@ export default {
         );
     },
 
-    "catch: nested error boundaries — outer catches when inner has no handler": () => {
+    "catch: nested error boundaries — outer catches when inner has no handler": async () => {
         const container = setup();
         const broken = () => { throw new Error("boom"); };
 
@@ -88,14 +88,14 @@ export default {
             ]
         );
 
-        expect(container).toMatch(
+        await expect(container).toMatch(
             [DIV,
                 [P, "outer caught it"]
             ]
         );
     },
 
-    "catch: error propagates when no handler exists on entire tree": () => {
+    "catch: error propagates when no handler exists on entire tree": async () => {
         const container = setup();
         const broken = () => { throw new Error("crash"); };
         let threw = false;
@@ -108,10 +108,10 @@ export default {
             threw = true;
         }
 
-        expect(threw).toEqual(true);
+        await expect(threw).toEqual(true);
     },
 
-    "catch: catch handler changed on A→A path": () => {
+    "catch: catch handler changed on A→A path": async () => {
         const container = setup();
         const state = createState({ catchValue: "v1", showBroken: false });
         const broken = () => { throw new Error("boom"); };
@@ -125,18 +125,18 @@ export default {
             ]
         );
 
-        expect(container).toMatch(
+        await expect(container).toMatch(
             [DIV, [SECTION, "ok"]]
         );
 
         patch({ catchValue: "v2", showBroken: true });
 
-        expect(container).toMatch(
+        await expect(container).toMatch(
             [DIV, [P, "v2"]]
         );
     },
 
-    "catch: error in one sibling doesn't affect the other": () => {
+    "catch: error in one sibling doesn't affect the other": async () => {
         const container = setup();
         const broken = () => { throw new Error("boom"); };
 
@@ -150,7 +150,7 @@ export default {
             ]
         );
 
-        expect(container).toMatch(
+        await expect(container).toMatch(
             [DIV,
                 [P, "whoops"],
                 [ARTICLE, "i am fine"]
