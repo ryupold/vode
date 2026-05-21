@@ -1,6 +1,6 @@
 {
     "name": "@ryupold/vode",
-    "version": "1.8.8",
+    "version": "1.8.9",
     "description": "a minimalist web framework",
     "author": "Michael Scherbakow (ryupold)",
     "license": "MIT",
@@ -30,6 +30,7 @@
     "exports": {
         ".": {
             "types": "./dist/vode.d.ts",
+            "tests": "./dist/vode.tests.mjs",
             "import": "./dist/vode.min.mjs",
             "require": "./dist/vode.cjs.min.js",
             "default": "./dist/vode.min.js"
@@ -43,11 +44,12 @@
         "build-classic-min": "esbuild index.ts --outfile=dist/vode.min.js --bundle --format=iife  --global-name=V --minify",
         "babel": "npx babel dist/vode.mjs --out-file dist/vode.cjs.min.js",
         "babel-classic": "npx babel dist/vode.js --out-file dist/vode.es5.min.js",
-        "release": "npm run build && npm run build-min && npm run build-classic && npm run build-classic-min && npm run babel && npm run babel-classic && npm run types",
+        "release": "npm run build && npm run build-min && npm run build-classic && npm run build-classic-min && npm run babel && npm run babel-classic && npm run types && npm run build-tests",
         "publish": "npm publish --access public",
         "clean": "tsc -b --clean && rm dist/*",
         "watch": "tsc -b -w",
-        "test": "tsc -p tsconfig.test.json && esbuild test/index.ts --bundle --outfile=test/bundle.js --platform=node && node test/bundle.js"
+        "test": "tsc -p tsconfig.test.json && esbuild test/run-tests.ts --bundle --outfile=test/run-tests.js --platform=node && node test/run-tests.js",
+        "build-tests": "esbuild test/index.ts --bundle --format=esm --outfile=dist/vode.tests.mjs"
     },
     "devDependencies": {
         "@babel/cli": "7.28.6",

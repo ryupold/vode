@@ -353,10 +353,11 @@ var V = (() => {
       configurable: true,
       writable: false,
       value: () => {
-        if (_vode.isRendering || !_vode.qSync) return;
-        _vode.isRendering = true;
+        if (!_vode.qSync) return;
         _vode.state = mergeState(_vode.state, _vode.qSync, true);
         _vode.qSync = null;
+        if (_vode.isRendering) return;
+        _vode.isRendering = true;
         _vode.syncRenderer(sr);
       }
     });
