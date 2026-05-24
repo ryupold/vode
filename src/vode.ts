@@ -1,5 +1,5 @@
 export type Vode<S = PatchableState> = FullVode<S> | JustTagVode | NoPropsVode<S>;
-export type FullVode<S = PatchableState> = [tag: Tag, props: Props<S>, ...children: ChildVode<S>[]];
+export type FullVode<S = PatchableState> = [tag: Tag, props: Props<S> | ChildVode<S>, ...children: ChildVode<S>[]];
 export type NoPropsVode<S = PatchableState> = [tag: Tag, ...children: ChildVode<S>[]] | (TextVode[]);
 export type JustTagVode = [tag: Tag];
 export type ChildVode<S = PatchableState> = Vode<S> | TextVode | NoVode | Component<S>;
@@ -37,9 +37,9 @@ export interface Props<S = PatchableState> extends Partial<
     class?: ClassProp,
     style?: StyleProp,
     /** called after the element was attached */
-    onMount?: MountFunction<S>,
+    onMount?: MountFunction<S> | null | false,
     /** called before the element is detached */
-    onUnmount?: MountFunction<S>,
+    onUnmount?: MountFunction<S> | null | false,
     /** used instead of original vode when an error occurs during rendering */
     catch?: ((s: S, error: Error) => ChildVode<S>) | ChildVode<S>;
 };
