@@ -22,6 +22,7 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           registry-url: "https://registry.npmjs.org"
+          node-version: 24
       - run: npm ci
       - run: npm run test
 
@@ -34,6 +35,7 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           registry-url: "https://registry.npmjs.org"
+          node-version: 24
       - run: npm ci
       - run: npm run release
       - run: |
@@ -61,6 +63,7 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           registry-url: "https://npm.pkg.github.com"
+          node-version: 24
       - run: npm ci
       - run: npm run release
       - run: |
@@ -85,6 +88,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v6
+        with:
+          node-version: 24
       - run: |
           echo "@ryupold:registry=https://git.chimps.quest/api/packages/ryupold/npm/" >> .npmrc
           echo "//git.chimps.quest/api/packages/ryupold/npm/:_authToken=${CHIMPS_TOKEN}" >> .npmrc
