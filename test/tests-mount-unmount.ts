@@ -1,12 +1,12 @@
-import { app, createState, memo } from "../src/vode"
+import { app, ContainerNode, createState, memo } from "../src/vode"
 import { ARTICLE, ASIDE, DIV, INPUT, MAIN, NAV, P, SECTION, SPAN } from "../src/vode-tags";
-import { delay, expect, ExpectationError } from "./helper";
+import { expect, ExpectationError } from "./helper";
 
 function setup() {
     const root = document.createElement("div");
     const container = document.createElement("div");
     root.appendChild(container);
-    return container;
+    return container as unknown as ContainerNode;
 }
 
 export default {
@@ -501,7 +501,7 @@ export default {
     },
 
     "onUnmount(): A->A path - onUnmount added during update fires on later removal": async () => {
-        const container = setup();
+        const container = setup() as unknown as ContainerNode;
         const unmounts: string[] = [];
         const state = createState({ toggle: false, remove: false });
         const patch = app<typeof state>(container, state, (s) =>
@@ -512,17 +512,25 @@ export default {
                             unmounts.push("unmount section");
                         }
                     } : {},
-                    [P, "text"]
+                    [P, {
+                        onUnmount: s.toggle && ((s: unknown, ele: HTMLElement) => {
+                            unmounts.push("unmount p");
+                        })
+                    }, "text"]
                 ]
             ]
         );
 
         await expect(unmounts).toEqual([]);
+        let before = container._vode.stats.syncRenderCount;
         patch({ toggle: true });
-        await delay(50);
+        await expect(() => expect(container._vode.stats.syncRenderCount).toBeGreaterThan(before))
+            .toSucceedAsync();
         await expect(unmounts).toEqual([]);
+        before = container._vode.stats.syncRenderCount;
         patch({ remove: true });
-        await expect(unmounts).toEqual(["unmount section"]);
+        await expect(() => expect(container._vode.stats.syncRenderCount).toBeGreaterThan(before)).toSucceedAsync();
+        await expect(unmounts).toEqual(["unmount p", "unmount section"]);
     },
 
     "onUnmount(): A->A path - onUnmount removed during update does not fire": async () => {
@@ -532,7 +540,7 @@ export default {
         const patch = app<typeof state>(container, state, (s) =>
             [DIV,
                 !s.remove && [SECTION,
-                    s.toggle ? {} : {
+                    !s.toggle && {
                         onUnmount: (s: unknown, ele: HTMLElement) => {
                             unmounts.push("unmount section");
                         }
@@ -543,9 +551,7 @@ export default {
         );
 
         await expect(unmounts).toEqual([]);
-        patch({ toggle: true });
-        await expect(unmounts).toEqual([]);
-        patch({ remove: true });
+        patch({ remove: true, toggle: false });
         await expect(unmounts).toEqual([]);
     },
 
@@ -567,8 +573,10 @@ export default {
         );
 
         await expect(unmounts).toEqual([]);
+        const before = container._vode.stats.syncRenderCount;
         patch({ version: "b" });
-        await delay(10);
+        await expect(async () => await expect(container._vode.stats.syncRenderCount).toBeGreaterThan(before))
+            .toSucceedAsync();
         await expect(unmounts).toEqual([]);
         patch({ remove: true });
         await expect(unmounts).toEqual(["unmount b"]);
@@ -602,7 +610,6 @@ export default {
 
         await expect(unmounts).toEqual([]);
         patch({ showArticle: false });
-        await delay(10);
         await expect(unmounts).toEqual(["unmount article"]);
     },
 
@@ -726,7 +733,10 @@ export default {
         );
 
         await expect(unmounts).toEqual([]);
+        const before = container._vode.stats.syncRenderCount;
         patch({ showElement: true });
+        await expect(() => expect(container._vode.stats.syncRenderCount).toBeGreaterThan(before))
+            .toSucceedAsync();
         await expect(unmounts).toEqual([]);
         patch({ remove: true });
         await expect(unmounts).toEqual(["unmount article"]);
@@ -1043,11 +1053,12 @@ export default {
         );
 
         await expect(unmounts).toEqual([]);
+        const before = container._vode.stats.syncRenderCount;
         patch({ addUnmount: true });
-        await delay(10);
+        await expect(async () => await expect(container._vode.stats.syncRenderCount).toEqual(before + 1))
+            .toSucceedAsync();
         await expect(unmounts).toEqual([]);
         patch({ show: false });
-        await delay(10);
         await expect(unmounts).toEqual(["unmount article"]);
     },
 
@@ -1173,8 +1184,8 @@ export default {
         type State = typeof state;
         const logs: string[] = [];
 
-        const patch = app<State>(container, state, (s) =>
-            [DIV,
+        const patch = app<State>(container, state, (s) => {
+            return [DIV,
                 s.showInput && [INPUT, {
                     type: 'text',
                     placeholder: 'Auto-focused on mount',
@@ -1191,13 +1202,14 @@ export default {
                 s.showTimer && [P, {
                     onMount: (s: State, ele: HTMLElement) => {
                         logs.push('Timer started');
-                        s.patch({ startTime: Date.now() });
+                        return { startTime: Date.now() };
                     },
                     onUnmount: (s: State, ele: HTMLElement) => {
                         logs.push('Timer removed');
                     }
                 }, 'Mount/unmount lifecycle demo']
             ]
+        }
         );
 
         await expect(state.inputReady)
@@ -1205,9 +1217,18 @@ export default {
         await expect(state.startTime != 0)
             .toEqual(true);
         patch({ showInput: false });
-        await expect(state)
-            .toEqual({ ...state, inputReady: false });
+
+        await expect(
+            async () => await expect(state.inputReady).toEqual(false, "expected: inputReady == false")
+        ).toSucceedAsync();
+
         patch({ showTimer: false });
+
+        await expect(
+            async () => await expect(container._vode.stats.syncRenderCount >= 4)
+                .toEqual(true)
+        ).toSucceedAsync();
+
         await expect(logs).toEqual([
             'Input mounted',
             'Timer started',

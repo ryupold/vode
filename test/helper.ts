@@ -14,8 +14,51 @@ function isRealTextNode(node: any): node is Text {
 
 export const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+function retry<T = void>(fn: () => Promise<T>, waitTime: number): Promise<T> {
+    const { promise, resolve, reject } = Promise.withResolvers<T>();
+
+    function retryInternal(timeLeft: number) {
+        const start = performance.now();
+        try {
+            const prom = fn();
+            if (typeof prom?.then === "function") {
+                prom.then(resolve).catch((err) => {
+                    if (timeLeft >= 0) {
+                        setTimeout(
+                            () => retryInternal(timeLeft - (performance.now() - start)),
+                            10
+                        );
+                    } else {
+                        reject(err);
+                    }
+                });
+            } else {
+                resolve(prom);
+            }
+        } catch (err) {
+            if (timeLeft >= 0) {
+                setTimeout(() => {
+                    retryInternal(timeLeft - (performance.now() - start))
+                }, 10);
+            } else {
+                reject(err);
+            }
+        }
+    }
+
+    retryInternal(waitTime);
+
+    return promise;
+}
+
 export class Expectation {
     constructor(public readonly what: any) { }
+
+    toBeNotHidden() {
+        if (document.hidden) {
+            throw new ExpectationError(this, `expect the document to be not hidden. if you run this in a real browser this means the window must be in focus in order for the tests to work.`);
+        }
+    }
 
     toBeA(type: "undefined" | "object" | "function" | "bigint" | "boolean" | "number" | "string" | "symbol", failMessage?: string) {
         if (typeof this.what !== type) {
@@ -23,12 +66,33 @@ export class Expectation {
         }
     }
 
-    async toEqual(other: any, failMessage?: string, waitTimeMs: number = 1000) {
-        await delay(0);
-        let lastErr: any;
-        const start = performance.now();
-        while (start + waitTimeMs > performance.now()) {
-            try {
+    toBeGreaterThan(other: number, failMessage?: string) {
+        if (!(this.what > other)) {
+            throw new ExpectationError(this, `expected \n\n${this.what}\n\nto be >\n\n${other}${failMessage ? `\n\n${failMessage}` : ""}`);
+        }
+    }
+
+    toBeGreaterOrEqualThan(other: number, failMessage?: string) {
+        if (!(this.what >= other)) {
+            throw new ExpectationError(this, `expected \n\n${this.what}\n\nto be >= \n\n${other}${failMessage ? `\n\n${failMessage}` : ""}`);
+        }
+    }
+
+    toBeSmallerThan(other: number, failMessage?: string) {
+        if (!(this.what < other)) {
+            throw new ExpectationError(this, `expected \n\n${this.what}\n\nto be <\n\n${other}${failMessage ? `\n\n${failMessage}` : ""}`);
+        }
+    }
+
+    toBeSmallerOrEqual(other: number, failMessage?: string) {
+        if (!(this.what <= other)) {
+            throw new ExpectationError(this, `expected \n\n${this.what}\n\nto be <= \n\n${other}${failMessage ? `\n\n${failMessage}` : ""}`);
+        }
+    }
+
+    async toEqual(other: any, failMessage?: string, waitTimeMs: number = 100) {
+        return await retry(
+            async () => {
                 const failSuffix = failMessage ? `\n\n${failMessage}` : "";
 
                 function deepCompare(a: any, b: any, path: string[]): string[] | null {
@@ -74,34 +138,47 @@ export class Expectation {
                         throw new ExpectationError(this, `expected (${typeof this.what})\n\n${this.what}\n\nto equal (${typeof other})\n\n${other}${failSuffix}`);
                     }
                 }
-
-                return;
-            } catch (err) {
-                lastErr = err;
-                await delay(10);
-            }
-        }
-
-        if (lastErr) {
-            throw lastErr;
-        }
+            },
+            waitTimeMs
+        );
     }
 
-    toSucceed<Result>(...args: any): Result {
+    toSucceed<Result>(): Result {
         if (typeof this.what !== "function") {
             throw new ExpectationError(this, `expected a function\n\nbut it is a ${typeof this.what}`);
         }
-        return this.what(...args);
+        return this.what();
     }
 
-    toFail(...args: any): Error {
+    toFail(): Error {
         if (typeof this.what !== "function") {
             throw new ExpectationError(this, `expected a function\n\nbut it is a ${typeof this.what}`);
         }
 
         let r: any;
         try {
-            r = this.what(...args);
+            r = this.what();
+        } catch (err: any) {
+            return err;
+        }
+        throw new ExpectationError(this, `expected function to fail\n\nbut it succeeded with a result of type ${typeof r}\n\n${r}`);
+    }
+
+    toSucceedAsync<Result>(waitTime: number = 100): Promise<Result> {
+        if (typeof this.what !== "function") {
+            throw new ExpectationError(this, `expected a function\n\nbut it is a ${typeof this.what}`);
+        }
+        return retry<Result>(() => this.what(), waitTime);
+    }
+
+    async toFailAsync(): Promise<Error> {
+        if (typeof this.what !== "function") {
+            throw new ExpectationError(this, `expected a function\n\nbut it is a ${typeof this.what}`);
+        }
+
+        let r: any;
+        try {
+            r = await this.what();
         } catch (err: any) {
             return err;
         }
@@ -111,12 +188,10 @@ export class Expectation {
     async toMatch(v: ChildVode,
         state?: PatchableState | null,
         failMessage?: string,
-        waitTimeMs: number = 1000
+        waitTimeMs: number = 100
     ) {
-        const start = performance.now();
-        let lastErr: any;
-        while (start + waitTimeMs > performance.now()) {
-            try {
+        return await retry(
+            async () => {
                 const failSuffix = failMessage ? `\n\n${failMessage}` : "";
 
                 // Support FakeElement, FakeTextNode, real HTMLElement, real Text nodes, strings, arrays, functions
@@ -267,16 +342,9 @@ export class Expectation {
                 } else {
                     throw new ExpectationError(this, `expected an element or text node\n\nbut it is a ${typeof this.what}\n${this.what}${failSuffix}`);
                 }
-                return;
-            } catch (err) {
-                lastErr = err;
-                await delay(10);
-            }
-        }
-
-        if (lastErr) {
-            throw lastErr;
-        }
+            },
+            waitTimeMs
+        );
     }
 };
 

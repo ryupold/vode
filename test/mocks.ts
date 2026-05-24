@@ -1,3 +1,5 @@
+import { globals } from "../src/vode";
+
 const NodeConstants = {
     ELEMENT_NODE: 1,
     ATTRIBUTE_NODE: 2,
@@ -181,14 +183,40 @@ export class FakeTextNode {
 }
 
 export function resetMocks() {
+    let hidden = false;
+    let rafHandle = 0;
+    const rafQueue = new Map<number, FrameRequestCallback>();
+    let rafTimer: ReturnType<typeof setTimeout> | null = null;
+
+    function scheduleNextFrame() {
+        if (rafTimer !== null || hidden || rafQueue.size === 0) {
+            return;
+        }
+
+        rafTimer = setTimeout(() => {
+            rafTimer = null;
+
+            if (hidden || rafQueue.size === 0) {
+                scheduleNextFrame();
+                return;
+            }
+
+            const now = performance.now();
+            const callbacks = Array.from(rafQueue.values());
+            rafQueue.clear();
+
+            for (const cb of callbacks) {
+                cb(now);
+            }
+
+            scheduleNextFrame();
+        }, 16);
+    }
+
     const mockDoc: any = {
         createElement: (tag: string) => new FakeElement(tag),
         createTextNode: (text: string) => new FakeTextNode(text),
         createElementNS: (ns: string, tag: string) => new FakeElement(tag),
-        hidden: false,
-    };
-    const mockWin: any = {
-        requestAnimationFrame: (cb: any) => cb(Date.now()),
         startViewTransition: (callbackOptions: any) => {
             return {
                 finished: Promise.resolve(),
@@ -199,7 +227,41 @@ export function resetMocks() {
         }
     };
 
+    Object.defineProperty(mockDoc, "hidden", {
+        enumerable: true,
+        configurable: true,
+        get: () => hidden,
+        set: (value: boolean) => {
+            hidden = !!value;
+            if (!hidden) {
+                scheduleNextFrame();
+            }
+        },
+    });
+
+    const mockWin: any = {
+        requestAnimationFrame: (cb: FrameRequestCallback) => {
+            const id = ++rafHandle;
+            rafQueue.set(id, cb);
+            scheduleNextFrame();
+            return id;
+        },
+        cancelAnimationFrame: (id: number) => {
+            rafQueue.delete(id);
+        }
+    };
+
     globalThis.document ??= mockDoc as Document;
     globalThis.window ??= mockWin as (Window & typeof globalThis);
     globalThis.Node ??= NodeConstants as any;
+
+    const raf = globalThis.window?.requestAnimationFrame;
+    if (typeof raf === "function") {
+        globals.requestAnimationFrame = raf.bind(globalThis.window);
+    }
+
+    const startViewTransition = (globalThis.document as any)?.startViewTransition;
+    globals.startViewTransition = typeof startViewTransition === "function"
+        ? startViewTransition.bind(globalThis.document)
+        : null;
 }

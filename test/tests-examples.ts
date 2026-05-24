@@ -349,7 +349,7 @@ export default {
 
         state.patch({
             form: {
-                email: "user@example.com",
+                email: "user@ryupold.de",
                 password: "123",
                 errors: {
                     email: undefined,
@@ -508,8 +508,7 @@ export default {
         app<typeof state>(container, state, (s) => {
             const ctxA = context(s).panelA;
             const ctxB = context(s).panelB;
-            return [
-                DIV,
+            return [DIV,
                 [SECTION, { class: "panel-a" },
                     [H2, ctxA.label.get()],
                     [P, `Count: ${s.panelA.count}`],
@@ -675,10 +674,10 @@ export default {
         const state = createState({
             config: {
                 showImage: false,
-                imageUrl: "https://example.com/image.png",
+                imageUrl: "https://ryupold.de/main/assets/img/pot.webp",
                 alt: "Example image",
                 linkEnabled: true,
-                linkUrl: "https://example.com",
+                linkUrl: "https://ryupold.de",
                 boxWidth: "100px",
                 boxColor: "red",
             },
@@ -715,7 +714,7 @@ export default {
             [DIV,
                 [BUTTON, "Show Image"],
                 [A, {
-                    href: "https://example.com",
+                    href: "https://ryupold.de",
                     "data-enabled": "true",
                 }, "Click me"],
                 [BUTTON, "Toggle Link"],
@@ -729,14 +728,14 @@ export default {
         await expect(container).toMatch(
             [DIV,
                 [IMG, {
-                    src: "https://example.com/image.png",
+                    src: "https://ryupold.de/main/assets/img/pot.webp",
                     alt: "Example image",
                     class: "dynamic-image",
                     "data-testid": "image",
                 }],
                 [BUTTON, "Hide Image"],
                 [A, {
-                    href: "https://example.com",
+                    href: "https://ryupold.de",
                     "data-enabled": "true",
                 }, "Click me"],
                 [BUTTON, "Toggle Link"],
@@ -751,7 +750,7 @@ export default {
             [DIV,
                 [BUTTON, "Show Image"],
                 [A, {
-                    href: "https://example.com",
+                    href: "https://ryupold.de",
                     "data-enabled": "true",
                 }, "Click me"],
                 [BUTTON, "Toggle Link"],

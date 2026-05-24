@@ -1,5 +1,5 @@
 import { tests } from ".";
-import { ExpectationError } from "./helper";
+import { expect, ExpectationError } from "./helper";
 import { resetMocks } from "./mocks";
 
 const count = {
@@ -14,6 +14,7 @@ async function runTest(test: [string, () => any]) {
     resetMocks();
     const start = performance.now();
     try {
+        expect(document).toBeNotHidden();
         const result = test[1]();
         if (result && typeof (result as any)?.then === "function") {
             await result;

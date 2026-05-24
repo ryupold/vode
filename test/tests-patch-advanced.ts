@@ -55,7 +55,7 @@ export default {
 
         state.patch(Promise.resolve({ msg: "after" }));
 
-        await new Promise(r => setTimeout(r, 0));
+        await delay(10);
 
         await expect(state.msg).toEqual("after");
         await expect(container).toMatch([DIV, "after"]);
@@ -76,7 +76,7 @@ export default {
         const state: any = createState({ x: 0, y: 0 });
         app(container, state, (s: any) => [DIV, String(s.x), String(s.y)]);
 
-        await state.patch([null, { x: 10 }, undefined, { y: 20 }]);
+        state.patch([null, { x: 10 }, undefined, { y: 20 }]);
 
         await delay(10);
 
