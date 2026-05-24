@@ -261,53 +261,62 @@ var V = (() => {
     const _vode = {};
     _vode.syncRenderer = globals.requestAnimationFrame;
     _vode.asyncRenderer = globals.startViewTransition;
-    _vode.qSync = null;
+    _vode.isRendering = 0;
     _vode.qAsync = null;
     _vode.stats = { lastSyncRenderTime: 0, lastAsyncRenderTime: 0, syncRenderCount: 0, asyncRenderCount: 0, liveEffectCount: 0, patchCount: 0, syncRenderPatchCount: 0, asyncRenderPatchCount: 0 };
     const patchableState = state;
     if ("patch" in state && typeof state.patch === "function" && Array.isArray(state.patch.initialPatches)) {
       initialPatches = [...state.patch.initialPatches, ...initialPatches];
     }
+    async function promisePatch(action, isAnimated) {
+      _vode.stats.liveEffectCount++;
+      try {
+        const resolvedPatch = await action;
+        patchableState.patch(resolvedPatch, isAnimated);
+      } finally {
+        _vode.stats.liveEffectCount--;
+      }
+    }
+    async function generatorPatch(action, isAnimated) {
+      const generator = action;
+      _vode.stats.liveEffectCount++;
+      try {
+        let v = await generator.next();
+        while (v.done === false) {
+          _vode.stats.liveEffectCount++;
+          try {
+            patchableState.patch(v.value, isAnimated);
+            v = await generator.next();
+          } finally {
+            _vode.stats.liveEffectCount--;
+          }
+        }
+        patchableState.patch(v.value, isAnimated);
+      } finally {
+        _vode.stats.liveEffectCount--;
+      }
+    }
     Object.defineProperty(state, "patch", {
       enumerable: false,
       configurable: true,
       writable: false,
-      value: async (action, isAsync) => {
-        if (!action || typeof action !== "function" && typeof action !== "object") return;
+      value: (action, isAnimated) => {
+        while (typeof action === "function") {
+          action = action(_vode.state);
+        }
+        if (!action || typeof action !== "object") return;
         _vode.stats.patchCount++;
         if (action?.next) {
-          const generator = action;
-          _vode.stats.liveEffectCount++;
-          try {
-            let v = await generator.next();
-            while (v.done === false) {
-              _vode.stats.liveEffectCount++;
-              try {
-                patchableState.patch(v.value, isAsync);
-                v = await generator.next();
-              } finally {
-                _vode.stats.liveEffectCount--;
-              }
-            }
-            patchableState.patch(v.value, isAsync);
-          } finally {
-            _vode.stats.liveEffectCount--;
-          }
+          generatorPatch(action, isAnimated);
         } else if (action.then) {
-          _vode.stats.liveEffectCount++;
-          try {
-            const resolvedPatch = await action;
-            patchableState.patch(resolvedPatch, isAsync);
-          } finally {
-            _vode.stats.liveEffectCount--;
-          }
+          promisePatch(action, isAnimated);
         } else if (Array.isArray(action)) {
           if (action.length > 0) {
             for (const p of action) {
               patchableState.patch(p, !document.hidden && !!_vode.asyncRenderer);
             }
           } else {
-            _vode.qSync = mergeState(_vode.qSync || {}, _vode.qAsync, false);
+            mergeState(_vode.state, _vode.qAsync, true);
             _vode.qAsync = null;
             try {
               globals.currentViewTransition?.skipTransition();
@@ -316,22 +325,20 @@ var V = (() => {
             _vode.stats.syncRenderPatchCount++;
             _vode.renderSync();
           }
-        } else if (typeof action === "function") {
-          patchableState.patch(action(_vode.state), isAsync);
         } else {
-          if (isAsync) {
+          if (isAnimated) {
             _vode.stats.asyncRenderPatchCount++;
             _vode.qAsync = mergeState(_vode.qAsync || {}, action, false);
-            await _vode.renderAsync();
+            _vode.renderAsync();
           } else {
             _vode.stats.syncRenderPatchCount++;
-            _vode.qSync = mergeState(_vode.qSync || {}, action, false);
+            mergeState(_vode.state, action, true);
             _vode.renderSync();
           }
         }
       }
     });
-    function renderDom(isAsync) {
+    function renderDom(isAnimated) {
       const sw = performance.now();
       const vom = dom(_vode.state);
       _vode.vode = render(_vode.state, container.parentElement, 0, 0, _vode.vode, vom);
@@ -339,11 +346,13 @@ var V = (() => {
         container = _vode.vode.node;
         container._vode = _vode;
       }
-      if (!isAsync) {
+      if (!isAnimated) {
         _vode.stats.lastSyncRenderTime = performance.now() - sw;
+        const changesSinceRender = _vode.isRendering !== _vode.stats.syncRenderPatchCount;
         _vode.stats.syncRenderCount++;
-        _vode.isRendering = false;
-        if (_vode.qSync) _vode.renderSync();
+        _vode.isRendering = 0;
+        if (changesSinceRender)
+          _vode.renderSync();
       }
     }
     const sr = renderDom.bind(null, false);
@@ -353,11 +362,8 @@ var V = (() => {
       configurable: true,
       writable: false,
       value: () => {
-        if (!_vode.qSync) return;
-        _vode.state = mergeState(_vode.state, _vode.qSync, true);
-        _vode.qSync = null;
         if (_vode.isRendering) return;
-        _vode.isRendering = true;
+        _vode.isRendering = _vode.stats.syncRenderPatchCount;
         _vode.syncRenderer(sr);
       }
     });
@@ -388,7 +394,8 @@ var V = (() => {
     const root = container;
     root._vode = _vode;
     const indexInParent = Array.from(container.parentElement.children).indexOf(container);
-    _vode.isRendering = true;
+    const patchCountBefore = _vode.stats.syncRenderPatchCount;
+    _vode.isRendering = _vode.stats.syncRenderPatchCount;
     _vode.vode = render(
       state,
       container.parentElement,
@@ -397,8 +404,10 @@ var V = (() => {
       hydrate(container, true),
       dom(state)
     );
-    _vode.isRendering = false;
-    if (_vode.qSync) _vode.renderSync();
+    const continueRendering = _vode.stats.syncRenderPatchCount !== patchCountBefore;
+    _vode.isRendering = 0;
+    _vode.stats.syncRenderCount++;
+    if (continueRendering) _vode.renderSync();
     for (const effect of initialPatches) {
       patchableState.patch(effect);
     }

@@ -3,7 +3,7 @@
 export type Vode<S = PatchableState> = FullVode<S> | JustTagVode | NoPropsVode<S>;
 export type FullVode<S = PatchableState> = [
 	tag: Tag,
-	props: Props<S>,
+	props: Props<S> | ChildVode<S>,
 	...children: ChildVode<S>[]
 ];
 export type NoPropsVode<S = PatchableState> = [
@@ -40,9 +40,9 @@ export interface Props<S = PatchableState> extends Partial<Omit<HTMLElement, key
 	class?: ClassProp;
 	style?: StyleProp;
 	/** called after the element was attached */
-	onMount?: MountFunction<S>;
+	onMount?: MountFunction<S> | null | false;
 	/** called before the element is detached */
-	onUnmount?: MountFunction<S>;
+	onUnmount?: MountFunction<S> | null | false;
 	/** used instead of original vode when an error occurs during rendering */
 	catch?: ((s: S, error: Error) => ChildVode<S>) | ChildVode<S>;
 }
@@ -82,9 +82,8 @@ export interface ContainerNode<S = PatchableState> extends HTMLElement {
 		renderAsync: () => Promise<unknown>;
 		syncRenderer: (cb: () => void) => void;
 		asyncRenderer: ((cb: () => void) => ViewTransition) | null | undefined;
-		qSync: {} | undefined | null;
 		qAsync: {} | undefined | null;
-		isRendering: boolean;
+		isRendering: number;
 		isAnimating: boolean;
 		/** stats about the overall patches & last render time */
 		stats: {

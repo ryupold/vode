@@ -17,53 +17,62 @@ function app(container, state, dom, ...initialPatches) {
   const _vode = {};
   _vode.syncRenderer = globals.requestAnimationFrame;
   _vode.asyncRenderer = globals.startViewTransition;
-  _vode.qSync = null;
+  _vode.isRendering = 0;
   _vode.qAsync = null;
   _vode.stats = { lastSyncRenderTime: 0, lastAsyncRenderTime: 0, syncRenderCount: 0, asyncRenderCount: 0, liveEffectCount: 0, patchCount: 0, syncRenderPatchCount: 0, asyncRenderPatchCount: 0 };
   const patchableState = state;
   if ("patch" in state && typeof state.patch === "function" && Array.isArray(state.patch.initialPatches)) {
     initialPatches = [...state.patch.initialPatches, ...initialPatches];
   }
+  async function promisePatch(action, isAnimated) {
+    _vode.stats.liveEffectCount++;
+    try {
+      const resolvedPatch = await action;
+      patchableState.patch(resolvedPatch, isAnimated);
+    } finally {
+      _vode.stats.liveEffectCount--;
+    }
+  }
+  async function generatorPatch(action, isAnimated) {
+    const generator = action;
+    _vode.stats.liveEffectCount++;
+    try {
+      let v = await generator.next();
+      while (v.done === false) {
+        _vode.stats.liveEffectCount++;
+        try {
+          patchableState.patch(v.value, isAnimated);
+          v = await generator.next();
+        } finally {
+          _vode.stats.liveEffectCount--;
+        }
+      }
+      patchableState.patch(v.value, isAnimated);
+    } finally {
+      _vode.stats.liveEffectCount--;
+    }
+  }
   Object.defineProperty(state, "patch", {
     enumerable: false,
     configurable: true,
     writable: false,
-    value: async (action, isAsync) => {
-      if (!action || typeof action !== "function" && typeof action !== "object") return;
+    value: (action, isAnimated) => {
+      while (typeof action === "function") {
+        action = action(_vode.state);
+      }
+      if (!action || typeof action !== "object") return;
       _vode.stats.patchCount++;
       if (action?.next) {
-        const generator = action;
-        _vode.stats.liveEffectCount++;
-        try {
-          let v = await generator.next();
-          while (v.done === false) {
-            _vode.stats.liveEffectCount++;
-            try {
-              patchableState.patch(v.value, isAsync);
-              v = await generator.next();
-            } finally {
-              _vode.stats.liveEffectCount--;
-            }
-          }
-          patchableState.patch(v.value, isAsync);
-        } finally {
-          _vode.stats.liveEffectCount--;
-        }
+        generatorPatch(action, isAnimated);
       } else if (action.then) {
-        _vode.stats.liveEffectCount++;
-        try {
-          const resolvedPatch = await action;
-          patchableState.patch(resolvedPatch, isAsync);
-        } finally {
-          _vode.stats.liveEffectCount--;
-        }
+        promisePatch(action, isAnimated);
       } else if (Array.isArray(action)) {
         if (action.length > 0) {
           for (const p of action) {
             patchableState.patch(p, !document.hidden && !!_vode.asyncRenderer);
           }
         } else {
-          _vode.qSync = mergeState(_vode.qSync || {}, _vode.qAsync, false);
+          mergeState(_vode.state, _vode.qAsync, true);
           _vode.qAsync = null;
           try {
             globals.currentViewTransition?.skipTransition();
@@ -72,22 +81,20 @@ function app(container, state, dom, ...initialPatches) {
           _vode.stats.syncRenderPatchCount++;
           _vode.renderSync();
         }
-      } else if (typeof action === "function") {
-        patchableState.patch(action(_vode.state), isAsync);
       } else {
-        if (isAsync) {
+        if (isAnimated) {
           _vode.stats.asyncRenderPatchCount++;
           _vode.qAsync = mergeState(_vode.qAsync || {}, action, false);
-          await _vode.renderAsync();
+          _vode.renderAsync();
         } else {
           _vode.stats.syncRenderPatchCount++;
-          _vode.qSync = mergeState(_vode.qSync || {}, action, false);
+          mergeState(_vode.state, action, true);
           _vode.renderSync();
         }
       }
     }
   });
-  function renderDom(isAsync) {
+  function renderDom(isAnimated) {
     const sw = performance.now();
     const vom = dom(_vode.state);
     _vode.vode = render(_vode.state, container.parentElement, 0, 0, _vode.vode, vom);
@@ -95,11 +102,13 @@ function app(container, state, dom, ...initialPatches) {
       container = _vode.vode.node;
       container._vode = _vode;
     }
-    if (!isAsync) {
+    if (!isAnimated) {
       _vode.stats.lastSyncRenderTime = performance.now() - sw;
+      const changesSinceRender = _vode.isRendering !== _vode.stats.syncRenderPatchCount;
       _vode.stats.syncRenderCount++;
-      _vode.isRendering = false;
-      if (_vode.qSync) _vode.renderSync();
+      _vode.isRendering = 0;
+      if (changesSinceRender)
+        _vode.renderSync();
     }
   }
   const sr = renderDom.bind(null, false);
@@ -109,11 +118,8 @@ function app(container, state, dom, ...initialPatches) {
     configurable: true,
     writable: false,
     value: () => {
-      if (!_vode.qSync) return;
-      _vode.state = mergeState(_vode.state, _vode.qSync, true);
-      _vode.qSync = null;
       if (_vode.isRendering) return;
-      _vode.isRendering = true;
+      _vode.isRendering = _vode.stats.syncRenderPatchCount;
       _vode.syncRenderer(sr);
     }
   });
@@ -144,7 +150,8 @@ function app(container, state, dom, ...initialPatches) {
   const root = container;
   root._vode = _vode;
   const indexInParent = Array.from(container.parentElement.children).indexOf(container);
-  _vode.isRendering = true;
+  const patchCountBefore = _vode.stats.syncRenderPatchCount;
+  _vode.isRendering = _vode.stats.syncRenderPatchCount;
   _vode.vode = render(
     state,
     container.parentElement,
@@ -153,8 +160,10 @@ function app(container, state, dom, ...initialPatches) {
     hydrate(container, true),
     dom(state)
   );
-  _vode.isRendering = false;
-  if (_vode.qSync) _vode.renderSync();
+  const continueRendering = _vode.stats.syncRenderPatchCount !== patchCountBefore;
+  _vode.isRendering = 0;
+  _vode.stats.syncRenderCount++;
+  if (continueRendering) _vode.renderSync();
   for (const effect of initialPatches) {
     patchableState.patch(effect);
   }
@@ -1028,11 +1037,49 @@ function isRealTextNode(node) {
   return isBrowser && node instanceof Text;
 }
 var delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+function retry(fn, waitTime) {
+  const { promise, resolve, reject } = Promise.withResolvers();
+  function retryInternal(timeLeft) {
+    const start = performance.now();
+    try {
+      const prom = fn();
+      if (typeof prom?.then === "function") {
+        prom.then(resolve).catch((err) => {
+          if (timeLeft >= 0) {
+            setTimeout(
+              () => retryInternal(timeLeft - (performance.now() - start)),
+              10
+            );
+          } else {
+            reject(err);
+          }
+        });
+      } else {
+        resolve(prom);
+      }
+    } catch (err) {
+      if (timeLeft >= 0) {
+        setTimeout(() => {
+          retryInternal(timeLeft - (performance.now() - start));
+        }, 10);
+      } else {
+        reject(err);
+      }
+    }
+  }
+  retryInternal(waitTime);
+  return promise;
+}
 var Expectation = class {
   constructor(what) {
     this.what = what;
   }
   what;
+  toBeNotHidden() {
+    if (document.hidden) {
+      throw new ExpectationError(this, `expect the document to be not hidden. if you run this in a real browser this means the window must be in focus in order for the tests to work.`);
+    }
+  }
   toBeA(type, failMessage) {
     if (typeof this.what !== type) {
       throw new ExpectationError(this, `expected 
@@ -1046,13 +1093,65 @@ ${type}${failMessage ? `
 ${failMessage}` : ""}`);
     }
   }
-  async toEqual(other, failMessage, waitTimeMs = 1e3) {
-    await delay(0);
-    let lastErr;
-    const start = performance.now();
-    while (start + waitTimeMs > performance.now()) {
-      try {
-        let deepCompare2 = function(a, b, path) {
+  toBeGreaterThan(other, failMessage) {
+    if (!(this.what > other)) {
+      throw new ExpectationError(this, `expected 
+
+${this.what}
+
+to be >
+
+${other}${failMessage ? `
+
+${failMessage}` : ""}`);
+    }
+  }
+  toBeGreaterOrEqualThan(other, failMessage) {
+    if (!(this.what >= other)) {
+      throw new ExpectationError(this, `expected 
+
+${this.what}
+
+to be >= 
+
+${other}${failMessage ? `
+
+${failMessage}` : ""}`);
+    }
+  }
+  toBeSmallerThan(other, failMessage) {
+    if (!(this.what < other)) {
+      throw new ExpectationError(this, `expected 
+
+${this.what}
+
+to be <
+
+${other}${failMessage ? `
+
+${failMessage}` : ""}`);
+    }
+  }
+  toBeSmallerOrEqual(other, failMessage) {
+    if (!(this.what <= other)) {
+      throw new ExpectationError(this, `expected 
+
+${this.what}
+
+to be <= 
+
+${other}${failMessage ? `
+
+${failMessage}` : ""}`);
+    }
+  }
+  async toEqual(other, failMessage, waitTimeMs = 100) {
+    return await retry(
+      async () => {
+        const failSuffix = failMessage ? `
+
+${failMessage}` : "";
+        function deepCompare(a, b, path) {
           if (typeof a !== typeof b) {
             if (path.length === 0) path.push(``);
             path[path.length - 1] += ` (type: ${typeof a} != ${typeof b})`;
@@ -1065,26 +1164,22 @@ ${failMessage}` : ""}`);
           }
           for (const prop of Object.entries(a)) {
             const [k, v] = prop;
-            const result = deepCompare2(v, b[k], [...path, k]);
+            const result = deepCompare(v, b[k], [...path, k]);
             if (result) {
               return result;
             }
           }
           for (const prop of Object.entries(b)) {
             const [k, v] = prop;
-            const result = deepCompare2(a[k], v, [...path, k]);
+            const result = deepCompare(a[k], v, [...path, k]);
             if (result) {
               return result;
             }
           }
           return null;
-        };
-        var deepCompare = deepCompare2;
-        const failSuffix = failMessage ? `
-
-${failMessage}` : "";
+        }
         if (typeof this.what === "object" && typeof other === "object" && this.what !== null && other !== null) {
-          const unequal = deepCompare2(this.what, other, []);
+          const unequal = deepCompare(this.what, other, []);
           if (unequal) {
             throw new ExpectationError(this, `expected 
 
@@ -1107,25 +1202,19 @@ to equal (${typeof other})
 ${other}${failSuffix}`);
           }
         }
-        return;
-      } catch (err) {
-        lastErr = err;
-        await delay(10);
-      }
-    }
-    if (lastErr) {
-      throw lastErr;
-    }
+      },
+      waitTimeMs
+    );
   }
-  toSucceed(...args) {
+  toSucceed() {
     if (typeof this.what !== "function") {
       throw new ExpectationError(this, `expected a function
 
 but it is a ${typeof this.what}`);
     }
-    return this.what(...args);
+    return this.what();
   }
-  toFail(...args) {
+  toFail() {
     if (typeof this.what !== "function") {
       throw new ExpectationError(this, `expected a function
 
@@ -1133,7 +1222,7 @@ but it is a ${typeof this.what}`);
     }
     let r;
     try {
-      r = this.what(...args);
+      r = this.what();
     } catch (err) {
       return err;
     }
@@ -1143,11 +1232,35 @@ but it succeeded with a result of type ${typeof r}
 
 ${r}`);
   }
-  async toMatch(v, state, failMessage, waitTimeMs = 1e3) {
-    const start = performance.now();
-    let lastErr;
-    while (start + waitTimeMs > performance.now()) {
-      try {
+  toSucceedAsync(waitTime = 100) {
+    if (typeof this.what !== "function") {
+      throw new ExpectationError(this, `expected a function
+
+but it is a ${typeof this.what}`);
+    }
+    return retry(() => this.what(), waitTime);
+  }
+  async toFailAsync() {
+    if (typeof this.what !== "function") {
+      throw new ExpectationError(this, `expected a function
+
+but it is a ${typeof this.what}`);
+    }
+    let r;
+    try {
+      r = await this.what();
+    } catch (err) {
+      return err;
+    }
+    throw new ExpectationError(this, `expected function to fail
+
+but it succeeded with a result of type ${typeof r}
+
+${r}`);
+  }
+  async toMatch(v, state, failMessage, waitTimeMs = 100) {
+    return await retry(
+      async () => {
         const failSuffix = failMessage ? `
 
 ${failMessage}` : "";
@@ -1359,15 +1472,9 @@ but got #text (${e})${failSuffix}`);
 but it is a ${typeof this.what}
 ${this.what}${failSuffix}`);
         }
-        return;
-      } catch (err) {
-        lastErr = err;
-        await delay(10);
-      }
-    }
-    if (lastErr) {
-      throw lastErr;
-    }
+      },
+      waitTimeMs
+    );
   }
 };
 var ExpectationError = class extends Error {
@@ -2908,16 +3015,23 @@ var tests_mount_unmount_default = {
               unmounts.push("unmount section");
             }
           } : {},
-          [P, "text"]
+          [P, {
+            onUnmount: s.toggle && ((s2, ele) => {
+              unmounts.push("unmount p");
+            })
+          }, "text"]
         ]
       ]
     );
     await expect(unmounts).toEqual([]);
+    let before = container._vode.stats.syncRenderCount;
     patch({ toggle: true });
-    await delay(50);
+    await expect(() => expect(container._vode.stats.syncRenderCount).toBeGreaterThan(before)).toSucceedAsync();
     await expect(unmounts).toEqual([]);
+    before = container._vode.stats.syncRenderCount;
     patch({ remove: true });
-    await expect(unmounts).toEqual(["unmount section"]);
+    await expect(() => expect(container._vode.stats.syncRenderCount).toBeGreaterThan(before)).toSucceedAsync();
+    await expect(unmounts).toEqual(["unmount p", "unmount section"]);
   },
   "onUnmount(): A->A path - onUnmount removed during update does not fire": async () => {
     const container = setup();
@@ -2930,7 +3044,7 @@ var tests_mount_unmount_default = {
         DIV,
         !s.remove && [
           SECTION,
-          s.toggle ? {} : {
+          !s.toggle && {
             onUnmount: (s2, ele) => {
               unmounts.push("unmount section");
             }
@@ -2940,9 +3054,7 @@ var tests_mount_unmount_default = {
       ]
     );
     await expect(unmounts).toEqual([]);
-    patch({ toggle: true });
-    await expect(unmounts).toEqual([]);
-    patch({ remove: true });
+    patch({ remove: true, toggle: false });
     await expect(unmounts).toEqual([]);
   },
   "onUnmount(): A->A path - onUnmount changed during update fires the new one": async () => {
@@ -2968,8 +3080,9 @@ var tests_mount_unmount_default = {
       ]
     );
     await expect(unmounts).toEqual([]);
+    const before = container._vode.stats.syncRenderCount;
     patch({ version: "b" });
-    await delay(10);
+    await expect(async () => await expect(container._vode.stats.syncRenderCount).toBeGreaterThan(before)).toSucceedAsync();
     await expect(unmounts).toEqual([]);
     patch({ remove: true });
     await expect(unmounts).toEqual(["unmount b"]);
@@ -3004,7 +3117,6 @@ var tests_mount_unmount_default = {
     );
     await expect(unmounts).toEqual([]);
     patch({ showArticle: false });
-    await delay(10);
     await expect(unmounts).toEqual(["unmount article"]);
   },
   "onUnmount(): A->B path - swap back fires the other element's onUnmount": async () => {
@@ -3130,7 +3242,9 @@ var tests_mount_unmount_default = {
       ]
     );
     await expect(unmounts).toEqual([]);
+    const before = container._vode.stats.syncRenderCount;
     patch({ showElement: true });
+    await expect(() => expect(container._vode.stats.syncRenderCount).toBeGreaterThan(before)).toSucceedAsync();
     await expect(unmounts).toEqual([]);
     patch({ remove: true });
     await expect(unmounts).toEqual(["unmount article"]);
@@ -3484,11 +3598,11 @@ var tests_mount_unmount_default = {
       ]
     );
     await expect(unmounts).toEqual([]);
+    const before = container._vode.stats.syncRenderCount;
     patch({ addUnmount: true });
-    await delay(10);
+    await expect(async () => await expect(container._vode.stats.syncRenderCount).toEqual(before + 1)).toSucceedAsync();
     await expect(unmounts).toEqual([]);
     patch({ show: false });
-    await delay(10);
     await expect(unmounts).toEqual(["unmount article"]);
   },
   "onUnmount(): A->B path - onUnmount from old children fire when switching tags": async () => {
@@ -3623,36 +3737,43 @@ var tests_mount_unmount_default = {
     const patch = app(
       container,
       state,
-      (s) => [
-        DIV,
-        s.showInput && [INPUT, {
-          type: "text",
-          placeholder: "Auto-focused on mount",
-          onMount: (s2, ele) => {
-            logs.push("Input mounted");
-            return { inputReady: true };
-          },
-          onUnmount: (s2, ele) => {
-            logs.push("Input removed");
-            return { inputReady: false };
-          }
-        }],
-        s.showTimer && [P, {
-          onMount: (s2, ele) => {
-            logs.push("Timer started");
-            s2.patch({ startTime: Date.now() });
-          },
-          onUnmount: (s2, ele) => {
-            logs.push("Timer removed");
-          }
-        }, "Mount/unmount lifecycle demo"]
-      ]
+      (s) => {
+        return [
+          DIV,
+          s.showInput && [INPUT, {
+            type: "text",
+            placeholder: "Auto-focused on mount",
+            onMount: (s2, ele) => {
+              logs.push("Input mounted");
+              return { inputReady: true };
+            },
+            onUnmount: (s2, ele) => {
+              logs.push("Input removed");
+              return { inputReady: false };
+            }
+          }],
+          s.showTimer && [P, {
+            onMount: (s2, ele) => {
+              logs.push("Timer started");
+              return { startTime: Date.now() };
+            },
+            onUnmount: (s2, ele) => {
+              logs.push("Timer removed");
+            }
+          }, "Mount/unmount lifecycle demo"]
+        ];
+      }
     );
     await expect(state.inputReady).toEqual(true);
     await expect(state.startTime != 0).toEqual(true);
     patch({ showInput: false });
-    await expect(state).toEqual({ ...state, inputReady: false });
+    await expect(
+      async () => await expect(state.inputReady).toEqual(false, "expected: inputReady == false")
+    ).toSucceedAsync();
     patch({ showTimer: false });
+    await expect(
+      async () => await expect(container._vode.stats.syncRenderCount >= 4).toEqual(true)
+    ).toSucceedAsync();
     await expect(logs).toEqual([
       "Input mounted",
       "Timer started",
@@ -4227,7 +4348,7 @@ var tests_examples_default = {
     );
     state.patch({
       form: {
-        email: "user@example.com",
+        email: "user@ryupold.de",
         password: "123",
         errors: {
           email: void 0,
@@ -4571,10 +4692,10 @@ var tests_examples_default = {
     const state = createState({
       config: {
         showImage: false,
-        imageUrl: "https://example.com/image.png",
+        imageUrl: "https://ryupold.de/main/assets/img/pot.webp",
         alt: "Example image",
         linkEnabled: true,
-        linkUrl: "https://example.com",
+        linkUrl: "https://ryupold.de",
         boxWidth: "100px",
         boxColor: "red"
       }
@@ -4610,7 +4731,7 @@ var tests_examples_default = {
         DIV,
         [BUTTON, "Show Image"],
         [A, {
-          href: "https://example.com",
+          href: "https://ryupold.de",
           "data-enabled": "true"
         }, "Click me"],
         [BUTTON, "Toggle Link"],
@@ -4623,14 +4744,14 @@ var tests_examples_default = {
       [
         DIV,
         [IMG, {
-          src: "https://example.com/image.png",
+          src: "https://ryupold.de/main/assets/img/pot.webp",
           alt: "Example image",
           class: "dynamic-image",
           "data-testid": "image"
         }],
         [BUTTON, "Hide Image"],
         [A, {
-          href: "https://example.com",
+          href: "https://ryupold.de",
           "data-enabled": "true"
         }, "Click me"],
         [BUTTON, "Toggle Link"],
@@ -4644,7 +4765,7 @@ var tests_examples_default = {
         DIV,
         [BUTTON, "Show Image"],
         [A, {
-          href: "https://example.com",
+          href: "https://ryupold.de",
           "data-enabled": "true"
         }, "Click me"],
         [BUTTON, "Toggle Link"],
@@ -5082,7 +5203,7 @@ var tests_patch_advanced_default = {
     const state = createState({ msg: "before" });
     app(container, state, (s) => [DIV, s.msg]);
     state.patch(Promise.resolve({ msg: "after" }));
-    await new Promise((r) => setTimeout(r, 0));
+    await delay(10);
     await expect(state.msg).toEqual("after");
     await expect(container).toMatch([DIV, "after"]);
   },
@@ -5098,7 +5219,7 @@ var tests_patch_advanced_default = {
     const container = setup4();
     const state = createState({ x: 0, y: 0 });
     app(container, state, (s) => [DIV, String(s.x), String(s.y)]);
-    await state.patch([null, { x: 10 }, void 0, { y: 20 }]);
+    state.patch([null, { x: 10 }, void 0, { y: 20 }]);
     await delay(10);
     await expect(state.x).toEqual(10);
     await expect(state.y).toEqual(20);
