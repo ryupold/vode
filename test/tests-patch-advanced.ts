@@ -1,11 +1,11 @@
 import { delay, expect } from "./helper";
-import { app, createState, DIV } from "../index";
+import { app, ContainerNode, createState, DIV } from "../index";
 
 function setup() {
     const root = document.createElement("div");
     const container = document.createElement("div");
     root.appendChild(container);
-    return container;
+    return container as unknown as ContainerNode;
 }
 
 export default {
@@ -36,8 +36,11 @@ export default {
         await expect(state.phase).toEqual("start");
 
         state.patch(async function* () {
+            await expect(container._vode.stats.syncRenderPatchCount).toEqual(0);
             yield { phase: "working", value: 10 };
+            await expect(container._vode.stats.syncRenderPatchCount).toEqual(1);
             yield { phase: "almost", value: 20 };
+            await expect(container._vode.stats.syncRenderPatchCount).toEqual(2);
             return { phase: "done", value: 30 };
         }());
 
