@@ -688,8 +688,6 @@ function mergeClass(...classes) {
       finalClass = { [a]: true, ...b };
     } else if (typeof a === "object" && typeof b === "string") {
       finalClass = { ...a, [b]: true };
-    } else if (typeof a === "object" && typeof b === "object") {
-      finalClass = { ...a, ...b };
     } else if (typeof a === "object" && Array.isArray(b)) {
       const aa = { ...a };
       for (const item of b) {
@@ -705,6 +703,8 @@ function mergeClass(...classes) {
         aa[bKey] = b[bKey];
       }
       finalClass = aa;
+    } else if (typeof a === "object" && typeof b === "object") {
+      finalClass = { ...a, ...b };
     } else throw new Error(`cannot merge classes of ${a} (${typeof a}) and ${b} (${typeof b})`);
   }
   return finalClass;
@@ -1345,7 +1345,7 @@ but got <${tagName.toUpperCase()}>${failSuffix}`);
                   } else {
                     attributeValue = e.getAttribute(k);
                   }
-                  if (!attributeValue) {
+                  if (attributeValue === null) {
                     throw new ExpectationError(that, `expected at
 ${path.join(" > ")}
 
@@ -1814,6 +1814,42 @@ var tests_app_default = {
     );
     const el = container._vode.vode.node;
     expect(el.onclick).toBeA("function");
+  },
+  "app(): class as array renders correctly": async () => {
+    const root = document.createElement("div");
+    const container = document.createElement("div");
+    root.appendChild(container);
+    app(
+      container,
+      {},
+      () => [DIV, { class: ["foo", "bar", "baz"] }, "text"]
+    );
+    await expect(container).toMatch([DIV, { class: "foo bar baz" }, "text"]);
+  },
+  "app(): class as number becomes empty string": async () => {
+    const root = document.createElement("div");
+    const container = document.createElement("div");
+    root.appendChild(container);
+    app(
+      container,
+      {},
+      () => [DIV, { class: 123 }, "text"]
+    );
+    await expect(container).toMatch([DIV, { class: "" }, "text"]);
+  },
+  "app(): style object to string transition": async () => {
+    const root = document.createElement("div");
+    const container = document.createElement("div");
+    root.appendChild(container);
+    const state = { useObject: true };
+    app(
+      container,
+      state,
+      (s) => [DIV, { style: s.useObject ? { color: "red" } : "color: blue" }, "text"]
+    );
+    await expect(container).toMatch([DIV, "text"]);
+    state.patch({ useObject: false });
+    await expect(container).toMatch([DIV, "text"]);
   }
 };
 
@@ -2288,11 +2324,13 @@ var tests_mergeClass_default = {
   "mergeClass(): two objects": async () => {
     await expect(mergeClass({ foo: true, bar: true }, { bar: false, baz: true })).toEqual({ foo: true, bar: false, baz: true });
   },
-  "mergeClass(): object and array": async () => {
-    await expect(mergeClass({ foo: true }, ["bar", "baz"])).toEqual({ foo: true, 0: "bar", 1: "baz" });
+  "mergeClass(): object and array (array items become class names with true)": async () => {
+    await expect(mergeClass({ foo: true }, ["bar", "baz"])).toEqual({ foo: true, bar: true, baz: true });
+    await expect(mergeClass({ active: true }, ["btn", "primary"])).toEqual({ active: true, btn: true, primary: true });
   },
-  "mergeClass(): array and object": async () => {
-    await expect(mergeClass(["foo", "bar"], { baz: true, qux: false })).toEqual({ 0: "foo", 1: "bar", baz: true, qux: false });
+  "mergeClass(): array and object (object keys become class names)": async () => {
+    await expect(mergeClass(["foo", "bar"], { baz: true, qux: false })).toEqual({ foo: true, bar: true, baz: true, qux: false });
+    await expect(mergeClass(["a", "b"], { c: true, d: false })).toEqual({ a: true, b: true, c: true, d: false });
   },
   "mergeClass(): falsy entries are skipped": async () => {
     await expect(mergeClass("foo", null, "bar")).toEqual("foo bar");
@@ -2301,6 +2339,10 @@ var tests_mergeClass_default = {
   "mergeClass(): multiple args (3+)": async () => {
     await expect(mergeClass("a", "b", "c")).toEqual("a b c");
     await expect(mergeClass("x", null, ["y", "z"], "w")).toEqual("y z x w");
+  },
+  "mergeClass(): incompatible types throw": async () => {
+    await expect(() => mergeClass(123, "foo")).toFail();
+    await expect(() => mergeClass("foo", 456)).toFail();
   }
 };
 
@@ -2355,6 +2397,10 @@ var tests_mergeProps_default = {
   "mergeProps(): single arg returned as-is": async () => {
     const p = { class: "foo" };
     await expect(mergeProps(p) === p).toEqual(true);
+  },
+  "mergeProps(): single falsy arg returns undefined": async () => {
+    await expect(mergeProps(null)).toEqual(void 0);
+    await expect(mergeProps(void 0)).toEqual(void 0);
   },
   "mergeProps(): two plain objects merged": async () => {
     await expect(mergeProps({ a: 1 }, { b: 2 })).toEqual({ a: 1, b: 2 });
@@ -2467,6 +2513,12 @@ var tests_state_context_default = {
     ctx.a.x.z.put("deep");
     await expect(state.a.x?.z).toEqual("deep");
     await expect(state.a.y).toEqual(1);
+  },
+  "StateContext.put() merges into existing object properties via Object.assign": async () => {
+    const state = createState({ items: { count: 0, name: "test", hidden: false } });
+    const ctx = context(state);
+    ctx.items.put({ count: 5 });
+    await expect(state.items).toEqual({ count: 5, name: "test", hidden: false });
   }
 };
 
@@ -4176,7 +4228,7 @@ var tests_examples_default = {
         [BUTTON, "Add"],
         [
           NAV,
-          [BUTTON, "All"],
+          [BUTTON, { class: "active" }, "All"],
           [BUTTON, "Active"],
           [BUTTON, "Done"]
         ],
@@ -4200,7 +4252,7 @@ var tests_examples_default = {
         [
           NAV,
           [BUTTON, "All"],
-          [BUTTON, "Active"],
+          [BUTTON, { class: "active" }, "Active"],
           [BUTTON, "Done"]
         ],
         [
@@ -4221,7 +4273,7 @@ var tests_examples_default = {
           NAV,
           [BUTTON, "All"],
           [BUTTON, "Active"],
-          [BUTTON, "Done"]
+          [BUTTON, { class: "active" }, "Done"]
         ],
         [
           UL,

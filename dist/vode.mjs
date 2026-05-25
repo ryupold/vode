@@ -866,8 +866,6 @@ function mergeClass(...classes) {
       finalClass = { [a]: true, ...b };
     } else if (typeof a === "object" && typeof b === "string") {
       finalClass = { ...a, [b]: true };
-    } else if (typeof a === "object" && typeof b === "object") {
-      finalClass = { ...a, ...b };
     } else if (typeof a === "object" && Array.isArray(b)) {
       const aa = { ...a };
       for (const item of b) {
@@ -883,6 +881,8 @@ function mergeClass(...classes) {
         aa[bKey] = b[bKey];
       }
       finalClass = aa;
+    } else if (typeof a === "object" && typeof b === "object") {
+      finalClass = { ...a, ...b };
     } else throw new Error(`cannot merge classes of ${a} (${typeof a}) and ${b} (${typeof b})`);
   }
   return finalClass;
