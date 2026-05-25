@@ -391,7 +391,7 @@ s.patch(async (s) => {
     s.patch({});      // with an empty render patch
     const result = await apiCall();
     return { title: result.title, body: result.body, loading: false };
-}); 
+}); // can be awaited to wait for execution
 
 // patch with an async generator function that yields patches
 s.patch(async function*(s){
@@ -399,7 +399,7 @@ s.patch(async function*(s){
     const result = await apiCall();
     yield { title: result.title, body: result.body };
     return { loading: false }; 
-});
+}); // can be awaited to wait for execution
 
 // ignored, also: undefined, number, string, boolean, void
 s.patch(null);

@@ -86,4 +86,107 @@ export default {
         await expect(state.x).toEqual(10);
         await expect(state.y).toEqual(20);
     },
+
+    "patch(): returns Promise for generator functions, can be awaited": async () => {
+        const container = setup();
+        const state = createState({ count: 0 });
+        app<typeof state>(container, state, (s) => [DIV, String(s.count)]);
+
+        await expect(container._vode.stats.patchCount).toEqual(0);
+        const result = state.patch(function* () {
+            yield { count: 1 };
+            return { count: 2 };
+        });
+        await expect(container._vode.stats.patchCount).toEqual(1);
+
+        expect(result).toBeA("object");
+        await expect(result instanceof Promise).toEqual(true);
+
+        await result;
+        await expect(container._vode.stats.patchCount).toEqual(3);
+
+        await expect(state.count).toEqual(2);
+        await expect(container).toMatch([DIV, "2"]);
+    },
+
+    "patch(): returns Promise for Promise patches, can be awaited": async () => {
+        const container = setup();
+        const state = createState({ msg: "before" });
+        app<typeof state>(container, state, (s) => [DIV, s.msg]);
+
+        const result = state.patch(Promise.resolve({ msg: "after" }));
+
+        expect(result).toBeA("object");
+        await expect(result instanceof Promise).toEqual(true);
+
+        await result;
+
+        await expect(state.msg).toEqual("after");
+        await expect(container).toMatch([DIV, "after"]);
+    },
+
+    "patch(): returns void for object patches": async () => {
+        const container = setup();
+        const state = createState({ x: 1 });
+        app<typeof state>(container, state, (s) => [DIV, String(s.x)]);
+
+        const result = state.patch({ x: 2 });
+
+        expect(result).toBeA("undefined");
+
+        await expect(state.x).toEqual(2);
+        await expect(container).toMatch([DIV, "2"]);
+    },
+
+    "patch(): forward promise error when one happens during patch": async () => {
+        const container = setup();
+        const state = createState({ msg: "before" });
+        app<typeof state>(container, state, (s) => [DIV, s.msg]);
+
+        const mockPromise = Promise.withResolvers<void>();
+        const promisePatchResult = state.patch(mockPromise.promise);
+        mockPromise.reject(new Error("promise error"));
+
+        let err = await expect(() => promisePatchResult)
+            .toFailAsync("promise (1) error expected");
+        expect(err.message).toEqual("promise error");
+
+        err = await expect(() => state.patch(async () => {
+            await delay(1);
+            throw new Error("promise error")
+        })).toFailAsync("promise (2) error expected");
+        expect(err.message).toEqual("promise error");
+    },
+
+    "patch(): forward generator error when one happens during patch": async () => {
+        const container = setup();
+        const state = createState({ msg: "before" });
+        app<typeof state>(container, state, (s) => [DIV, s.msg]);
+
+        const err = await expect(
+            () => state.patch(
+                async function* () {
+                    yield {};
+                    await delay(1);
+                    yield {};
+                    throw new Error("generator error");
+                }
+            )
+        ).toFailAsync("generator error expected");
+        expect(err.message).toEqual("generator error");
+    },
+    "patch(): forward error when one happens during patch": async () => {
+        const container = setup();
+        const state = createState({ msg: "before" });
+        app<typeof state>(container, state, (s) => [DIV, s.msg]);
+
+        const err = await expect(
+            () => state.patch(
+                () => {
+                    throw new Error("void error");
+                }
+            )
+        ).toFailAsync("void error expected");
+        expect(err.message).toEqual("void error");
+    },
 };

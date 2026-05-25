@@ -72,7 +72,7 @@ export type PropertyValue<S> =
     | StyleProp | ClassProp
     | Patch<S>;
 
-export type Dispatch<S> = (action: Patch<S>) => void;
+export type Dispatch<S> = (action: Patch<S>) => void | Promise<void>;
 export interface Patchable<S = object> { patch: Dispatch<S>; }
 export type PatchableState<S = object> = S & Patchable<S>;
 
@@ -149,7 +149,7 @@ export function app<S extends PatchableState = PatchableState>(
     _vode.qAsync = null;
     _vode.stats = { lastSyncRenderTime: 0, lastAsyncRenderTime: 0, syncRenderCount: 0, asyncRenderCount: 0, liveEffectCount: 0, patchCount: 0, syncRenderPatchCount: 0, asyncRenderPatchCount: 0 };
 
-    const patchableState = state as PatchableState<S> & { patch: (action: Patch<S>, animate?: boolean) => void };
+    const patchableState = state as PatchableState<S> & { patch: (action: Patch<S>, animate?: boolean) => void | Promise<void> };
 
     if ("patch" in state && typeof state.patch === "function" && Array.isArray((state as any).patch.initialPatches)) {
         initialPatches = [...(state as any).patch.initialPatches, ...initialPatches];
@@ -159,7 +159,7 @@ export function app<S extends PatchableState = PatchableState>(
         _vode.stats.liveEffectCount++;
         try {
             const resolvedPatch = await (action as Promise<S>);
-            patchableState.patch(<Patch<S>>resolvedPatch, isAnimated);
+            await patchableState.patch(<Patch<S>>resolvedPatch, isAnimated);
         } finally {
             _vode.stats.liveEffectCount--;
         }
@@ -173,13 +173,13 @@ export function app<S extends PatchableState = PatchableState>(
             while (v.done === false) {
                 _vode.stats.liveEffectCount++;
                 try {
-                    patchableState.patch(v.value, isAnimated);
+                    await patchableState.patch(v.value, isAnimated);
                     v = await generator.next();
                 } finally {
                     _vode.stats.liveEffectCount--;
                 }
             }
-            patchableState.patch(v.value as Patch<S>, isAnimated);
+            await patchableState.patch(v.value as Patch<S>, isAnimated);
         } finally {
             _vode.stats.liveEffectCount--;
         }
@@ -187,7 +187,7 @@ export function app<S extends PatchableState = PatchableState>(
 
     Object.defineProperty(state, "patch", {
         enumerable: false, configurable: true,
-        writable: false, value: (action: Patch<S>, isAnimated?: boolean) => {
+        writable: false, value: (action: Patch<S>, isAnimated?: boolean): void | Promise<void> => {
             while (typeof action === "function") {
                 action = (<(s: S) => unknown>action)(_vode.state);
             }
@@ -197,9 +197,9 @@ export function app<S extends PatchableState = PatchableState>(
             _vode.stats.patchCount++;
 
             if ((action as AsyncGenerator<Patch<S>>)?.next) {
-                generatorPatch(action as AsyncGenerator<Patch<S>>, isAnimated);
+                return generatorPatch(action as AsyncGenerator<Patch<S>>, isAnimated);
             } else if ((action as Promise<S>).then) {
-                promisePatch(action as Promise<S>, isAnimated);
+                return promisePatch(action as Promise<S>, isAnimated);
             } else if (Array.isArray(action)) {
                 if (action.length > 0) {
                     for (const p of action) {
