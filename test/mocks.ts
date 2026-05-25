@@ -213,7 +213,7 @@ export function resetMocks() {
         }, 16);
     }
 
-    const mockDoc: any = {
+    const fakeDocument: any = {
         createElement: (tag: string) => new FakeElement(tag),
         createTextNode: (text: string) => new FakeTextNode(text),
         createElementNS: (ns: string, tag: string) => new FakeElement(tag),
@@ -224,10 +224,11 @@ export function resetMocks() {
                 updateCallbackDone: Promise.resolve(),
                 skipTransition() { },
             };
-        }
+        },
+        _fake: true,
     };
 
-    Object.defineProperty(mockDoc, "hidden", {
+    Object.defineProperty(fakeDocument, "hidden", {
         enumerable: true,
         configurable: true,
         get: () => hidden,
@@ -239,7 +240,7 @@ export function resetMocks() {
         },
     });
 
-    const mockWin: any = {
+    const fakeWindow: any = {
         requestAnimationFrame: (cb: FrameRequestCallback) => {
             const id = ++rafHandle;
             rafQueue.set(id, cb);
@@ -248,20 +249,31 @@ export function resetMocks() {
         },
         cancelAnimationFrame: (id: number) => {
             rafQueue.delete(id);
-        }
+        },
+        _fake: true,
     };
 
-    globalThis.document ??= mockDoc as Document;
-    globalThis.window ??= mockWin as (Window & typeof globalThis);
+    if ((<typeof fakeDocument>globalThis.document)?._fake)
+        globalThis.document = undefined as any;
+    if ((<typeof fakeWindow>globalThis.window)?._fake)
+        globalThis.window = undefined as any;
+
+
+    globalThis.document ??= fakeDocument as Document;
+    globalThis.window ??= fakeWindow as (Window & typeof globalThis);
     globalThis.Node ??= NodeConstants as any;
 
-    const raf = globalThis.window?.requestAnimationFrame;
-    if (typeof raf === "function") {
-        globals.requestAnimationFrame = raf.bind(globalThis.window);
+    if ((<typeof fakeWindow>globalThis.window)?._fake) {
+        const raf = globalThis.window?.requestAnimationFrame;
+        if (typeof raf === "function") {
+            globals.requestAnimationFrame = raf.bind(globalThis.window);
+        }
     }
 
-    const startViewTransition = (globalThis.document as any)?.startViewTransition;
-    globals.startViewTransition = typeof startViewTransition === "function"
-        ? startViewTransition.bind(globalThis.document)
-        : null;
+    if ((<typeof fakeDocument>globalThis.document)?._fake) {
+        const startViewTransition = (globalThis.document as any)?.startViewTransition;
+        globals.startViewTransition = typeof startViewTransition === "function"
+            ? startViewTransition.bind(globalThis.document)
+            : null;
+    }
 }

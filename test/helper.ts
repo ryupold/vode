@@ -143,16 +143,18 @@ export class Expectation {
         );
     }
 
-    toSucceed<Result>(): Result {
+    toSucceed<Result>(failMessage?: string): Result {
+        const failSuffix = failMessage ? `\n\n${failMessage}` : "";
         if (typeof this.what !== "function") {
-            throw new ExpectationError(this, `expected a function\n\nbut it is a ${typeof this.what}`);
+            throw new ExpectationError(this, `expected a function\n\nbut it is a ${typeof this.what}${failSuffix}`);
         }
         return this.what();
     }
 
-    toFail(): Error {
+    toFail(failMessage?: string): Error {
+        const failSuffix = failMessage ? `\n\n${failMessage}` : "";
         if (typeof this.what !== "function") {
-            throw new ExpectationError(this, `expected a function\n\nbut it is a ${typeof this.what}`);
+            throw new ExpectationError(this, `expected a function\n\nbut it is a ${typeof this.what}${failSuffix}`);
         }
 
         let r: any;
@@ -161,28 +163,34 @@ export class Expectation {
         } catch (err: any) {
             return err;
         }
-        throw new ExpectationError(this, `expected function to fail\n\nbut it succeeded with a result of type ${typeof r}\n\n${r}`);
+        throw new ExpectationError(this, `expected function to fail\n\nbut it succeeded with a result of type ${typeof r}\n\n${r}${failSuffix}`);
     }
 
-    toSucceedAsync<Result>(waitTime: number = 100): Promise<Result> {
+    toSucceedAsync<Result>(failMessage?: string, waitTime: number = 100): Promise<Result> {
+        const failSuffix = failMessage ? `\n\n${failMessage}` : "";
         if (typeof this.what !== "function") {
-            throw new ExpectationError(this, `expected a function\n\nbut it is a ${typeof this.what}`);
+            throw new ExpectationError(this, `expected a function\n\nbut it is a ${typeof this.what}${failSuffix}`);
         }
         return retry<Result>(() => this.what(), waitTime);
     }
 
-    async toFailAsync(): Promise<Error> {
+    async toFailAsync(failMessage?: string): Promise<Error> {
+        const failSuffix = failMessage ? `\n\n${failMessage}` : "";
+
         if (typeof this.what !== "function") {
-            throw new ExpectationError(this, `expected a function\n\nbut it is a ${typeof this.what}`);
+            throw new ExpectationError(this, `expected a function\n\nbut it is a ${typeof this.what}${failSuffix}`);
         }
 
         let r: any;
         try {
-            r = await this.what();
+            if(typeof this.what === "function")
+                r = await this.what();
+            else
+                r = await this.what;
         } catch (err: any) {
             return err;
         }
-        throw new ExpectationError(this, `expected function to fail\n\nbut it succeeded with a result of type ${typeof r}\n\n${r}`);
+        throw new ExpectationError(this, `expected function to fail\n\nbut it succeeded with a result of type ${typeof r}\n\n${r}${failSuffix}`);
     }
 
     async toMatch(v: ChildVode,
