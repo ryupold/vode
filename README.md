@@ -595,6 +595,40 @@ patch({ showTimer: false });
 
 Like the other events (onclick, onmouseenter, etc.), these can also be attached conditionally and will be added or removed on the fly during rendering. Returning a patch object from these events will patch the same way as with events.
 
+> Note that in certain situations onMount/onUnmount will not be called.
+> For example consider this transition:
+> ```ts
+> const CompA: Component = () => [ARTICLE,
+>       [DIV,
+>         {
+>             onMount: () => console.log("mount A"),
+>             onUnmount: () => console.log("unmount A")
+>         },
+>         "Component A"]
+>     ];
+>     const CompB: Component = () => [ARTICLE,
+>       [DIV,
+>           {
+>               onMount: () => console.log("mount B"),
+>               onUnmount: () => console.log("unmount B")
+>           },
+>           "Component B"
+>       ]
+>     ];
+>     
+> const state = createState({ showB: false });
+> app<typeof state>(container, state, s => [DIV,
+>   s.showB ? CompB : CompA,
+> ]);
+> 
+> state.patch({ showB: true });
+> 
+> // Output:
+> // > "mount A"
+> ```
+> onMount of B and onUnmount of A are not called because DOM does not require element creation or removal (same TAGs)
+
+
 ### SVG & MathML
 SVG and MathML elements are supported but need the namespace defined in properties.
 

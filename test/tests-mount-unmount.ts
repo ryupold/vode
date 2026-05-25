@@ -1,4 +1,4 @@
-import { app, ContainerNode, createState, memo } from "../src/vode"
+import { app, Component, ContainerNode, createState, memo } from "../src/vode"
 import { ARTICLE, ASIDE, DIV, INPUT, MAIN, NAV, P, SECTION, SPAN } from "../src/vode-tags";
 import { expect, ExpectationError } from "./helper";
 
@@ -446,6 +446,92 @@ export default {
         await expect(mounts).toEqual([]);
         patch({ show: true });
         await expect(mounts).toEqual(["mount span"]);
+    },
+
+    "onMount(): with catched component, replacement vode's onMount fires when error occurs": async () => {
+        const container = setup();
+        const mounts: string[] = [];
+        const broken: any = () => { throw new Error("boom"); };
+        app(container, {}, () =>
+            [DIV,
+                {
+                    catch: [SECTION,
+                        {
+                            onMount: (s: unknown, ele: HTMLElement) => {
+                                mounts.push("mount fallback");
+                            }
+                        },
+                        "fallback"
+                    ]
+                },
+                broken
+            ]
+        );
+
+        await expect(mounts).toEqual(["mount fallback"]);
+    },
+
+    "onMount(): with catched component, returned vode's onMount fires and receives error": async () => {
+        const container = setup();
+        const mounts: string[] = [];
+        const caughtErrors: string[] = [];
+        const broken: any = () => { throw new Error("boom"); };
+        app(container, {}, () =>
+            [DIV,
+                {
+                    catch: (s: unknown, err: Error) => {
+                        caughtErrors.push(err.message);
+                        return [SECTION,
+                            {
+                                onMount: (s: unknown, ele: HTMLElement) => {
+                                    mounts.push("mount fallback");
+                                }
+                            },
+                            "fallback"
+                        ];
+                    }
+                },
+                broken
+            ]
+        );
+
+        await expect(mounts).toEqual(["mount fallback"]);
+        await expect(caughtErrors).toEqual(["boom"]);
+    },
+
+    "onMount(): with catched component, original element's onMount does NOT fire when error caused replacement": async () => {
+        const container = setup();
+        const logs: string[] = [];
+        const broken: any = () => { throw new Error("boom"); };
+        app(container, {}, () =>
+            [DIV,
+                {
+                    catch: [ARTICLE,
+                        {
+                            onMount: (s: unknown, ele: HTMLElement) => {
+                                logs.push("mount fallback");
+                            }
+                        },
+                        "fallback"
+                    ]
+                },
+                [SECTION,
+                    {
+                        onMount: (s: unknown, ele: HTMLElement) => {
+                            logs.push("mount original section");
+                        },
+                        onUnmount: (s: unknown, ele: HTMLElement) => {
+                            logs.push("unmount original section");
+                        }
+                    },
+                    broken
+                ]
+            ]
+        );
+
+        // SECTION never finishes mounting (its child broke), so its onMount must not fire.
+        // The catch on DIV replaces the broken subtree with ARTICLE whose onMount must fire.
+        await expect(logs).toEqual(["mount fallback"]);
     },
 
     "onUnmount(): called when node is removed from the DOM": async () => {
@@ -1173,121 +1259,6 @@ export default {
         await expect(fired).toEqual(["unmount B"]);
     },
 
-    "onMount() + onUnmount: symmetry of calls": async () => {
-        const container = setup();
-        const state = createState({
-            startTime: 0,
-            inputReady: false,
-            showInput: true,
-            showTimer: true
-        });
-        type State = typeof state;
-        const logs: string[] = [];
-
-        const patch = app<State>(container, state, (s) => {
-            return [DIV,
-                s.showInput && [INPUT, {
-                    type: 'text',
-                    placeholder: 'Auto-focused on mount',
-                    onMount: (s: State, ele: HTMLElement) => {
-                        logs.push('Input mounted');
-                        return { inputReady: true };
-                    },
-                    onUnmount: (s: State, ele: HTMLElement) => {
-                        logs.push('Input removed');
-                        return { inputReady: false };
-                    }
-                }],
-
-                s.showTimer && [P, {
-                    onMount: (s: State, ele: HTMLElement) => {
-                        logs.push('Timer started');
-                        return { startTime: Date.now() };
-                    },
-                    onUnmount: (s: State, ele: HTMLElement) => {
-                        logs.push('Timer removed');
-                    }
-                }, 'Mount/unmount lifecycle demo']
-            ]
-        }
-        );
-
-        await expect(state.inputReady)
-            .toEqual(true);
-        await expect(state.startTime != 0)
-            .toEqual(true);
-        patch({ showInput: false });
-
-        await expect(
-            async () => await expect(state.inputReady).toEqual(false, "expected: inputReady == false")
-        ).toSucceedAsync();
-
-        patch({ showTimer: false });
-
-        await expect(
-            async () => await expect(container._vode.stats.syncRenderCount >= 4)
-                .toEqual(true)
-        ).toSucceedAsync();
-
-        await expect(logs).toEqual([
-            'Input mounted',
-            'Timer started',
-            'Input removed',
-            'Timer removed'
-        ]);
-    },
-
-    "onMount(): with catched component, replacement vode's onMount fires when error occurs": async () => {
-        const container = setup();
-        const mounts: string[] = [];
-        const broken: any = () => { throw new Error("boom"); };
-        app(container, {}, () =>
-            [DIV,
-                {
-                    catch: [SECTION,
-                        {
-                            onMount: (s: unknown, ele: HTMLElement) => {
-                                mounts.push("mount fallback");
-                            }
-                        },
-                        "fallback"
-                    ]
-                },
-                broken
-            ]
-        );
-
-        await expect(mounts).toEqual(["mount fallback"]);
-    },
-
-    "onMount(): with catched component, returned vode's onMount fires and receives error": async () => {
-        const container = setup();
-        const mounts: string[] = [];
-        const caughtErrors: string[] = [];
-        const broken: any = () => { throw new Error("boom"); };
-        app(container, {}, () =>
-            [DIV,
-                {
-                    catch: (s: unknown, err: Error) => {
-                        caughtErrors.push(err.message);
-                        return [SECTION,
-                            {
-                                onMount: (s: unknown, ele: HTMLElement) => {
-                                    mounts.push("mount fallback");
-                                }
-                            },
-                            "fallback"
-                        ];
-                    }
-                },
-                broken
-            ]
-        );
-
-        await expect(mounts).toEqual(["mount fallback"]);
-        await expect(caughtErrors).toEqual(["boom"]);
-    },
-
     "onUnmount(): with catched component, replacement vode's onUnmount fires when removed": async () => {
         const container = setup();
         const unmounts: string[] = [];
@@ -1359,7 +1330,7 @@ export default {
         await expect(unmounts).toEqual(["unmount span", "unmount p", "unmount article"]);
     },
 
-    "onMount()/onUnmount(): with catched component, full lifecycle symmetry of catch replacement": async () => {
+    "onMount() + onUnmount(): with catched component, full lifecycle symmetry of catch replacement": async () => {
         const container = setup();
         const logs: string[] = [];
         const state = createState({ show: true });
@@ -1390,38 +1361,144 @@ export default {
         await expect(logs).toEqual(["mount article", "unmount article"]);
     },
 
-    "onMount(): with catched component, original element's onMount does NOT fire when error caused replacement": async () => {
+    "onMount() + onUnmount: symmetry of calls": async () => {
         const container = setup();
+        const state = createState({
+            startTime: 0,
+            inputReady: false,
+            showInput: true,
+            showTimer: true
+        });
+        type State = typeof state;
         const logs: string[] = [];
-        const broken: any = () => { throw new Error("boom"); };
-        app(container, {}, () =>
+
+        const patch = app<State>(container, state, (s) => {
+            return [DIV,
+                s.showInput && [INPUT, {
+                    type: 'text',
+                    placeholder: 'Auto-focused on mount',
+                    onMount: (s: State, ele: HTMLElement) => {
+                        logs.push('Input mounted');
+                        return { inputReady: true };
+                    },
+                    onUnmount: (s: State, ele: HTMLElement) => {
+                        logs.push('Input removed');
+                        return { inputReady: false };
+                    }
+                }],
+
+                s.showTimer && [P, {
+                    onMount: (s: State, ele: HTMLElement) => {
+                        logs.push('Timer started');
+                        return { startTime: Date.now() };
+                    },
+                    onUnmount: (s: State, ele: HTMLElement) => {
+                        logs.push('Timer removed');
+                    }
+                }, 'Mount/unmount lifecycle demo']
+            ]
+        }
+        );
+
+        await expect(state.inputReady)
+            .toEqual(true);
+        await expect(state.startTime != 0)
+            .toEqual(true);
+        patch({ showInput: false });
+
+        await expect(
+            async () => await expect(state.inputReady).toEqual(false, "expected: inputReady == false")
+        ).toSucceedAsync();
+
+        patch({ showTimer: false });
+
+        await expect(
+            async () => await expect(container._vode.stats.syncRenderCount >= 4)
+                .toEqual(true)
+        ).toSucceedAsync();
+
+        await expect(logs).toEqual([
+            'Input mounted',
+            'Timer started',
+            'Input removed',
+            'Timer removed'
+        ]);
+    },
+
+    "onMount() + onUnmount(): Not called when DOM does not require element creation or removal (same TAGs)": async () => {
+        const container = setup();
+        const logs = <string[]>[];
+
+        const Comp: (name: string) => Component = (name: string) => () => [ARTICLE,
             [DIV,
                 {
-                    catch: [ARTICLE,
-                        {
-                            onMount: (s: unknown, ele: HTMLElement) => {
-                                logs.push("mount fallback");
-                            }
-                        },
-                        "fallback"
-                    ]
+                    onMount: () => logs.push("mount " + name),
+                    onUnmount: () => logs.push("unmount " + name)
                 },
-                [SECTION,
-                    {
-                        onMount: (s: unknown, ele: HTMLElement) => {
-                            logs.push("mount original section");
-                        },
-                        onUnmount: (s: unknown, ele: HTMLElement) => {
-                            logs.push("unmount original section");
-                        }
-                    },
-                    broken
-                ]
+                "Component " + name]
+        ];
+
+        const state = createState({ showB: false, showD: false });
+        app<typeof state>(container, state, s => [DIV,
+            // this way they both "share a slot"
+            s.showB ? Comp("B") : Comp("A"),
+
+            // this way each component occupies its own "slot"
+            !s.showD && Comp("C"),
+            s.showD && Comp("D"),
+        ]);
+
+        await expect(container).toMatch(
+            [DIV,
+                [ARTICLE,
+                    [DIV, "Component A"],
+                ],
+                [ARTICLE,
+                    [DIV, "Component C"],
+                ],
+            ]
+        );
+        await expect(logs).toEqual(["mount A", "mount C"]);
+
+        state.patch({ showB: true });
+
+        await expect(container).toMatch(
+            [DIV,
+                [ARTICLE,
+                    [DIV, "Component B"],
+                ],
+                [ARTICLE,
+                    [DIV, "Component C"],
+                ],
             ]
         );
 
-        // SECTION never finishes mounting (its child broke), so its onMount must not fire.
-        // The catch on DIV replaces the broken subtree with ARTICLE whose onMount must fire.
-        await expect(logs).toEqual(["mount fallback"]);
+        // as both components result in the same structure
+        // of element types the unmount of A 
+        // and mount of B does not occur
+        await expect(logs).toEqual(["mount A", "mount C"]);
+
+
+        state.patch({ showD: true });
+
+        await expect(container).toMatch(
+            [DIV,
+                [ARTICLE,
+                    [DIV, "Component B"],
+                ],
+                [ARTICLE,
+                    [DIV, "Component D"],
+                ],
+            ]
+        );
+
+        // when the components occupy different slots in the vdom
+        // their mount/unmount functions are called
+        await expect(logs).toEqual([
+            "mount A",
+            "mount C",
+            "unmount C",
+            "mount D",
+        ]);
     },
 }
