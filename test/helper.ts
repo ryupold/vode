@@ -255,7 +255,7 @@ export class Expectation {
                                     } else {
                                         attributeValue = (e as HTMLElement).getAttribute(k);
                                     }
-                                    if (!attributeValue) {
+                                    if (attributeValue === null) {
                                         throw new ExpectationError(that, `expected at\n${path.join(" > ")}\n\nan element <${tag(cv)?.toUpperCase()}>\n\nwith attribute [${k}="${val}"]\n\nbut it was not found${failSuffix}`);
                                     }
                                     if (attributeValue !== val) {

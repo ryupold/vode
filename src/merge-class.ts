@@ -38,9 +38,7 @@ export function mergeClass(...classes: ClassProp[]): ClassProp {
         else if (typeof a === "object" && typeof b === "string") {
             finalClass = { ...a, [b]: true };
         }
-        else if (typeof a === "object" && typeof b === "object") {
-            finalClass = { ...a, ...b };
-        } else if (typeof a === "object" && Array.isArray(b)) {
+        else if (typeof a === "object" && Array.isArray(b)) {
             const aa = { ...a };
             for (const item of b as string[]) {
                 (<Record<string, boolean | null | undefined>>aa)[item] = true;
@@ -55,6 +53,8 @@ export function mergeClass(...classes: ClassProp[]): ClassProp {
                 aa[bKey] = (<Record<string, boolean | null | undefined>>b)[bKey];
             }
             finalClass = aa;
+        } else if (typeof a === "object" && typeof b === "object") {
+            finalClass = { ...a, ...b };
         }
         else throw new Error(`cannot merge classes of ${a} (${typeof a}) and ${b} (${typeof b})`);
     }

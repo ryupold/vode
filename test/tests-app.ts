@@ -339,4 +339,45 @@ export default {
         const el = (container as any)._vode.vode.node;
         expect(el.onclick).toBeA("function");
     },
+
+    "app(): class as array renders correctly": async () => {
+        const root = document.createElement("div");
+        const container = document.createElement("div");
+        root.appendChild(container);
+
+        app(container, {}, () =>
+            [DIV, { class: ["foo", "bar", "baz"] }, "text"]
+        );
+
+        await expect(container).toMatch([DIV, { class: "foo bar baz" }, "text"]);
+    },
+
+    "app(): class as number becomes empty string": async () => {
+        const root = document.createElement("div");
+        const container = document.createElement("div");
+        root.appendChild(container);
+
+        app(container, {}, () =>
+            [DIV, { class: 123 as any }, "text"]
+        );
+
+        await expect(container).toMatch([DIV, { class: "" }, "text"]);
+    },
+
+    "app(): style object to string transition": async () => {
+        const root = document.createElement("div");
+        const container = document.createElement("div");
+        root.appendChild(container);
+        const state: any = { useObject: true };
+
+        app(container, state, (s: any) =>
+            [DIV, { style: s.useObject ? { color: "red" } : "color: blue" }, "text"]
+        );
+
+        await expect(container).toMatch([DIV, "text"]);
+
+        state.patch({ useObject: false });
+
+        await expect(container).toMatch([DIV, "text"]);
+    },
 };

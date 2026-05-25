@@ -43,12 +43,14 @@ export default {
         await expect(mergeClass({ foo: true, bar: true }, { bar: false, baz: true })).toEqual({ foo: true, bar: false, baz: true });
     },
 
-    "mergeClass(): object and array": async () => {
-        await expect(mergeClass({ foo: true }, ["bar", "baz"])).toEqual({ foo: true, 0: "bar", 1: "baz" });
+    "mergeClass(): object and array (array items become class names with true)": async () => {
+        await expect(mergeClass({ foo: true }, ["bar", "baz"])).toEqual({ foo: true, bar: true, baz: true });
+        await expect(mergeClass({ active: true }, ["btn", "primary"])).toEqual({ active: true, btn: true, primary: true });
     },
 
-    "mergeClass(): array and object": async () => {
-        await expect(mergeClass(["foo", "bar"], { baz: true, qux: false })).toEqual({ 0: "foo", 1: "bar", baz: true, qux: false });
+    "mergeClass(): array and object (object keys become class names)": async () => {
+        await expect(mergeClass(["foo", "bar"], { baz: true, qux: false })).toEqual({ foo: true, bar: true, baz: true, qux: false });
+        await expect(mergeClass(["a", "b"], { c: true, d: false })).toEqual({ a: true, b: true, c: true, d: false });
     },
 
     "mergeClass(): falsy entries are skipped": async () => {
@@ -59,5 +61,10 @@ export default {
     "mergeClass(): multiple args (3+)": async () => {
         await expect(mergeClass("a", "b", "c")).toEqual("a b c");
         await expect(mergeClass("x", null, ["y", "z"], "w")).toEqual("y z x w");
+    },
+
+    "mergeClass(): incompatible types throw": async () => {
+        await expect(() => (mergeClass as any)(123 as any, "foo")).toFail();
+        await expect(() => (mergeClass as any)("foo", 456 as any)).toFail();
     }
 };

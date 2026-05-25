@@ -11,6 +11,11 @@ export default {
         await expect(mergeProps(p) === p).toEqual(true);
     },
 
+    "mergeProps(): single falsy arg returns undefined": async () => {
+        await expect(mergeProps(null)).toEqual(undefined);
+        await expect(mergeProps(undefined)).toEqual(undefined);
+    },
+
     "mergeProps(): two plain objects merged": async () => {
         await expect(mergeProps({ a: 1 }, { b: 2 })).toEqual({ a: 1, b: 2 });
     },
