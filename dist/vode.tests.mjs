@@ -28,7 +28,7 @@ function app(container, state, dom, ...initialPatches) {
     _vode.stats.liveEffectCount++;
     try {
       const resolvedPatch = await action;
-      patchableState.patch(resolvedPatch, isAnimated);
+      await patchableState.patch(resolvedPatch, isAnimated);
     } finally {
       _vode.stats.liveEffectCount--;
     }
@@ -41,13 +41,13 @@ function app(container, state, dom, ...initialPatches) {
       while (v.done === false) {
         _vode.stats.liveEffectCount++;
         try {
-          patchableState.patch(v.value, isAnimated);
+          await patchableState.patch(v.value, isAnimated);
           v = await generator.next();
         } finally {
           _vode.stats.liveEffectCount--;
         }
       }
-      patchableState.patch(v.value, isAnimated);
+      await patchableState.patch(v.value, isAnimated);
     } finally {
       _vode.stats.liveEffectCount--;
     }
@@ -63,9 +63,9 @@ function app(container, state, dom, ...initialPatches) {
       if (!action || typeof action !== "object") return;
       _vode.stats.patchCount++;
       if (action?.next) {
-        generatorPatch(action, isAnimated);
+        return generatorPatch(action, isAnimated);
       } else if (action.then) {
-        promisePatch(action, isAnimated);
+        return promisePatch(action, isAnimated);
       } else if (Array.isArray(action)) {
         if (action.length > 0) {
           for (const p of action) {
@@ -1206,19 +1206,25 @@ ${other}${failSuffix}`);
       waitTimeMs
     );
   }
-  toSucceed() {
+  toSucceed(failMessage) {
+    const failSuffix = failMessage ? `
+
+${failMessage}` : "";
     if (typeof this.what !== "function") {
       throw new ExpectationError(this, `expected a function
 
-but it is a ${typeof this.what}`);
+but it is a ${typeof this.what}${failSuffix}`);
     }
     return this.what();
   }
-  toFail() {
+  toFail(failMessage) {
+    const failSuffix = failMessage ? `
+
+${failMessage}` : "";
     if (typeof this.what !== "function") {
       throw new ExpectationError(this, `expected a function
 
-but it is a ${typeof this.what}`);
+but it is a ${typeof this.what}${failSuffix}`);
     }
     let r;
     try {
@@ -1230,25 +1236,34 @@ but it is a ${typeof this.what}`);
 
 but it succeeded with a result of type ${typeof r}
 
-${r}`);
+${r}${failSuffix}`);
   }
-  toSucceedAsync(waitTime = 100) {
+  toSucceedAsync(failMessage, waitTime = 100) {
+    const failSuffix = failMessage ? `
+
+${failMessage}` : "";
     if (typeof this.what !== "function") {
       throw new ExpectationError(this, `expected a function
 
-but it is a ${typeof this.what}`);
+but it is a ${typeof this.what}${failSuffix}`);
     }
     return retry(() => this.what(), waitTime);
   }
-  async toFailAsync() {
+  async toFailAsync(failMessage) {
+    const failSuffix = failMessage ? `
+
+${failMessage}` : "";
     if (typeof this.what !== "function") {
       throw new ExpectationError(this, `expected a function
 
-but it is a ${typeof this.what}`);
+but it is a ${typeof this.what}${failSuffix}`);
     }
     let r;
     try {
-      r = await this.what();
+      if (typeof this.what === "function")
+        r = await this.what();
+      else
+        r = await this.what;
     } catch (err) {
       return err;
     }
@@ -1256,7 +1271,7 @@ but it is a ${typeof this.what}`);
 
 but it succeeded with a result of type ${typeof r}
 
-${r}`);
+${r}${failSuffix}`);
   }
   async toMatch(v, state, failMessage, waitTimeMs = 100) {
     return await retry(
@@ -2942,6 +2957,103 @@ var tests_mount_unmount_default = {
     patch({ show: true });
     await expect(mounts).toEqual(["mount span"]);
   },
+  "onMount(): with catched component, replacement vode's onMount fires when error occurs": async () => {
+    const container = setup();
+    const mounts = [];
+    const broken = () => {
+      throw new Error("boom");
+    };
+    app(
+      container,
+      {},
+      () => [
+        DIV,
+        {
+          catch: [
+            SECTION,
+            {
+              onMount: (s, ele) => {
+                mounts.push("mount fallback");
+              }
+            },
+            "fallback"
+          ]
+        },
+        broken
+      ]
+    );
+    await expect(mounts).toEqual(["mount fallback"]);
+  },
+  "onMount(): with catched component, returned vode's onMount fires and receives error": async () => {
+    const container = setup();
+    const mounts = [];
+    const caughtErrors = [];
+    const broken = () => {
+      throw new Error("boom");
+    };
+    app(
+      container,
+      {},
+      () => [
+        DIV,
+        {
+          catch: (s, err) => {
+            caughtErrors.push(err.message);
+            return [
+              SECTION,
+              {
+                onMount: (s2, ele) => {
+                  mounts.push("mount fallback");
+                }
+              },
+              "fallback"
+            ];
+          }
+        },
+        broken
+      ]
+    );
+    await expect(mounts).toEqual(["mount fallback"]);
+    await expect(caughtErrors).toEqual(["boom"]);
+  },
+  "onMount(): with catched component, original element's onMount does NOT fire when error caused replacement": async () => {
+    const container = setup();
+    const logs = [];
+    const broken = () => {
+      throw new Error("boom");
+    };
+    app(
+      container,
+      {},
+      () => [
+        DIV,
+        {
+          catch: [
+            ARTICLE,
+            {
+              onMount: (s, ele) => {
+                logs.push("mount fallback");
+              }
+            },
+            "fallback"
+          ]
+        },
+        [
+          SECTION,
+          {
+            onMount: (s, ele) => {
+              logs.push("mount original section");
+            },
+            onUnmount: (s, ele) => {
+              logs.push("unmount original section");
+            }
+          },
+          broken
+        ]
+      ]
+    );
+    await expect(logs).toEqual(["mount fallback"]);
+  },
   "onUnmount(): called when node is removed from the DOM": async () => {
     const container = setup();
     const unmounts = [];
@@ -3725,121 +3837,6 @@ var tests_mount_unmount_default = {
     patch({ expanded: true, showB: false });
     await expect(fired).toEqual(["unmount B"]);
   },
-  "onMount() + onUnmount: symmetry of calls": async () => {
-    const container = setup();
-    const state = createState({
-      startTime: 0,
-      inputReady: false,
-      showInput: true,
-      showTimer: true
-    });
-    const logs = [];
-    const patch = app(
-      container,
-      state,
-      (s) => {
-        return [
-          DIV,
-          s.showInput && [INPUT, {
-            type: "text",
-            placeholder: "Auto-focused on mount",
-            onMount: (s2, ele) => {
-              logs.push("Input mounted");
-              return { inputReady: true };
-            },
-            onUnmount: (s2, ele) => {
-              logs.push("Input removed");
-              return { inputReady: false };
-            }
-          }],
-          s.showTimer && [P, {
-            onMount: (s2, ele) => {
-              logs.push("Timer started");
-              return { startTime: Date.now() };
-            },
-            onUnmount: (s2, ele) => {
-              logs.push("Timer removed");
-            }
-          }, "Mount/unmount lifecycle demo"]
-        ];
-      }
-    );
-    await expect(state.inputReady).toEqual(true);
-    await expect(state.startTime != 0).toEqual(true);
-    patch({ showInput: false });
-    await expect(
-      async () => await expect(state.inputReady).toEqual(false, "expected: inputReady == false")
-    ).toSucceedAsync();
-    patch({ showTimer: false });
-    await expect(
-      async () => await expect(container._vode.stats.syncRenderCount >= 4).toEqual(true)
-    ).toSucceedAsync();
-    await expect(logs).toEqual([
-      "Input mounted",
-      "Timer started",
-      "Input removed",
-      "Timer removed"
-    ]);
-  },
-  "onMount(): with catched component, replacement vode's onMount fires when error occurs": async () => {
-    const container = setup();
-    const mounts = [];
-    const broken = () => {
-      throw new Error("boom");
-    };
-    app(
-      container,
-      {},
-      () => [
-        DIV,
-        {
-          catch: [
-            SECTION,
-            {
-              onMount: (s, ele) => {
-                mounts.push("mount fallback");
-              }
-            },
-            "fallback"
-          ]
-        },
-        broken
-      ]
-    );
-    await expect(mounts).toEqual(["mount fallback"]);
-  },
-  "onMount(): with catched component, returned vode's onMount fires and receives error": async () => {
-    const container = setup();
-    const mounts = [];
-    const caughtErrors = [];
-    const broken = () => {
-      throw new Error("boom");
-    };
-    app(
-      container,
-      {},
-      () => [
-        DIV,
-        {
-          catch: (s, err) => {
-            caughtErrors.push(err.message);
-            return [
-              SECTION,
-              {
-                onMount: (s2, ele) => {
-                  mounts.push("mount fallback");
-                }
-              },
-              "fallback"
-            ];
-          }
-        },
-        broken
-      ]
-    );
-    await expect(mounts).toEqual(["mount fallback"]);
-    await expect(caughtErrors).toEqual(["boom"]);
-  },
   "onUnmount(): with catched component, replacement vode's onUnmount fires when removed": async () => {
     const container = setup();
     const unmounts = [];
@@ -3923,7 +3920,7 @@ var tests_mount_unmount_default = {
     patch({ show: false });
     await expect(unmounts).toEqual(["unmount span", "unmount p", "unmount article"]);
   },
-  "onMount()/onUnmount(): with catched component, full lifecycle symmetry of catch replacement": async () => {
+  "onMount() + onUnmount(): with catched component, full lifecycle symmetry of catch replacement": async () => {
     const container = setup();
     const logs = [];
     const state = createState({ show: true });
@@ -3959,43 +3956,134 @@ var tests_mount_unmount_default = {
     patch({ show: false });
     await expect(logs).toEqual(["mount article", "unmount article"]);
   },
-  "onMount(): with catched component, original element's onMount does NOT fire when error caused replacement": async () => {
+  "onMount() + onUnmount: symmetry of calls": async () => {
+    const container = setup();
+    const state = createState({
+      startTime: 0,
+      inputReady: false,
+      showInput: true,
+      showTimer: true
+    });
+    const logs = [];
+    const patch = app(
+      container,
+      state,
+      (s) => {
+        return [
+          DIV,
+          s.showInput && [INPUT, {
+            type: "text",
+            placeholder: "Auto-focused on mount",
+            onMount: (s2, ele) => {
+              logs.push("Input mounted");
+              return { inputReady: true };
+            },
+            onUnmount: (s2, ele) => {
+              logs.push("Input removed");
+              return { inputReady: false };
+            }
+          }],
+          s.showTimer && [P, {
+            onMount: (s2, ele) => {
+              logs.push("Timer started");
+              return { startTime: Date.now() };
+            },
+            onUnmount: (s2, ele) => {
+              logs.push("Timer removed");
+            }
+          }, "Mount/unmount lifecycle demo"]
+        ];
+      }
+    );
+    await expect(state.inputReady).toEqual(true);
+    await expect(state.startTime != 0).toEqual(true);
+    patch({ showInput: false });
+    await expect(
+      async () => await expect(state.inputReady).toEqual(false, "expected: inputReady == false")
+    ).toSucceedAsync();
+    patch({ showTimer: false });
+    await expect(
+      async () => await expect(container._vode.stats.syncRenderCount >= 4).toEqual(true)
+    ).toSucceedAsync();
+    await expect(logs).toEqual([
+      "Input mounted",
+      "Timer started",
+      "Input removed",
+      "Timer removed"
+    ]);
+  },
+  "onMount() + onUnmount(): Not called when DOM does not require element creation or removal (same TAGs)": async () => {
     const container = setup();
     const logs = [];
-    const broken = () => {
-      throw new Error("boom");
-    };
-    app(
-      container,
-      {},
-      () => [
+    const Comp = (name) => () => [
+      ARTICLE,
+      [
         DIV,
         {
-          catch: [
-            ARTICLE,
-            {
-              onMount: (s, ele) => {
-                logs.push("mount fallback");
-              }
-            },
-            "fallback"
-          ]
+          onMount: () => logs.push("mount " + name),
+          onUnmount: () => logs.push("unmount " + name)
         },
+        "Component " + name
+      ]
+    ];
+    const state = createState({ showB: false, showD: false });
+    app(container, state, (s) => [
+      DIV,
+      // this way they both "share a slot"
+      s.showB ? Comp("B") : Comp("A"),
+      // this way each component occupies its own "slot"
+      !s.showD && Comp("C"),
+      s.showD && Comp("D")
+    ]);
+    await expect(container).toMatch(
+      [
+        DIV,
         [
-          SECTION,
-          {
-            onMount: (s, ele) => {
-              logs.push("mount original section");
-            },
-            onUnmount: (s, ele) => {
-              logs.push("unmount original section");
-            }
-          },
-          broken
+          ARTICLE,
+          [DIV, "Component A"]
+        ],
+        [
+          ARTICLE,
+          [DIV, "Component C"]
         ]
       ]
     );
-    await expect(logs).toEqual(["mount fallback"]);
+    await expect(logs).toEqual(["mount A", "mount C"]);
+    state.patch({ showB: true });
+    await expect(container).toMatch(
+      [
+        DIV,
+        [
+          ARTICLE,
+          [DIV, "Component B"]
+        ],
+        [
+          ARTICLE,
+          [DIV, "Component C"]
+        ]
+      ]
+    );
+    await expect(logs).toEqual(["mount A", "mount C"]);
+    state.patch({ showD: true });
+    await expect(container).toMatch(
+      [
+        DIV,
+        [
+          ARTICLE,
+          [DIV, "Component B"]
+        ],
+        [
+          ARTICLE,
+          [DIV, "Component D"]
+        ]
+      ]
+    );
+    await expect(logs).toEqual([
+      "mount A",
+      "mount C",
+      "unmount C",
+      "mount D"
+    ]);
   }
 };
 
@@ -5189,8 +5277,11 @@ var tests_patch_advanced_default = {
     app(container, state, (s) => [DIV, s.phase, String(s.value)]);
     await expect(state.phase).toEqual("start");
     state.patch((async function* () {
+      await expect(container._vode.stats.syncRenderPatchCount).toEqual(0);
       yield { phase: "working", value: 10 };
+      await expect(container._vode.stats.syncRenderPatchCount).toEqual(1);
       yield { phase: "almost", value: 20 };
+      await expect(container._vode.stats.syncRenderPatchCount).toEqual(2);
       return { phase: "done", value: 30 };
     })());
     await new Promise((r) => setTimeout(r, 0));
@@ -5223,6 +5314,87 @@ var tests_patch_advanced_default = {
     await delay(10);
     await expect(state.x).toEqual(10);
     await expect(state.y).toEqual(20);
+  },
+  "patch(): returns Promise for generator functions, can be awaited": async () => {
+    const container = setup4();
+    const state = createState({ count: 0 });
+    app(container, state, (s) => [DIV, String(s.count)]);
+    await expect(container._vode.stats.patchCount).toEqual(0);
+    const result = state.patch(function* () {
+      yield { count: 1 };
+      return { count: 2 };
+    });
+    await expect(container._vode.stats.patchCount).toEqual(1);
+    expect(result).toBeA("object");
+    await expect(result instanceof Promise).toEqual(true);
+    await result;
+    await expect(container._vode.stats.patchCount).toEqual(3);
+    await expect(state.count).toEqual(2);
+    await expect(container).toMatch([DIV, "2"]);
+  },
+  "patch(): returns Promise for Promise patches, can be awaited": async () => {
+    const container = setup4();
+    const state = createState({ msg: "before" });
+    app(container, state, (s) => [DIV, s.msg]);
+    const result = state.patch(Promise.resolve({ msg: "after" }));
+    expect(result).toBeA("object");
+    await expect(result instanceof Promise).toEqual(true);
+    await result;
+    await expect(state.msg).toEqual("after");
+    await expect(container).toMatch([DIV, "after"]);
+  },
+  "patch(): returns void for object patches": async () => {
+    const container = setup4();
+    const state = createState({ x: 1 });
+    app(container, state, (s) => [DIV, String(s.x)]);
+    const result = state.patch({ x: 2 });
+    expect(result).toBeA("undefined");
+    await expect(state.x).toEqual(2);
+    await expect(container).toMatch([DIV, "2"]);
+  },
+  "patch(): forward promise error when one happens during patch": async () => {
+    const container = setup4();
+    const state = createState({ msg: "before" });
+    app(container, state, (s) => [DIV, s.msg]);
+    const mockPromise = Promise.withResolvers();
+    const promisePatchResult = state.patch(mockPromise.promise);
+    mockPromise.reject(new Error("promise error"));
+    let err = await expect(() => promisePatchResult).toFailAsync("promise (1) error expected");
+    expect(err.message).toEqual("promise error");
+    err = await expect(() => state.patch(async () => {
+      await delay(1);
+      throw new Error("promise error");
+    })).toFailAsync("promise (2) error expected");
+    expect(err.message).toEqual("promise error");
+  },
+  "patch(): forward generator error when one happens during patch": async () => {
+    const container = setup4();
+    const state = createState({ msg: "before" });
+    app(container, state, (s) => [DIV, s.msg]);
+    const err = await expect(
+      () => state.patch(
+        async function* () {
+          yield {};
+          await delay(1);
+          yield {};
+          throw new Error("generator error");
+        }
+      )
+    ).toFailAsync("generator error expected");
+    expect(err.message).toEqual("generator error");
+  },
+  "patch(): forward error when one happens during patch": async () => {
+    const container = setup4();
+    const state = createState({ msg: "before" });
+    app(container, state, (s) => [DIV, s.msg]);
+    const err = await expect(
+      () => state.patch(
+        () => {
+          throw new Error("void error");
+        }
+      )
+    ).toFailAsync("void error expected");
+    expect(err.message).toEqual("void error");
   }
 };
 

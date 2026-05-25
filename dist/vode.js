@@ -272,7 +272,7 @@ var V = (() => {
       _vode.stats.liveEffectCount++;
       try {
         const resolvedPatch = await action;
-        patchableState.patch(resolvedPatch, isAnimated);
+        await patchableState.patch(resolvedPatch, isAnimated);
       } finally {
         _vode.stats.liveEffectCount--;
       }
@@ -285,13 +285,13 @@ var V = (() => {
         while (v.done === false) {
           _vode.stats.liveEffectCount++;
           try {
-            patchableState.patch(v.value, isAnimated);
+            await patchableState.patch(v.value, isAnimated);
             v = await generator.next();
           } finally {
             _vode.stats.liveEffectCount--;
           }
         }
-        patchableState.patch(v.value, isAnimated);
+        await patchableState.patch(v.value, isAnimated);
       } finally {
         _vode.stats.liveEffectCount--;
       }
@@ -307,9 +307,9 @@ var V = (() => {
         if (!action || typeof action !== "object") return;
         _vode.stats.patchCount++;
         if (action?.next) {
-          generatorPatch(action, isAnimated);
+          return generatorPatch(action, isAnimated);
         } else if (action.then) {
-          promisePatch(action, isAnimated);
+          return promisePatch(action, isAnimated);
         } else if (Array.isArray(action)) {
           if (action.length > 0) {
             for (const p of action) {

@@ -61,7 +61,7 @@ export type EventsMapBase = {
 export interface EventsMap extends EventsMapBase {
 }
 export type PropertyValue<S> = string | boolean | null | undefined | void | StyleProp | ClassProp | Patch<S>;
-export type Dispatch<S> = (action: Patch<S>) => void;
+export type Dispatch<S> = (action: Patch<S>) => void | Promise<void>;
 export interface Patchable<S = object> {
 	patch: Dispatch<S>;
 }
