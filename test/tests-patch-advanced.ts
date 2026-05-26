@@ -11,8 +11,8 @@ function setup() {
 export default {
     "patch(): generator function yields multiple state updates": async () => {
         const container = setup();
-        const state: any = createState({ count: 0 });
-        app(container, state, (s: any) => [DIV, String(s.count)]);
+        const state = createState({ count: 0 });
+        app<typeof state>(container, state, (s) => [DIV, String(s.count)]);
 
         await expect(state.count).toEqual(0);
 
@@ -30,8 +30,8 @@ export default {
 
     "patch(): async generator yields over time": async () => {
         const container = setup();
-        const state: any = createState({ phase: "start", value: 0 });
-        app(container, state, (s: any) => [DIV, s.phase, String(s.value)]);
+        const state = createState({ phase: "start", value: 0 });
+        app<typeof state>(container, state, (s) => [DIV, s.phase, String(s.value)]);
 
         await expect(state.phase).toEqual("start");
 
@@ -53,38 +53,37 @@ export default {
 
     "patch(): Promise resolves and applies patch": async () => {
         const container = setup();
-        const state: any = createState({ msg: "before" });
-        app(container, state, (s: any) => [DIV, s.msg]);
+        const state = createState({ msg: "before" });
+        app<typeof state>(container, state, (s) => [DIV, s.msg]);
 
-        state.patch(Promise.resolve({ msg: "after" }));
+        await state.patch(Promise.resolve({ msg: "after" }));
 
-        await delay(10);
-
-        await expect(state.msg).toEqual("after");
+        await expect(state).toEqual({ msg: "after" });
         await expect(container).toMatch([DIV, "after"]);
     },
 
     "patch(): array with empty patches applies nothing": async () => {
         const container = setup();
-        const state: any = createState({ x: 1, y: 2 });
-        app(container, state, (s: any) => [DIV]);
+        const state = createState({ x: 1, y: 2 });
+        app(container, state, (s) => [DIV]);
 
-        state.patch([{}, {}]);
-        await expect(state.x).toEqual(1);
-        await expect(state.y).toEqual(2);
+        await state.patch([{}, {}]);
+
+        await delay(10);
+        await expect(state).toEqual({ x: 1, y: 2 });
     },
 
     "patch(): array with null/undefined items skips them": async () => {
         const container = setup();
-        const state: any = createState({ x: 0, y: 0 });
-        app(container, state, (s: any) => [DIV, String(s.x), String(s.y)]);
+        const state = createState({ x: 0, y: 0 });
+        app<typeof state>(container, state, (s) => [DIV, String(s.x), String(s.y)]);
 
         state.patch([null, { x: 10 }, undefined, { y: 20 }]);
 
-        await delay(10);
-
-        await expect(state.x).toEqual(10);
-        await expect(state.y).toEqual(20);
+        await expect(() => expect(state.x).toEqual(10))
+            .toSucceedAsync();
+        await expect(() => expect(state.y).toEqual(20))
+            .toSucceedAsync();
     },
 
     "patch(): returns Promise for generator functions, can be awaited": async () => {

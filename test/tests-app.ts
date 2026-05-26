@@ -120,8 +120,7 @@ export default {
 
         await state.patch([{ a: 10 }, { b: 20 }]);
 
-        await expect(state.a).toEqual(10);
-        await expect(state.b).toEqual(20);
+        await expect(state).toEqual({ a: 10, b: 20 });
     },
 
     "app(): multiple sequential patches both apply": async () => {
