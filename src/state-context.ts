@@ -47,8 +47,8 @@ export type ProxySubContext<SubState> = SubContext<SubState> & {
 };
 
 type ProxyState<SubState> = SubState & {
-    [K in keyof SubState]-?: SubState[K] extends object | null
-    ? ProxyState<SubState[K]>
+    [K in keyof SubState]-?: NonNullable<SubState[K]> extends object | null
+    ? ProxyState<NonNullable<SubState[K]>>
     : SubState[K]
 };
 
@@ -81,7 +81,8 @@ type ProxyState<SubState> = SubState & {
  */
 
 export function context<S extends PatchableState, SS = S>(state: S): ProxyStateContext<S, SS>;
-export function context<S extends PatchableState, SS>(state: S, producePath?: (ctx: ProxyState<S>) => ProxyState<SS>): ProxyStateContext<S, SS> {
+export function context<S extends PatchableState, SS>(state: S, producePath: (ctx: ProxyState<S>) => ProxyState<SS>): ProxyStateContext<S, SS>;
+export function context<S extends PatchableState, SS = S>(state: S, producePath?: (ctx: ProxyState<S>) => ProxyState<SS>): ProxyStateContext<S, SS> {
     if (producePath) {
         const proxy = producePath(proxyState<S>(state, [] as string[]));
         const keys = (proxy as any)["___KeYs___"] as string[];
@@ -167,7 +168,7 @@ class ProxyStateContextImpl<S extends PatchableState, SubState>
                     return patch;
 
                 // otherwise return a new ProxyStateContext for nested access
-                const newKeys = [...target.keys, String(prop)];
+            const newKeys = [...keys, String(prop)];
                 return new ProxyStateContextImpl<S, any>(target.state, newKeys);
             },
             set: (target: this, p: string | symbol, newValue: any, receiver: any) => {
@@ -192,7 +193,7 @@ function proxyState<S extends PatchableState>(
                 return keys;
             }
 
-            const newKeys = [...target.keys, String(prop)];
+            const newKeys = [...keys, String(prop)];
             return proxyState<S>(state, newKeys);
         },
         set: (target: any, p: string | symbol, newValue: any, receiver: any) => {
