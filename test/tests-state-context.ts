@@ -1,16 +1,8 @@
 import { expect } from "./helper";
-import { context, ProxySubContext } from "../src/state-context";
+import { context } from "../src/state-context";
 import { createState } from "../src/vode";
 
 export default {
-    "StateContext.state: returns the state reference": async () => {
-        const state = createState({ x: 10 });
-        const ctx = context(state);
-
-        await expect((ctx).state === state)
-            .toEqual(true);
-    },
-
     "StateContext.get() returns whole state": async () => {
         const state = createState({ a: 1, b: 2 });
         const ctx = context(state);

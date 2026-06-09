@@ -1,16 +1,10 @@
-import { AnimatedPatch, DeepPartial, Patchable, PatchableState, RenderPatch } from "./vode";
+import { DeepPartial, Patchable, PatchableState, RenderPatch } from "./vode";
 
 /**
  * State context for type-safe access and manipulation of nested state paths
  * while still be able to access the parent state. 
  */
-export interface StateContext<S extends Patchable<S>, SubState> extends SubContext<SubState> {
-    /** 
-     * parent state
-     * @see PatchableState<S>
-     */
-    get state(): S;
-}
+export interface StateContext<S extends Patchable<S>, SubState> extends SubContext<SubState> { }
 
 /**
  * State context for type-safe access and manipulation of nested sub-state values without knowledge of the parent state.
@@ -150,8 +144,6 @@ class ProxyStateContextImpl<S extends PatchableState, SubState>
 
         return new Proxy(this, {
             get: (target, prop, receiver) => {
-                if (prop === 'state')
-                    return state;
 
                 if (prop === 'get')
                     return get;
@@ -162,10 +154,12 @@ class ProxyStateContextImpl<S extends PatchableState, SubState>
                 if (prop === 'patch')
                     return patch;
 
-
                 // otherwise return a new ProxyStateContext for nested access
                 const newKeys = [...target.keys, String(prop)];
                 return new ProxyStateContextImpl<S, any>(target.state, newKeys);
+            },
+            set: (target: this, p: string | symbol, newValue: any, receiver: any) => {
+                throw new Error("ProxyStateContext is not meant to be directly mutated. Use put() or patch() methods on the StateContext instead");
             }
         });
     }
