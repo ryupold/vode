@@ -96,9 +96,8 @@ function app(container, state, dom, ...initialPatches) {
   });
   function renderDom(isAnimated) {
     const sw = performance.now();
-    const vom = dom(_vode.state);
-    _vode.vode = render(_vode.state, container.parentElement, 0, 0, _vode.vode, vom);
-    if (container.tagName.toUpperCase() !== vom[0].toUpperCase()) {
+    _vode.vode = render(_vode.state, container.parentElement, 0, 0, _vode.vode, dom(_vode.state));
+    if (container.tagName.toLowerCase() !== _vode.vode[0].toLowerCase()) {
       container = _vode.vode.node;
       container._vode = _vode;
     }
@@ -160,6 +159,10 @@ function app(container, state, dom, ...initialPatches) {
     hydrate(container, true),
     dom(state)
   );
+  if (container.tagName.toLowerCase() !== _vode.vode[0].toLowerCase()) {
+    container = _vode.vode.node;
+    container._vode = _vode;
+  }
   const continueRendering = _vode.stats.syncRenderPatchCount !== patchCountBefore;
   _vode.isRendering = 0;
   _vode.stats.syncRenderCount++;
@@ -933,7 +936,12 @@ function mergeProps(...props2) {
 }
 
 // src/state-context.ts
-function context(state) {
+function context(state, producePath) {
+  if (producePath) {
+    const proxy = producePath(proxyState(state, []));
+    const keys = proxy["___KeYs___"];
+    return new ProxyStateContextImpl(state, keys);
+  }
   return new ProxyStateContextImpl(state, []);
 }
 var ProxyStateContextImpl = class _ProxyStateContextImpl {
@@ -991,16 +999,17 @@ var ProxyStateContextImpl = class _ProxyStateContextImpl {
     }
     return new Proxy(this, {
       get: (target, prop, receiver) => {
-        if (prop === "state")
-          return state;
         if (prop === "get")
           return get;
         if (prop === "put")
           return put;
         if (prop === "patch")
           return patch;
-        const newKeys = [...target.keys, String(prop)];
+        const newKeys = [...keys, String(prop)];
         return new _ProxyStateContextImpl(target.state, newKeys);
+      },
+      set: (target, p, newValue, receiver) => {
+        throw new Error("ProxyStateContext is not meant to be directly mutated. Use put() or patch() methods on the StateContext instead");
       }
     });
   }
@@ -1014,6 +1023,20 @@ var ProxyStateContextImpl = class _ProxyStateContextImpl {
   patch(value) {
   }
 };
+function proxyState(state, keys) {
+  return new Proxy(state, {
+    get: (target, prop, receiver) => {
+      if (prop === "___KeYs___") {
+        return keys;
+      }
+      const newKeys = [...keys, String(prop)];
+      return proxyState(state, newKeys);
+    },
+    set: (target, p, newValue, receiver) => {
+      throw new Error("ProxyState is not meant to be directly mutated");
+    }
+  });
+}
 export {
   A,
   ABBR,

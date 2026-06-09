@@ -361,11 +361,6 @@ export declare function mergeProps<S extends PatchableState = PatchableState>(..
  * while still be able to access the parent state.
  */
 export interface StateContext<S extends Patchable<S>, SubState> extends SubContext<SubState> {
-	/**
-	 * parent state
-	 * @see PatchableState<S>
-	 */
-	get state(): S;
 }
 /**
  * State context for type-safe access and manipulation of nested sub-state values without knowledge of the parent state.
@@ -398,34 +393,37 @@ export type ProxyStateContext<S extends PatchableState, SubState> = StateContext
 export type ProxySubContext<SubState> = SubContext<SubState> & {
 	[K in keyof SubState]-?: SubState[K] extends object | null ? ProxySubContext<SubState[K]> : SubContext<SubState[K]>;
 };
+export type ProxyState<SubState> = SubState & {
+	[K in keyof SubState]-?: NonNullable<SubState[K]> extends object | null ? ProxyState<NonNullable<SubState[K]>> : SubState[K];
+};
 /**
- * create a ProxyStateContext for type-safe dynamic access to nested state
+ * Creates a `ProxyStateContext` for type-safe access and manipulation of nested state.
  *
- * @example
+ * There are two ways to reach a subcontext:
+ *
+ * **1. Property chaining** — traverse the proxy directly via property access:
  * ```typescript
- * const state = createState({
- *   user: {
- *    profile: {
- *     settings: { theme: 'dark', lang: 'en' }
- *   }
- * });
- *
- * // Create a proxy context for the state
  * const ctx = context(state).user.profile.settings;
- *
- * // Access nested state dynamically
- * const settings = ctx.get(); // { theme: 'dark', lang: 'en' }
- *
- * // Update and trigger render
- * ctx.patch({ theme: 'light' });
- *
- * // Update without render (silent mutation)
- * ctx.put({ lang: 'de' });
  * ```
  *
- * @param state
- * @returns
+ * **2. Path producer function** — pass a callback that navigates
+ * the state tree; needed if your intermediate path contains 'get', 'put' or 'patch' properties that would conflict with the context API:
+ * ```typescript
+ * const ctx = context(state, s => s.user.profile.settings);
+ * ```
+ *
+ * Both forms return a `ProxyStateContext` that supports the same operations:
+ * ```typescript
+ * ctx.get();                   // read current value
+ * ctx.patch({ theme: 'light' }); // update and trigger render
+ * ctx.put({ lang: 'de' });       // update without render (silent mutation)
+ * ```
+ *
+ * @param state - The root `PatchableState` to create a context for
+ * @param producePath - Optional path producer; receives a proxy of the state and should return the desired sub-node
+ * @returns A `ProxyStateContext` rooted at the given path, with further property-chain access available
  */
-export declare function context<S extends PatchableState>(state: S): ProxyStateContext<S, S>;
+export declare function context<S extends PatchableState, SS = S>(state: S): ProxyStateContext<S, SS>;
+export declare function context<S extends PatchableState, SS>(state: S, producePath: (ctx: ProxyState<S>) => ProxyState<SS>): ProxyStateContext<S, SS>;
 
 export {};
