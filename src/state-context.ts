@@ -46,43 +46,55 @@ export type ProxySubContext<SubState> = SubContext<SubState> & {
     : SubContext<SubState[K]>
 };
 
+type ProxyState<SubState> = SubState & {
+    [K in keyof SubState]-?: SubState[K] extends object | null
+    ? ProxyState<SubState[K]>
+    : SubState[K]
+};
+
 /**
- * create a ProxyStateContext for type-safe dynamic access to nested state
- * 
- * @example
+ * Creates a `ProxyStateContext` for type-safe access and manipulation of nested state.
+ *
+ * There are two ways to reach a subcontext:
+ *
+ * **1. Property chaining** — traverse the proxy directly via property access:
  * ```typescript
- * const state = createState({
- *   user: {
- *    profile: {
- *     settings: { theme: 'dark', lang: 'en' }
- *   }
- * });
- * 
- * // Create a proxy context for the state
  * const ctx = context(state).user.profile.settings;
- * 
- * // Access nested state dynamically
- * const settings = ctx.get(); // { theme: 'dark', lang: 'en' }
- * 
- * // Update and trigger render
- * ctx.patch({ theme: 'light' });
- * 
- * // Update without render (silent mutation)
- * ctx.put({ lang: 'de' });
  * ```
- * 
- * @param state 
- * @returns 
+ *
+ * **2. Path producer function** — pass a callback that navigates 
+ * the state tree; needed if your intermediate path contains 'get', 'put' or 'patch' properties that would conflict with the context API:
+ * ```typescript
+ * const ctx = context(state, s => s.user.profile.settings);
+ * ```
+ *
+ * Both forms return a `ProxyStateContext` that supports the same operations:
+ * ```typescript
+ * ctx.get();                   // read current value
+ * ctx.patch({ theme: 'light' }); // update and trigger render
+ * ctx.put({ lang: 'de' });       // update without render (silent mutation)
+ * ```
+ *
+ * @param state - The root `PatchableState` to create a context for
+ * @param producePath - Optional path producer; receives a proxy of the state and should return the desired sub-node
+ * @returns A `ProxyStateContext` rooted at the given path, with further property-chain access available
  */
-export function context<S extends PatchableState>(state: S): ProxyStateContext<S, S> {
-    return new ProxyStateContextImpl<S, S>(state, []) as unknown as ProxyStateContext<S, S>;
+
+export function context<S extends PatchableState, SS = S>(state: S): ProxyStateContext<S, SS>;
+export function context<S extends PatchableState, SS>(state: S, producePath?: (ctx: ProxyState<S>) => ProxyState<SS>): ProxyStateContext<S, SS> {
+    if (producePath) {
+        const proxy = producePath(proxyState<S>(state, [] as string[]));
+        const keys = (proxy as any)["___KeYs___"] as string[];
+        return new ProxyStateContextImpl<S, SS>(state, keys) as unknown as ProxyStateContext<S, SS>;
+    }
+    return new ProxyStateContextImpl<S, S>(state, []) as unknown as ProxyStateContext<S, SS>;
 }
 
 class ProxyStateContextImpl<S extends PatchableState, SubState>
     implements StateContext<S, SubState> {
 
     constructor(
-        public readonly state: S,
+        private readonly state: S,
         private readonly keys: string[]
     ) {
         function putDeep(value: SubState | DeepPartial<SubState> | undefined | null, target: S | DeepPartial<S>) {
@@ -167,4 +179,24 @@ class ProxyStateContextImpl<S extends PatchableState, SubState>
     get(): SubState { return undefined as unknown as SubState; }
     put(value: SubState | DeepPartial<SubState>): void { }
     patch(value: SubState | DeepPartial<SubState> | DeepPartial<SubState>[]): void { }
+}
+
+
+function proxyState<S extends PatchableState>(
+    state: S,
+    keys: string[]
+) {
+    return new Proxy(state, {
+        get: (target, prop, receiver) => {
+            if (prop === "___KeYs___") {
+                return keys;
+            }
+
+            const newKeys = [...target.keys, String(prop)];
+            return proxyState<S>(state, newKeys);
+        },
+        set: (target: any, p: string | symbol, newValue: any, receiver: any) => {
+            throw new Error("ProxyState is not meant to be directly mutated");
+        }
+    });
 }

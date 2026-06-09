@@ -130,7 +130,6 @@ export default {
     "StateContext.put() merges into existing object properties via Object.assign": async () => {
         const state = createState({ items: { count: 0, name: "test", hidden: false } });
         const ctx = context(state);
-        // Line 110-111: when existing value is object and new value is object, Object.assign merges
         ctx.items.put({ count: 5 });
         await expect(state.items).toEqual({ count: 5, name: "test", hidden: false });
     },
