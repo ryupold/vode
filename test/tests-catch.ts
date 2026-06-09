@@ -1,5 +1,5 @@
 import { expect } from "./helper";
-import { app, createState, DIV, ARTICLE, SECTION, P } from "../index";
+import { app, createState, DIV, ARTICLE, SECTION, P, MAIN } from "../index";
 
 function setup() {
     const root = document.createElement("div");
@@ -155,6 +155,66 @@ export default {
                 [P, "whoops"],
                 [ARTICLE, "i am fine"]
             ]
+        );
+    },
+
+    "catch: bubbles up to the root component if deeply nested vodes dont catch it earlier": async () => {
+        const root = document.createElement("div");
+        const container = document.createElement("div");
+        root.appendChild(container);
+
+        app(container, {}, () =>
+            [DIV,
+                {
+                    catch: (s: unknown, err: Error) => [DIV, `caught: ${err.message}`]
+                },
+
+                [MAIN,
+                    [SECTION,
+                        [ARTICLE, {
+                            onMount: () => {
+                                throw new Error("boom");
+                            }
+                        }],
+                    ],
+                ]
+            ]
+        );
+
+        await expect(container).toMatch(
+            [DIV, "caught: boom"],
+        );
+    },
+
+    "catch: if catching in root vode with different Tag -> container will be replaced": async () => {
+        const root = document.createElement("div");
+        const container = document.createElement("div");
+        root.appendChild(container);
+
+        await expect(root.firstChild === container).toEqual(true);
+
+        app(container, {}, () =>
+            [DIV,
+                {
+                    catch: (s: unknown, err: Error) => [P, `caught: ${err.message}`]
+                },
+
+                [MAIN,
+                    [SECTION,
+                        [ARTICLE, {
+                            onMount: () => {
+                                throw new Error("boom");
+                            }
+                        }],
+                    ],
+                ]
+            ]
+        );
+
+        await expect(root.firstChild === container).toEqual(false);
+
+        await expect(root.firstChild).toMatch(
+            [P, "caught: boom"],
         );
     },
 };

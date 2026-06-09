@@ -228,10 +228,10 @@ export function app<S extends PatchableState = PatchableState>(
 
     function renderDom(isAnimated: boolean) {
         const sw = performance.now();
-        const vom = dom(_vode.state);
-        _vode.vode = render<S>(_vode.state, container.parentElement as Element, 0, 0, _vode.vode, vom)!;
+        _vode.vode = render<S>(_vode.state, container.parentElement as Element, 0, 0, _vode.vode, dom(_vode.state))!;
 
-        if ((<ContainerNode<S>>container).tagName.toUpperCase() !== (vom[0] as Tag).toUpperCase()) { //the tag name was changed during render -> update reference to vode-app-root 
+        if ((<ContainerNode<S>>container).tagName.toLowerCase() !== (<Vode<S>>_vode.vode)[0].toLowerCase()) {
+            //the tag name was changed during render -> update reference to vode-app-root 
             container = _vode.vode.node as Element;
             (<ContainerNode<S>>container)._vode = _vode
         }
@@ -299,6 +299,13 @@ export function app<S extends PatchableState = PatchableState>(
         hydrate<S>(container, true) as AttachedVode<S>,
         dom(<S>state)
     )!;
+
+    // if during initial render the tag of the root vode was changed (catch or different Tag)
+    if (container.tagName.toLowerCase() !== (<Vode<S>>_vode.vode)[0].toLowerCase()) {
+        container = _vode.vode.node as Element;
+        (container as ContainerNode<S>)._vode = _vode;
+    }
+
     const continueRendering = _vode.stats.syncRenderPatchCount !== patchCountBefore;
     _vode.isRendering = 0;
     _vode.stats.syncRenderCount++;
