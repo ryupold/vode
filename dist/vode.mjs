@@ -96,7 +96,7 @@ function app(container, state, dom, ...initialPatches) {
   });
   function renderDom(isAnimated) {
     const sw = performance.now();
-    _vode.vode = render(_vode.state, container.parentElement, 0, 0, _vode.vode, dom(_vode.state));
+    _vode.vode = render(_vode.state, container.parentElement, 0, 0, _vode.vode, dom);
     if (container.tagName.toLowerCase() !== _vode.vode[0].toLowerCase()) {
       container = _vode.vode.node;
       container._vode = _vode;
@@ -157,7 +157,7 @@ function app(container, state, dom, ...initialPatches) {
     indexInParent,
     indexInParent,
     hydrate(container, true),
-    dom(state)
+    dom
   );
   if (container.tagName.toLowerCase() !== _vode.vode[0].toLowerCase()) {
     container = _vode.vode.node;
@@ -276,7 +276,9 @@ function createPatch(p) {
   return p;
 }
 function tag(v) {
-  return !!v ? Array.isArray(v) ? v[0] : typeof v === "string" || v.nodeType === Node.TEXT_NODE ? "#text" : void 0 : void 0;
+  const t = !!v && Array.isArray(v) && v[0];
+  if (typeof t === "string") return t;
+  return void 0;
 }
 function props(vode2) {
   if (Array.isArray(vode2) && vode2.length > 1 && vode2[1] && !Array.isArray(vode2[1])) {
@@ -291,7 +293,7 @@ function children(vode2) {
   if (start > 0) {
     return vode2.slice(start);
   }
-  return null;
+  return void 0;
 }
 function childCount(vode2) {
   const start = childrenStart(vode2);
@@ -469,7 +471,7 @@ function render(state, parent, childIndex, indexInParent, oldVode, newVode, xmln
       return newVode;
     }
   } catch (error) {
-    const catchVode = props(newVode)?.catch;
+    const catchVode = typeof newVode === "function" ? props(oldVode)?.catch : props(newVode)?.catch;
     if (catchVode) {
       const handledVode = typeof catchVode === "function" ? catchVode(state, error) : catchVode;
       return render(

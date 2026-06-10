@@ -135,12 +135,12 @@ export declare function memo<S = PatchableState>(compare: any[], component: Comp
 export declare function createState<S = PatchableState>(state: S): PatchableState<S>;
 /** type safe way to create a patch. useful for type inference and autocompletion. */
 export declare function createPatch<S = PatchableState>(p: DeepPartial<S> | Effect<S> | IgnoredPatch): typeof p;
-/** html tag of the vode or `#text` if it is a text node */
-export declare function tag<S = PatchableState>(v: Vode<S> | TextVode | NoVode | AttachedVode<S>): Tag | "#text" | undefined;
+/** html tag of the vode or undefined if it has none or is a text node */
+export declare function tag(v: ChildVode): Tag | undefined;
 /** get properties object of a vode, if there is any */
 export declare function props<S = PatchableState>(vode: ChildVode<S> | AttachedVode<S>): Props<S> | undefined;
 /** get a slice of all children of a vode, if there are any */
-export declare function children<S = PatchableState>(vode: ChildVode<S> | AttachedVode<S>): ChildVode<S>[] | null;
+export declare function children<S = PatchableState>(vode: ChildVode<S> | AttachedVode<S>): ChildVode<S>[] | undefined;
 export declare function childCount<S = PatchableState>(vode: Vode<S>): number;
 export declare function child<S = PatchableState>(vode: Vode<S>, index: number): ChildVode<S> | undefined;
 /** index in vode at which child-vodes start */
@@ -401,12 +401,12 @@ export type ProxyState<SubState> = SubState & {
  *
  * There are two ways to reach a subcontext:
  *
- * **1. Property chaining** — traverse the proxy directly via property access:
+ * **1. Property chaining**: traverse the proxy directly via property access:
  * ```typescript
  * const ctx = context(state).user.profile.settings;
  * ```
  *
- * **2. Path producer function** — pass a callback that navigates
+ * **2. Path producer function**: pass a callback that navigates
  * the state tree; needed if your intermediate path contains 'get', 'put' or 'patch' properties that would conflict with the context API:
  * ```typescript
  * const ctx = context(state, s => s.user.profile.settings);

@@ -96,7 +96,7 @@ function app(container, state, dom, ...initialPatches) {
   });
   function renderDom(isAnimated) {
     const sw = performance.now();
-    _vode.vode = render(_vode.state, container.parentElement, 0, 0, _vode.vode, dom(_vode.state));
+    _vode.vode = render(_vode.state, container.parentElement, 0, 0, _vode.vode, dom);
     if (container.tagName.toLowerCase() !== _vode.vode[0].toLowerCase()) {
       container = _vode.vode.node;
       container._vode = _vode;
@@ -157,7 +157,7 @@ function app(container, state, dom, ...initialPatches) {
     indexInParent,
     indexInParent,
     hydrate(container, true),
-    dom(state)
+    dom
   );
   if (container.tagName.toLowerCase() !== _vode.vode[0].toLowerCase()) {
     container = _vode.vode.node;
@@ -276,7 +276,9 @@ function createPatch(p) {
   return p;
 }
 function tag(v) {
-  return !!v ? Array.isArray(v) ? v[0] : typeof v === "string" || v.nodeType === Node.TEXT_NODE ? "#text" : void 0 : void 0;
+  const t = !!v && Array.isArray(v) && v[0];
+  if (typeof t === "string") return t;
+  return void 0;
 }
 function props(vode2) {
   if (Array.isArray(vode2) && vode2.length > 1 && vode2[1] && !Array.isArray(vode2[1])) {
@@ -291,7 +293,7 @@ function children(vode2) {
   if (start > 0) {
     return vode2.slice(start);
   }
-  return null;
+  return void 0;
 }
 function childCount(vode2) {
   const start = childrenStart(vode2);
@@ -469,7 +471,7 @@ function render(state, parent, childIndex, indexInParent, oldVode, newVode, xmln
       return newVode;
     }
   } catch (error) {
-    const catchVode = props(newVode)?.catch;
+    const catchVode = typeof newVode === "function" ? props(oldVode)?.catch : props(newVode)?.catch;
     if (catchVode) {
       const handledVode = typeof catchVode === "function" ? catchVode(state, error) : catchVode;
       return render(
@@ -2218,8 +2220,8 @@ var tests_tag_default = {
   "tag(): on a vode with props and children": async () => {
     await expect(tag([DIV, { class: "foo" }, [SPAN, "hi"]])).toEqual("div");
   },
-  "tag(): on a text vode (string) returns #text": async () => {
-    await expect(tag("hello")).toEqual("#text");
+  "tag(): on a text vode (string) returns undefined": async () => {
+    await expect(tag("hello")).toEqual(void 0);
   },
   "tag(): on falsy values returns undefined": async () => {
     await expect(tag(null)).toEqual(void 0);
@@ -2249,10 +2251,10 @@ var tests_children_default = {
     await expect(c.length).toEqual(2);
   },
   "children(): just-tag vode returns null": async () => {
-    await expect(children([DIV])).toEqual(null);
+    await expect(children([DIV])).toEqual(void 0);
   },
   "children(): text vode returns null": async () => {
-    await expect(children("hello")).toEqual(null);
+    await expect(children("hello")).toEqual(void 0);
   },
   "childrenStart(): with props+children returns 2": async () => {
     await expect(childrenStart([DIV, { class: "x" }, [SPAN]])).toEqual(2);
@@ -5483,6 +5485,58 @@ var tests_catch_default = {
     await expect(root.firstChild === container).toEqual(false);
     await expect(root.firstChild).toMatch(
       [P, "caught: boom"]
+    );
+  },
+  "catch: directly evaluated DOM expressions cannot be catched": async () => {
+    globalThis.window.continueAfterRequestAnimationFrameError = true;
+    const root = document.createElement("div");
+    const container = document.createElement("div");
+    root.appendChild(container);
+    const error = new Error("boom");
+    function ComponentWithError() {
+      throw error;
+    }
+    const patch = app(container, { error: false }, (s) => {
+      return [
+        DIV,
+        [
+          DIV,
+          {
+            catch: (s2, err) => [P, `caught: ${err.message}`]
+          },
+          s.error ? ComponentWithError() : "no error"
+        ]
+      ];
+    });
+    patch({ error: true });
+    await expect(
+      () => expect(globalThis.window.requestAnimationFrameErrors[0]).toEqual(error)
+    ).toSucceedAsync();
+  },
+  "catch: use old vodes catch if new vode needs evaluation before knowing": async () => {
+    globalThis.window.continueAfterRequestAnimationFrameError = true;
+    const root = document.createElement("div");
+    const container = document.createElement("div");
+    root.appendChild(container);
+    function ComponentWithError() {
+      throw new Error("boom");
+    }
+    const patch = app(container, { error: false }, (s) => {
+      return [
+        DIV,
+        () => [
+          DIV,
+          { catch: (s2, err) => [P, `caught: ${err.message}`] },
+          s.error ? ComponentWithError() : "no error"
+        ]
+      ];
+    });
+    patch({ error: true });
+    await expect(container).toMatch(
+      [
+        DIV,
+        [P, "caught: boom"]
+      ]
     );
   }
 };
