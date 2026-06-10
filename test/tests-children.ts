@@ -17,11 +17,11 @@ export default {
     },
 
     "children(): just-tag vode returns null": async () => {
-        await expect(children([DIV])).toEqual(null);
+        await expect(children([DIV])).toEqual(undefined);
     },
 
     "children(): text vode returns null": async () => {
-        await expect(children("hello")).toEqual(null);
+        await expect(children("hello")).toEqual(undefined);
     },
 
     "childrenStart(): with props+children returns 2": async () => {

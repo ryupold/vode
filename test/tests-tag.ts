@@ -12,9 +12,9 @@ export default {
             .toEqual("div");
     },
 
-    "tag(): on a text vode (string) returns #text": async () => {
+    "tag(): on a text vode (string) returns undefined": async () => {
         await expect(tag("hello"))
-            .toEqual("#text");
+            .toEqual(undefined);
     },
 
     "tag(): on falsy values returns undefined": async () => {

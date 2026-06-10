@@ -57,12 +57,12 @@ type ProxyState<SubState> = SubState & {
  *
  * There are two ways to reach a subcontext:
  *
- * **1. Property chaining** — traverse the proxy directly via property access:
+ * **1. Property chaining**: traverse the proxy directly via property access:
  * ```typescript
  * const ctx = context(state).user.profile.settings;
  * ```
  *
- * **2. Path producer function** — pass a callback that navigates 
+ * **2. Path producer function**: pass a callback that navigates 
  * the state tree; needed if your intermediate path contains 'get', 'put' or 'patch' properties that would conflict with the context API:
  * ```typescript
  * const ctx = context(state, s => s.user.profile.settings);

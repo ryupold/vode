@@ -445,12 +445,11 @@ export function createState<S = PatchableState>(state: S): PatchableState<S> {
 /** type safe way to create a patch. useful for type inference and autocompletion. */
 export function createPatch<S = PatchableState>(p: DeepPartial<S> | Effect<S> | IgnoredPatch): typeof p { return p; }
 
-/** html tag of the vode or `#text` if it is a text node */
-export function tag<S = PatchableState>(v: Vode<S> | TextVode | NoVode | AttachedVode<S>): Tag | "#text" | undefined {
-    return !!v ? (Array.isArray(v)
-        ? v[0] : (typeof v === "string" || (<any>v).nodeType === Node.TEXT_NODE)
-            ? "#text" : undefined) as Tag
-        : undefined;
+/** html tag of the vode or undefined if it has none or is a text node */
+export function tag(v: ChildVode): Tag | undefined {
+    const t = !!v && Array.isArray(v) && v[0] as Tag;
+    if (typeof t === "string") return t;
+    return undefined;
 }
 
 /** get properties object of a vode, if there is any */
@@ -472,12 +471,12 @@ export function props<S = PatchableState>(vode: ChildVode<S> | AttachedVode<S>):
 }
 
 /** get a slice of all children of a vode, if there are any */
-export function children<S = PatchableState>(vode: ChildVode<S> | AttachedVode<S>): ChildVode<S>[] | null {
+export function children<S = PatchableState>(vode: ChildVode<S> | AttachedVode<S>): ChildVode<S>[] | undefined {
     const start = childrenStart(vode);
     if (start > 0) {
         return (<Vode<S>>vode).slice(start) as Vode<S>[];
     }
-    return null;
+    return undefined;
 }
 
 export function childCount<S = PatchableState>(vode: Vode<S>) {
