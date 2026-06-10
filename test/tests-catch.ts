@@ -219,6 +219,8 @@ export default {
     },
 
     "catch: directly evaluated DOM expressions cannot be catched": async () => {
+        if(!(globalThis.window as any)?._fake) return; // this test relies on the fake DOM's requestAnimationFrame error handling, so skip if not running in fake DOM 
+
         (globalThis.window as any).continueAfterRequestAnimationFrameError = true;
         const root = document.createElement("div");
         const container = document.createElement("div");
@@ -243,13 +245,12 @@ export default {
         patch({ error: true });
 
         await expect(
-            () => expect((globalThis.window as any).requestAnimationFrameErrors[0])
+            () => expect((globalThis.window as any)?.requestAnimationFrameErrors?.[0])
                 .toEqual(error)
         ).toSucceedAsync();
     },
 
     "catch: use old vodes catch if new vode needs evaluation before knowing": async () => {
-        (globalThis.window as any).continueAfterRequestAnimationFrameError = true;
         const root = document.createElement("div");
         const container = document.createElement("div");
         root.appendChild(container);
