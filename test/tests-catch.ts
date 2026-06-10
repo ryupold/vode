@@ -247,4 +247,32 @@ export default {
                 .toEqual(error)
         ).toSucceedAsync();
     },
+
+    "catch: use old vodes catch if new vode needs evaluation before knowing": async () => {
+        (globalThis.window as any).continueAfterRequestAnimationFrameError = true;
+        const root = document.createElement("div");
+        const container = document.createElement("div");
+        root.appendChild(container);
+
+        function ComponentWithError() {
+            throw new Error("boom");
+        }
+
+        const patch = app(container, { error: false }, (s: any) => {
+            return [DIV,
+                () => [DIV,
+                    { catch: (s: unknown, err: Error) => [P, `caught: ${err.message}`] },
+                    s.error ? ComponentWithError() : "no error"
+                ]
+            ];
+        });
+
+        patch({ error: true });
+
+        await expect(container).toMatch(
+            [DIV,
+                [P, "caught: boom"]
+            ]
+        );
+    },
 };

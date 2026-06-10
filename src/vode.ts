@@ -701,7 +701,9 @@ function render<S extends PatchableState>(state: S, parent: Element, childIndex:
             return <AttachedVode<S>>newVode;
         }
     } catch (error) {
-        const catchVode = props(newVode)?.catch;
+        const catchVode = typeof newVode === "function"
+            ? props(oldVode)?.catch
+            : props(newVode)?.catch;
         if (catchVode) {
             const handledVode = typeof catchVode === "function"
                 ? (<(s: S, error: any) => ChildVode<S>>catchVode)(state, error)
