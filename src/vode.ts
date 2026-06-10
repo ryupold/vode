@@ -228,7 +228,7 @@ export function app<S extends PatchableState = PatchableState>(
 
     function renderDom(isAnimated: boolean) {
         const sw = performance.now();
-        _vode.vode = render<S>(_vode.state, container.parentElement as Element, 0, 0, _vode.vode, dom(_vode.state))!;
+        _vode.vode = render<S>(_vode.state, container.parentElement as Element, 0, 0, _vode.vode, dom)!;
 
         if ((<ContainerNode<S>>container).tagName.toLowerCase() !== (<Vode<S>>_vode.vode)[0].toLowerCase()) {
             //the tag name was changed during render -> update reference to vode-app-root 
@@ -297,7 +297,7 @@ export function app<S extends PatchableState = PatchableState>(
         indexInParent,
         indexInParent,
         hydrate<S>(container, true) as AttachedVode<S>,
-        dom(<S>state)
+        dom
     )!;
 
     // if during initial render the tag of the root vode was changed (catch or different Tag)

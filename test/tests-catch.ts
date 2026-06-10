@@ -217,4 +217,34 @@ export default {
             [P, "caught: boom"],
         );
     },
+
+    "catch: directly evaluated DOM expressions cannot be catched": async () => {
+        (globalThis.window as any).continueAfterRequestAnimationFrameError = true;
+        const root = document.createElement("div");
+        const container = document.createElement("div");
+        root.appendChild(container);
+
+        const error = new Error("boom");
+        function ComponentWithError() {
+            throw error;
+        }
+
+        const patch = app(container, { error: false }, (s: any) => {
+            return [DIV,
+                [DIV,
+                    {
+                        catch: (s: unknown, err: Error) => [P, `caught: ${err.message}`]
+                    },
+                    s.error ? ComponentWithError() : "no error"
+                ]
+            ];
+        });
+
+        patch({ error: true });
+
+        await expect(
+            () => expect((globalThis.window as any).requestAnimationFrameErrors[0])
+                .toEqual(error)
+        ).toSucceedAsync();
+    },
 };

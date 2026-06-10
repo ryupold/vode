@@ -206,7 +206,17 @@ export function resetMocks() {
             rafQueue.clear();
 
             for (const cb of callbacks) {
-                cb(now);
+                try {
+                    cb(now);
+                } catch (err: any) {
+                    if ((globalThis.window as any).continueAfterRequestAnimationFrameError) {
+                        (globalThis.window as any).requestAnimationFrameErrors ??= [];
+                        (globalThis.window as any).requestAnimationFrameErrors.push(err);
+                    }
+                    else {
+                        throw err;
+                    }
+                }
             }
 
             scheduleNextFrame();
