@@ -805,7 +805,7 @@ export default {
             return memo<OuterState>([],
                 () => [tag,
                     {
-                        onMount: (s: OuterState, container: Element) => {
+                        onMount: (s: OuterState, container: HTMLElement) => {
                             app<InnerState>(container, state, View);
                         }
                     }
