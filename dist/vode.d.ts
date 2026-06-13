@@ -16,13 +16,17 @@ export type JustTagVode = [
 export type ChildVode<S = PatchableState> = Vode<S> | TextVode | NoVode | Component<S>;
 export type TextVode = string & {};
 export type NoVode = undefined | null | number | boolean | bigint | void;
-export type AttachedVode<S> = Vode<S> & {
-	node: ChildNode;
-} | Text & {
-	node?: never;
-};
 export type Tag = keyof (HTMLElementTagNameMap & SVGElementTagNameMap & MathMLElementTagNameMap) | (string & {});
 export type Component<S = PatchableState> = (s: S) => ChildVode<S>;
+export type DomElement = HTMLElement | SVGSVGElement | MathMLElement;
+export type AttachedVode<S = PatchableState> = AttachedElementVode<S> | Text & {
+	node?: never;
+};
+export type AttachedElementVode<S> = Vode<S> & {
+	node: ElementNode<S>;
+	_unmountCount?: number;
+};
+export type ElementNode<S> = HTMLElement & SVGSVGElement & MathMLElement & Record<string, PropertyValue<S>>;
 export type Patch<S> = IgnoredPatch | RenderPatch<S> | Promise<Patch<S>> | Effect<S>;
 export type IgnoredPatch = undefined | null | number | boolean | bigint | string | symbol | void;
 export type RenderPatch<S> = {} | DeepPartial<S>;
@@ -71,7 +75,7 @@ export declare const globals: {
 	requestAnimationFrame: (cb: () => void) => void;
 	startViewTransition: ((callbackOptions?: ViewTransitionUpdateCallback | StartViewTransitionOptions) => ViewTransition) | null;
 };
-export interface ContainerNode<S = PatchableState> extends HTMLElement {
+export type ContainerNode<S = PatchableState> = DomElement & {
 	/** the `_vode` property is added to the container in `app()`.
 	 * it contains all necessary stuff for the vode app to function.
 	 * remove the container node to clear vodes resources */
@@ -97,7 +101,7 @@ export interface ContainerNode<S = PatchableState> extends HTMLElement {
 			lastAsyncRenderTime: number;
 		};
 	};
-}
+};
 /** type-safe way to create a vode. useful for type inference and autocompletion.
  *
  * - just a tag: `vode("div")` => `["div"]` --*rendered*-> `<div></div>`
@@ -113,20 +117,21 @@ export declare function vode<S = PatchableState>(tag: Tag | Vode<S>, props?: Pro
  * @param initialPatches variadic list of patches that are applied after the first render
  * @returns a patch function that can be used to update the state
  */
-export declare function app<S extends PatchableState = PatchableState>(container: Element, state: Omit<S, "patch">, dom: (s: S) => Vode<S>, ...initialPatches: Patch<S>[]): Dispatch<S>;
+export declare function app<S extends PatchableState = PatchableState>(container: DomElement, state: Omit<S, "patch">, dom: (s: S) => Vode<S>, ...initialPatches: Patch<S>[]): Dispatch<S>;
 /** unregister vode app from container and free resources
  * of all vodes inside the container.
  * removes all event listeners registered by vode
  * removes patch function from state object
  * leaves the DOM as is
  */
-export declare function defuse(container: ContainerNode<any>): void;
+export declare function defuse(container: ContainerNode): void;
 /** return vode representation of given DOM node */
-export declare function hydrate<S = PatchableState>(element: Element | Text, prepareForRender?: boolean): Vode<S> | string | AttachedVode<S> | undefined;
+export declare function hydrate<S = PatchableState>(element: DomElement | Text): Vode<S> | string | undefined;
+export declare function hydrate<S = PatchableState>(element: DomElement | Text, prepareForRender: boolean): AttachedVode<S> | undefined;
 /** memoizes the resulting component or props by comparing element by element (===) with the
  * `compare` of the previous render. otherwise skips the render step (not calling `componentOrProps`)
  */
-export declare function memo<S = PatchableState>(compare: any[], component: Component<S>): Component<S>;
+export declare function memo<S = PatchableState>(compare: unknown[], component: Component<S>): Component<S>;
 /**
  * create a patchable state object for a vode-app.
  * calls to `patch()` prior to `app()` initialization will queue the patches and apply them before the initial patches.

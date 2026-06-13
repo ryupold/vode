@@ -475,7 +475,7 @@ var V = (() => {
       if (element.hasChildNodes()) {
         const remove = [];
         for (let child2 of element.childNodes) {
-          const wet = child2 && hydrate(child2, prepareForRender);
+          const wet = child2 && hydrate(child2, !!prepareForRender);
           if (wet) root.push(wet);
           else if (child2 && prepareForRender) remove.push(child2);
         }
@@ -553,7 +553,7 @@ var V = (() => {
     return props(vode2) ? vode2.length > 2 ? 2 : -1 : Array.isArray(vode2) && vode2.length > 1 ? 1 : -1;
   }
   function mergeState(target, source, allowDeletion) {
-    if (!source) return target;
+    if (typeof source !== "object") return target;
     for (const key in source) {
       const value = source[key];
       if (value && typeof value === "object") {
@@ -683,15 +683,16 @@ var V = (() => {
         return newVode;
       }
       if (!oldIsText && isNode && oldVode[0] === newVode[0]) {
-        newVode.node = oldNode;
+        const node = oldNode;
+        newVode.node = node;
         const properties = props(newVode);
         const oldProps = props(oldVode);
         if (properties?.xmlns !== void 0)
           xmlns = properties.xmlns;
-        patchProperties(state, oldNode, oldProps, properties, xmlns);
+        patchProperties(state, node, oldProps, properties, xmlns);
         if (!!properties?.catch && oldProps?.catch !== properties.catch) {
-          newVode.node["catch"] = null;
-          newVode.node.removeAttribute("catch");
+          node["catch"] = null;
+          node.removeAttribute("catch");
         }
         const newStart = childrenStart(newVode);
         const oldStart = childrenStart(oldVode);
@@ -735,11 +736,11 @@ var V = (() => {
   }
   function unmountTree(state, v) {
     if (!v || !Array.isArray(v)) return;
-    if ((v._unmountCount | 0) === 0) return;
-    const kids = children(v);
-    if (kids) {
-      for (let i = kids.length - 1; i >= 0; i--) {
-        unmountTree(state, kids[i]);
+    if ((v?._unmountCount ?? 0) === 0) return;
+    const kidsStart = childrenStart(v);
+    if (kidsStart > 0) {
+      for (let i = v.length - 1; i >= kidsStart; i--) {
+        unmountTree(state, v[i]);
       }
     }
     const p = props(v);
@@ -748,12 +749,13 @@ var V = (() => {
     }
   }
   function sumChildUnmountCounts(v) {
-    const kids = children(v);
-    if (!kids) return 0;
+    const kidsStart = childrenStart(v);
+    if (kidsStart < 1) return 0;
     let n = 0;
-    for (const k of kids) {
-      if (k && Array.isArray(k)) {
-        n += k._unmountCount | 0;
+    for (let i = kidsStart; i < v.length; i++) {
+      const k = v[i];
+      if (Array.isArray(k)) {
+        n += k._unmountCount ?? 0;
       }
     }
     return n;

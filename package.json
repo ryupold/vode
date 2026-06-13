@@ -1,6 +1,6 @@
 {
     "name": "@ryupold/vode",
-    "version": "1.9.1",
+    "version": "1.9.2",
     "description": "a minimalist web framework",
     "author": "Michael Scherbakow (ryupold)",
     "license": "MIT",
@@ -55,7 +55,7 @@
         "@babel/preset-env": "7.29.7",
         "babel-preset-minify": "0.5.2",
         "dts-bundle-generator": "9.5.1",
-        "esbuild": "0.28.0",
+        "esbuild": "0.28.1",
         "typescript": "6.0.3"
     }
 }
