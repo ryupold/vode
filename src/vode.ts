@@ -887,6 +887,7 @@ function patchProperty<S extends PatchableState>(
                 }
             }
         } else {
+            if (oldValue) node.style.cssText = "";
             for (let k in (newValue as Props<S>)) {
                 node.style[k as keyof PropertyValue<S>] = newValue[k as keyof PropertyValue<S>];
             }
