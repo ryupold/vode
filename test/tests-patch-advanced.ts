@@ -1,4 +1,4 @@
-import { delay, expect, setHidden } from "./helper";
+import { delay, eventually, expect, setHidden } from "./helper";
 import { app, ContainerNode, createState, DIV } from "../index";
 
 function setup() {
@@ -80,10 +80,8 @@ export default {
 
         state.patch([null, { x: 10 }, undefined, { y: 20 }]);
 
-        await expect(() => expect(state.x).toEqual(10))
-            .toSucceedAsync();
-        await expect(() => expect(state.y).toEqual(20))
-            .toSucceedAsync();
+        await eventually(() => state.x).toEqual(10);
+        await eventually(() => state.y).toEqual(20);
     },
 
     "patch(): returns Promise for generator functions, can be awaited": async () => {
@@ -199,11 +197,9 @@ export default {
         try {
             (state.patch as any)({ x: 1 }, true);
 
-            await expect(async () => {
-                // state is applied immediately and the animated queue is drained
-                await expect(state.x).toEqual(1);
-                await expect(container._vode.qAsync == null).toEqual(true);
-            }).toSucceedAsync();
+            // state is applied immediately and the animated queue is drained
+            await eventually(() => state.x).toEqual(1);
+            await eventually(() => container._vode.qAsync == null).toEqual(true);
         } finally {
             setHidden(false);
         }
@@ -223,7 +219,7 @@ export default {
             state.patch([{ x: 1 }]);
 
             // state already reflects the change (render is deferred while hidden in the fake DOM)
-            await expect(async () => expect(state.x).toEqual(1)).toSucceedAsync();
+            await eventually(() => state.x).toEqual(1);
         } finally {
             // becoming visible again flushes the deferred render to the DOM
             setHidden(false);

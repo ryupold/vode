@@ -37,7 +37,7 @@ function retry<T = void>(fn: () => Promise<T>, waitTime: number): Promise<T> {
                     if (timeLeft >= 0) {
                         setTimeout(
                             () => retryInternal(timeLeft - (performance.now() - start)),
-                            10
+                            1
                         );
                     } else {
                         reject(err);
@@ -50,7 +50,7 @@ function retry<T = void>(fn: () => Promise<T>, waitTime: number): Promise<T> {
             if (timeLeft >= 0) {
                 setTimeout(() => {
                     retryInternal(timeLeft - (performance.now() - start))
-                }, 10);
+                }, 1);
             } else {
                 reject(err);
             }
@@ -101,57 +101,56 @@ export class Expectation {
         }
     }
 
-    async toEqual(other: any, failMessage?: string, waitTimeMs: number = 100) {
-        return await retry(
-            async () => {
-                const failSuffix = failMessage ? `\n\n${failMessage}` : "";
+    equalsOrThrow(other: any, failMessage?: string) {
+        const failSuffix = failMessage ? `\n\n${failMessage}` : "";
 
-                function deepCompare(a: any, b: any, path: string[]): string[] | null {
-                    if (typeof a !== typeof b) {
-                        if (path.length === 0) path.push(``);
-                        path[path.length - 1] += ` (type: ${typeof a} != ${typeof b})`;
-                        return path;
-                    }
+        function deepCompare(a: any, b: any, path: string[]): string[] | null {
+            if (typeof a !== typeof b) {
+                if (path.length === 0) path.push(``);
+                path[path.length - 1] += ` (type: ${typeof a} != ${typeof b})`;
+                return path;
+            }
 
-                    if (typeof a !== "object" || a === null) {
-                        if (path.length === 0) path.push(``);
-                        path[path.length - 1] += ` (value: ${a} != ${b})`;
-                        return a !== b ? path : null;
-                    }
+            if (typeof a !== "object" || a === null) {
+                if (path.length === 0) path.push(``);
+                path[path.length - 1] += ` (value: ${a} != ${b})`;
+                return a !== b ? path : null;
+            }
 
-                    for (const prop of Object.entries(a)) {
-                        const [k, v] = prop;
-                        const result = deepCompare(v, b[k], [...path, k]);
-                        if (result) {
-                            return result;
-                        }
-                    }
-
-                    for (const prop of Object.entries(b)) {
-                        const [k, v] = prop;
-                        const result = deepCompare(a[k], v, [...path, k]);
-                        if (result) {
-                            return result;
-                        }
-                    }
-
-                    return null;
+            for (const prop of Object.entries(a)) {
+                const [k, v] = prop;
+                const result = deepCompare(v, b[k], [...path, k]);
+                if (result) {
+                    return result;
                 }
+            }
 
-                if (typeof this.what === "object" && typeof other === "object" && this.what !== null && other !== null) {
-                    const unequal = deepCompare(this.what, other, []);
-                    if (unequal) {
-                        throw new ExpectationError(this, `expected \n\n${JSON.stringify(this.what, null, 2)}\n\n to equal \n\n${JSON.stringify(other, null, 2)}\n\nThey differ in: ${unequal.join(".")}${failSuffix}`);
-                    }
+            for (const prop of Object.entries(b)) {
+                const [k, v] = prop;
+                const result = deepCompare(a[k], v, [...path, k]);
+                if (result) {
+                    return result;
                 }
-                else {
-                    if (this.what !== other) {
-                        throw new ExpectationError(this, `expected (${typeof this.what})\n\n${this.what}\n\nto equal (${typeof other})\n\n${other}${failSuffix}`);
-                    }
-                }
-            },
-            waitTimeMs
-        );
+            }
+
+            return null;
+        }
+
+        if (typeof this.what === "object" && typeof other === "object" && this.what !== null && other !== null) {
+            const unequal = deepCompare(this.what, other, []);
+            if (unequal) {
+                throw new ExpectationError(this, `expected \n\n${JSON.stringify(this.what, null, 2)}\n\n to equal \n\n${JSON.stringify(other, null, 2)}\n\nThey differ in: ${unequal.join(".")}${failSuffix}`);
+            }
+        }
+        else {
+            if (this.what !== other) {
+                throw new ExpectationError(this, `expected (${typeof this.what})\n\n${this.what}\n\nto equal (${typeof other})\n\n${other}${failSuffix}`);
+            }
+        }
+    }
+
+    async toEqual(other: any, failMessage?: string, waitTimeMs: number = 1000) {
+        return await retry(async () => this.equalsOrThrow(other, failMessage), waitTimeMs);
     }
 
     toSucceed<Result>(failMessage?: string): Result {
@@ -177,7 +176,7 @@ export class Expectation {
         throw new ExpectationError(this, `expected function to fail\n\nbut it succeeded with a result of type ${typeof r}\n\n${r}${failSuffix}`);
     }
 
-    toSucceedAsync<Result>(failMessage?: string, waitTime: number = 100): Promise<Result> {
+    toSucceedAsync<Result>(failMessage?: string, waitTime: number = 1000): Promise<Result> {
         const failSuffix = failMessage ? `\n\n${failMessage}` : "";
         if (typeof this.what !== "function") {
             throw new ExpectationError(this, `expected a function\n\nbut it is a ${typeof this.what}${failSuffix}`);
@@ -207,7 +206,7 @@ export class Expectation {
     async toMatch(v: ChildVode,
         state?: PatchableState | null,
         failMessage?: string,
-        waitTimeMs: number = 100
+        waitTimeMs: number = 1000
     ) {
         return await retry(
             async () => {
@@ -375,4 +374,27 @@ export class ExpectationError extends Error {
 
 export function expect(what: any) {
     return new Expectation(what);
+}
+
+/** Lazy counterpart to `expect`: takes a thunk that is re-evaluated on every
+ * retry attempt.
+ *
+ * Use this to wait for asynchronously-settling values */
+export function eventually<T>(produce: () => T, defaultWaitMs: number = 1000) {
+    const poll = (check: (e: Expectation) => void, waitMs: number) =>
+        retry(async () => check(new Expectation(produce())), waitMs);
+    return {
+        toEqual: (other: any, failMessage?: string, waitMs: number = defaultWaitMs) =>
+            poll(e => e.equalsOrThrow(other, failMessage), waitMs),
+        toBeA: (type: Parameters<Expectation["toBeA"]>[0], failMessage?: string, waitMs: number = defaultWaitMs) =>
+            poll(e => e.toBeA(type, failMessage), waitMs),
+        toBeGreaterThan: (other: number, failMessage?: string, waitMs: number = defaultWaitMs) =>
+            poll(e => e.toBeGreaterThan(other, failMessage), waitMs),
+        toBeGreaterOrEqualThan: (other: number, failMessage?: string, waitMs: number = defaultWaitMs) =>
+            poll(e => e.toBeGreaterOrEqualThan(other, failMessage), waitMs),
+        toBeSmallerThan: (other: number, failMessage?: string, waitMs: number = defaultWaitMs) =>
+            poll(e => e.toBeSmallerThan(other, failMessage), waitMs),
+        toBeSmallerOrEqual: (other: number, failMessage?: string, waitMs: number = defaultWaitMs) =>
+            poll(e => e.toBeSmallerOrEqual(other, failMessage), waitMs),
+    };
 }

@@ -220,7 +220,7 @@ export function resetMocks() {
             }
 
             scheduleNextFrame();
-        }, 16);
+        }, 0);
     }
 
     const fakeDocument: any = {

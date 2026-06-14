@@ -1,4 +1,4 @@
-import { expect } from "./helper";
+import { eventually, expect } from "./helper";
 import { app, createState, DIV, ARTICLE, SECTION, P, MAIN } from "../index";
 
 function setup() {
@@ -244,10 +244,8 @@ export default {
 
         patch({ error: true });
 
-        await expect(
-            () => expect((globalThis.window as any)?.requestAnimationFrameErrors?.[0])
-                .toEqual(error)
-        ).toSucceedAsync();
+        await eventually(() => (globalThis.window as any)?.requestAnimationFrameErrors?.[0])
+            .toEqual(error);
     },
 
     "catch: use old vodes catch if new vode needs evaluation before knowing": async () => {
