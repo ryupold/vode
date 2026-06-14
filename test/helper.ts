@@ -14,6 +14,17 @@ function isRealTextNode(node: any): node is Text {
 
 export const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+/** set `document.hidden` in a way that works both in the fake-DOM (node) test */
+export function setHidden(value: boolean) {
+    const ownDesc = Object.getOwnPropertyDescriptor(document, "hidden");
+    if (ownDesc?.set) {
+        (document as any).hidden = value;
+        return;
+    }
+    if (ownDesc) delete (document as any).hidden;
+    if (value) Object.defineProperty(document, "hidden", { configurable: true, get: () => true });
+}
+
 function retry<T = void>(fn: () => Promise<T>, waitTime: number): Promise<T> {
     const { promise, resolve, reject } = Promise.withResolvers<T>();
 

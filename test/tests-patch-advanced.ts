@@ -1,4 +1,4 @@
-import { delay, expect } from "./helper";
+import { delay, expect, setHidden } from "./helper";
 import { app, ContainerNode, createState, DIV } from "../index";
 
 function setup() {
@@ -187,5 +187,48 @@ export default {
             )
         ).toFailAsync("void error expected");
         expect(err.message).toEqual("void error");
+    },
+
+    "patch(): animated patch while document is hidden": async () => {
+        const container = setup();
+        const state = createState({ x: 0 });
+        app<typeof state>(container, state, (s) => [DIV, String(s.x)]);
+
+        setHidden(true);
+        
+        try {
+            (state.patch as any)({ x: 1 }, true);
+
+            await expect(async () => {
+                // state is applied immediately and the animated queue is drained
+                await expect(state.x).toEqual(1);
+                await expect(container._vode.qAsync == null).toEqual(true);
+            }).toSucceedAsync();
+        } finally {
+            setHidden(false);
+        }
+    },
+
+    "patch(): patch animated while hidden renders once visible again": async () => {
+        const container = setup();
+        const state = createState({ x: 0 });
+        app<typeof state>(container, state, (s) => [DIV, String(s.x)]);
+
+        await expect(container).toMatch([DIV, "0"]);
+
+        setHidden(true);
+
+        try {
+            // documented view-transition patch (array) issued while the tab is hidden
+            state.patch([{ x: 1 }]);
+
+            // state already reflects the change (render is deferred while hidden in the fake DOM)
+            await expect(async () => expect(state.x).toEqual(1)).toSucceedAsync();
+        } finally {
+            // becoming visible again flushes the deferred render to the DOM
+            setHidden(false);
+        }
+
+        await expect(container).toMatch([DIV, "1"]);
     },
 };

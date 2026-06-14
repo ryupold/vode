@@ -209,7 +209,7 @@ export function app<S extends PatchableState = PatchableState>(
             } else if (Array.isArray(action)) {
                 if (action.length > 0) {
                     for (const p of action) {
-                        patchableState.patch(p, !document.hidden && !!_vode.asyncRenderer);
+                        patchableState.patch(p, !!_vode.asyncRenderer);
                     }
                 } else { //when [] is patched: 1. skip current animation 2. merge all queued async patches into synced queue
                     mergeState(_vode.state as Record<string, unknown>, _vode.qAsync, true);
@@ -269,7 +269,15 @@ export function app<S extends PatchableState = PatchableState>(
         writable: false, value: async () => {
             if (_vode.isAnimating || !_vode.qAsync) return;
             await globals.currentViewTransition?.updateCallbackDone; //sandwich
-            if (_vode.isAnimating || !_vode.qAsync || document.hidden) return;
+            if (_vode.isAnimating || !_vode.qAsync) return;
+
+            if (document.hidden) {
+                _vode.state = mergeState(_vode.state as Record<string, unknown>, _vode.qAsync, true) as PatchableState<S>;
+                _vode.qAsync = null;
+                _vode.stats.syncRenderPatchCount++;
+                _vode.renderSync();
+                return;
+            }
 
             _vode.isAnimating = true;
             const sw = performance.now();

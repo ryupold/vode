@@ -733,6 +733,14 @@ The library has experimental support for the [View Transitions API](https://deve
 You can pass an array of patches to the `patch` function where each patch will be applied with the next available view transition.
 
 Patching an empty array `[]` will skip the current view transition and set the queued animated patches until now as current state with a sync patch. 
+
+This results in two patch paths: sync patches merge into the state and render right away, 
+while animated patches are queued and merged into the state just before their transition runs. 
+A few consequences follow from this:
+- Events and effects read the current sync state. Queued animated changes are not visible to code running before the transition.
+- A sync patch does not see pending animated patches. When the transition runs, the queued values are merged on top.
+- While the document is hidden, animated patches are applied as a sync patch.
+
 > Keep in mind that view transitions are not supported in all browsers yet and only one active transition can happen at a time. This feature may change significantly in the future, so do not rely on it heavily.
 
 Scheduling behavior can be overridden with `containerNode._vode.asyncRenderer`.
