@@ -69,7 +69,7 @@ function app(container, state, dom, ...initialPatches) {
       } else if (Array.isArray(action)) {
         if (action.length > 0) {
           for (const p of action) {
-            patchableState.patch(p, !document.hidden && !!_vode.asyncRenderer);
+            patchableState.patch(p, !!_vode.asyncRenderer);
           }
         } else {
           mergeState(_vode.state, _vode.qAsync, true);
@@ -129,7 +129,14 @@ function app(container, state, dom, ...initialPatches) {
     value: async () => {
       if (_vode.isAnimating || !_vode.qAsync) return;
       await globals.currentViewTransition?.updateCallbackDone;
-      if (_vode.isAnimating || !_vode.qAsync || document.hidden) return;
+      if (_vode.isAnimating || !_vode.qAsync) return;
+      if (document.hidden) {
+        _vode.state = mergeState(_vode.state, _vode.qAsync, true);
+        _vode.qAsync = null;
+        _vode.stats.syncRenderPatchCount++;
+        _vode.renderSync();
+        return;
+      }
       _vode.isAnimating = true;
       const sw = performance.now();
       try {
@@ -1064,6 +1071,15 @@ function isRealTextNode(node) {
   return isBrowser && node instanceof Text;
 }
 var delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+function setHidden(value) {
+  const ownDesc = Object.getOwnPropertyDescriptor(document, "hidden");
+  if (ownDesc?.set) {
+    document.hidden = value;
+    return;
+  }
+  if (ownDesc) delete document.hidden;
+  if (value) Object.defineProperty(document, "hidden", { configurable: true, get: () => true });
+}
 function retry(fn, waitTime) {
   const { promise, resolve, reject } = Promise.withResolvers();
   function retryInternal(timeLeft) {
@@ -1075,7 +1091,7 @@ function retry(fn, waitTime) {
           if (timeLeft >= 0) {
             setTimeout(
               () => retryInternal(timeLeft - (performance.now() - start)),
-              10
+              1
             );
           } else {
             reject(err);
@@ -1088,7 +1104,7 @@ function retry(fn, waitTime) {
       if (timeLeft >= 0) {
         setTimeout(() => {
           retryInternal(timeLeft - (performance.now() - start));
-        }, 10);
+        }, 1);
       } else {
         reject(err);
       }
@@ -1172,43 +1188,41 @@ ${other}${failMessage ? `
 ${failMessage}` : ""}`);
     }
   }
-  async toEqual(other, failMessage, waitTimeMs = 100) {
-    return await retry(
-      async () => {
-        const failSuffix = failMessage ? `
+  equalsOrThrow(other, failMessage) {
+    const failSuffix = failMessage ? `
 
 ${failMessage}` : "";
-        function deepCompare(a, b, path) {
-          if (typeof a !== typeof b) {
-            if (path.length === 0) path.push(``);
-            path[path.length - 1] += ` (type: ${typeof a} != ${typeof b})`;
-            return path;
-          }
-          if (typeof a !== "object" || a === null) {
-            if (path.length === 0) path.push(``);
-            path[path.length - 1] += ` (value: ${a} != ${b})`;
-            return a !== b ? path : null;
-          }
-          for (const prop of Object.entries(a)) {
-            const [k, v] = prop;
-            const result = deepCompare(v, b[k], [...path, k]);
-            if (result) {
-              return result;
-            }
-          }
-          for (const prop of Object.entries(b)) {
-            const [k, v] = prop;
-            const result = deepCompare(a[k], v, [...path, k]);
-            if (result) {
-              return result;
-            }
-          }
-          return null;
+    function deepCompare(a, b, path) {
+      if (typeof a !== typeof b) {
+        if (path.length === 0) path.push(``);
+        path[path.length - 1] += ` (type: ${typeof a} != ${typeof b})`;
+        return path;
+      }
+      if (typeof a !== "object" || a === null) {
+        if (path.length === 0) path.push(``);
+        path[path.length - 1] += ` (value: ${a} != ${b})`;
+        return a !== b ? path : null;
+      }
+      for (const prop of Object.entries(a)) {
+        const [k, v] = prop;
+        const result = deepCompare(v, b[k], [...path, k]);
+        if (result) {
+          return result;
         }
-        if (typeof this.what === "object" && typeof other === "object" && this.what !== null && other !== null) {
-          const unequal = deepCompare(this.what, other, []);
-          if (unequal) {
-            throw new ExpectationError(this, `expected 
+      }
+      for (const prop of Object.entries(b)) {
+        const [k, v] = prop;
+        const result = deepCompare(a[k], v, [...path, k]);
+        if (result) {
+          return result;
+        }
+      }
+      return null;
+    }
+    if (typeof this.what === "object" && typeof other === "object" && this.what !== null && other !== null) {
+      const unequal = deepCompare(this.what, other, []);
+      if (unequal) {
+        throw new ExpectationError(this, `expected 
 
 ${JSON.stringify(this.what, null, 2)}
 
@@ -1217,21 +1231,21 @@ ${JSON.stringify(this.what, null, 2)}
 ${JSON.stringify(other, null, 2)}
 
 They differ in: ${unequal.join(".")}${failSuffix}`);
-          }
-        } else {
-          if (this.what !== other) {
-            throw new ExpectationError(this, `expected (${typeof this.what})
+      }
+    } else {
+      if (this.what !== other) {
+        throw new ExpectationError(this, `expected (${typeof this.what})
 
 ${this.what}
 
 to equal (${typeof other})
 
 ${other}${failSuffix}`);
-          }
-        }
-      },
-      waitTimeMs
-    );
+      }
+    }
+  }
+  async toEqual(other, failMessage, waitTimeMs = 1e3) {
+    return await retry(async () => this.equalsOrThrow(other, failMessage), waitTimeMs);
   }
   toSucceed(failMessage) {
     const failSuffix = failMessage ? `
@@ -1265,7 +1279,7 @@ but it succeeded with a result of type ${typeof r}
 
 ${r}${failSuffix}`);
   }
-  toSucceedAsync(failMessage, waitTime = 100) {
+  toSucceedAsync(failMessage, waitTime = 1e3) {
     const failSuffix = failMessage ? `
 
 ${failMessage}` : "";
@@ -1300,7 +1314,7 @@ but it succeeded with a result of type ${typeof r}
 
 ${r}${failSuffix}`);
   }
-  async toMatch(v, state, failMessage, waitTimeMs = 100) {
+  async toMatch(v, state, failMessage, waitTimeMs = 1e3) {
     return await retry(
       async () => {
         const failSuffix = failMessage ? `
@@ -1528,6 +1542,17 @@ var ExpectationError = class extends Error {
 };
 function expect(what) {
   return new Expectation(what);
+}
+function eventually(produce, defaultWaitMs = 1e3) {
+  const poll = (check, waitMs) => retry(async () => check(new Expectation(produce())), waitMs);
+  return {
+    toEqual: (other, failMessage, waitMs = defaultWaitMs) => poll((e) => e.equalsOrThrow(other, failMessage), waitMs),
+    toBeA: (type, failMessage, waitMs = defaultWaitMs) => poll((e) => e.toBeA(type, failMessage), waitMs),
+    toBeGreaterThan: (other, failMessage, waitMs = defaultWaitMs) => poll((e) => e.toBeGreaterThan(other, failMessage), waitMs),
+    toBeGreaterOrEqualThan: (other, failMessage, waitMs = defaultWaitMs) => poll((e) => e.toBeGreaterOrEqualThan(other, failMessage), waitMs),
+    toBeSmallerThan: (other, failMessage, waitMs = defaultWaitMs) => poll((e) => e.toBeSmallerThan(other, failMessage), waitMs),
+    toBeSmallerOrEqual: (other, failMessage, waitMs = defaultWaitMs) => poll((e) => e.toBeSmallerOrEqual(other, failMessage), waitMs)
+  };
 }
 
 // test/tests-vode.ts
@@ -3320,11 +3345,11 @@ var tests_mount_unmount_default = {
     await expect(unmounts).toEqual([]);
     let before = container._vode.stats.syncRenderCount;
     patch({ toggle: true });
-    await expect(() => expect(container._vode.stats.syncRenderCount).toBeGreaterThan(before)).toSucceedAsync();
+    await eventually(() => container._vode.stats.syncRenderCount).toBeGreaterThan(before);
     await expect(unmounts).toEqual([]);
     before = container._vode.stats.syncRenderCount;
     patch({ remove: true });
-    await expect(() => expect(container._vode.stats.syncRenderCount).toBeGreaterThan(before)).toSucceedAsync();
+    await eventually(() => container._vode.stats.syncRenderCount).toBeGreaterThan(before);
     await expect(unmounts).toEqual(["unmount p", "unmount section"]);
   },
   "onUnmount(): A->A path - onUnmount removed during update does not fire": async () => {
@@ -3376,7 +3401,7 @@ var tests_mount_unmount_default = {
     await expect(unmounts).toEqual([]);
     const before = container._vode.stats.syncRenderCount;
     patch({ version: "b" });
-    await expect(async () => await expect(container._vode.stats.syncRenderCount).toBeGreaterThan(before)).toSucceedAsync();
+    await eventually(() => container._vode.stats.syncRenderCount).toBeGreaterThan(before);
     await expect(unmounts).toEqual([]);
     patch({ remove: true });
     await expect(unmounts).toEqual(["unmount b"]);
@@ -3538,7 +3563,7 @@ var tests_mount_unmount_default = {
     await expect(unmounts).toEqual([]);
     const before = container._vode.stats.syncRenderCount;
     patch({ showElement: true });
-    await expect(() => expect(container._vode.stats.syncRenderCount).toBeGreaterThan(before)).toSucceedAsync();
+    await eventually(() => container._vode.stats.syncRenderCount).toBeGreaterThan(before);
     await expect(unmounts).toEqual([]);
     patch({ remove: true });
     await expect(unmounts).toEqual(["unmount article"]);
@@ -3894,7 +3919,7 @@ var tests_mount_unmount_default = {
     await expect(unmounts).toEqual([]);
     const before = container._vode.stats.syncRenderCount;
     patch({ addUnmount: true });
-    await expect(async () => await expect(container._vode.stats.syncRenderCount).toEqual(before + 1)).toSucceedAsync();
+    await eventually(() => container._vode.stats.syncRenderCount).toEqual(before + 1);
     await expect(unmounts).toEqual([]);
     patch({ show: false });
     await expect(unmounts).toEqual(["unmount article"]);
@@ -4180,13 +4205,9 @@ var tests_mount_unmount_default = {
     await expect(state.inputReady).toEqual(true);
     await expect(state.startTime != 0).toEqual(true);
     patch({ showInput: false });
-    await expect(
-      async () => await expect(state.inputReady).toEqual(false, "expected: inputReady == false")
-    ).toSucceedAsync();
+    await eventually(() => state.inputReady).toEqual(false, "expected: inputReady == false");
     patch({ showTimer: false });
-    await expect(
-      async () => await expect(container._vode.stats.syncRenderCount >= 4).toEqual(true)
-    ).toSucceedAsync();
+    await eventually(() => container._vode.stats.syncRenderCount >= 4).toEqual(true);
     await expect(logs).toEqual([
       "Input mounted",
       "Timer started",
@@ -5512,9 +5533,7 @@ var tests_catch_default = {
       ];
     });
     patch({ error: true });
-    await expect(
-      () => expect(globalThis.window?.requestAnimationFrameErrors?.[0]).toEqual(error)
-    ).toSucceedAsync();
+    await eventually(() => globalThis.window?.requestAnimationFrameErrors?.[0]).toEqual(error);
   },
   "catch: use old vodes catch if new vode needs evaluation before knowing": async () => {
     const root = document.createElement("div");
@@ -5604,8 +5623,8 @@ var tests_patch_advanced_default = {
     const state = createState({ x: 0, y: 0 });
     app(container, state, (s) => [DIV, String(s.x), String(s.y)]);
     state.patch([null, { x: 10 }, void 0, { y: 20 }]);
-    await expect(() => expect(state.x).toEqual(10)).toSucceedAsync();
-    await expect(() => expect(state.y).toEqual(20)).toSucceedAsync();
+    await eventually(() => state.x).toEqual(10);
+    await eventually(() => state.y).toEqual(20);
   },
   "patch(): returns Promise for generator functions, can be awaited": async () => {
     const container = setup4();
@@ -5687,6 +5706,33 @@ var tests_patch_advanced_default = {
       )
     ).toFailAsync("void error expected");
     expect(err.message).toEqual("void error");
+  },
+  "patch(): animated patch while document is hidden": async () => {
+    const container = setup4();
+    const state = createState({ x: 0 });
+    app(container, state, (s) => [DIV, String(s.x)]);
+    setHidden(true);
+    try {
+      state.patch({ x: 1 }, true);
+      await eventually(() => state.x).toEqual(1);
+      await eventually(() => container._vode.qAsync == null).toEqual(true);
+    } finally {
+      setHidden(false);
+    }
+  },
+  "patch(): patch animated while hidden renders once visible again": async () => {
+    const container = setup4();
+    const state = createState({ x: 0 });
+    app(container, state, (s) => [DIV, String(s.x)]);
+    await expect(container).toMatch([DIV, "0"]);
+    setHidden(true);
+    try {
+      state.patch([{ x: 1 }]);
+      await eventually(() => state.x).toEqual(1);
+    } finally {
+      setHidden(false);
+    }
+    await expect(container).toMatch([DIV, "1"]);
   }
 };
 

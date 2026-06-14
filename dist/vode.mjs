@@ -69,7 +69,7 @@ function app(container, state, dom, ...initialPatches) {
       } else if (Array.isArray(action)) {
         if (action.length > 0) {
           for (const p of action) {
-            patchableState.patch(p, !document.hidden && !!_vode.asyncRenderer);
+            patchableState.patch(p, !!_vode.asyncRenderer);
           }
         } else {
           mergeState(_vode.state, _vode.qAsync, true);
@@ -129,7 +129,14 @@ function app(container, state, dom, ...initialPatches) {
     value: async () => {
       if (_vode.isAnimating || !_vode.qAsync) return;
       await globals.currentViewTransition?.updateCallbackDone;
-      if (_vode.isAnimating || !_vode.qAsync || document.hidden) return;
+      if (_vode.isAnimating || !_vode.qAsync) return;
+      if (document.hidden) {
+        _vode.state = mergeState(_vode.state, _vode.qAsync, true);
+        _vode.qAsync = null;
+        _vode.stats.syncRenderPatchCount++;
+        _vode.renderSync();
+        return;
+      }
       _vode.isAnimating = true;
       const sw = performance.now();
       try {

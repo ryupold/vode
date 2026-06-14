@@ -1,6 +1,6 @@
 {
     "name": "@ryupold/vode",
-    "version": "1.9.2",
+    "version": "1.9.3",
     "description": "a minimalist web framework",
     "author": "Michael Scherbakow (ryupold)",
     "license": "MIT",
@@ -27,6 +27,7 @@
     "type": "module",
     "exports": {
         ".": {
+            "entrypoint": "./index.ts",
             "types": "./dist/vode.d.ts",
             "tests": "./dist/vode.tests.mjs",
             "import": "./dist/vode.min.mjs",
