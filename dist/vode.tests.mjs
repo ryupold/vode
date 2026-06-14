@@ -605,6 +605,7 @@ function patchProperty(s, node, key, oldValue, newValue, xmlMode) {
         }
       }
     } else {
+      if (oldValue) node.style.cssText = "";
       for (let k in newValue) {
         node.style[k] = newValue[k];
       }
@@ -1901,6 +1902,62 @@ var tests_app_default = {
     await expect(container).toMatch([DIV, "text"]);
     state.patch({ useObject: false });
     await expect(container).toMatch([DIV, "text"]);
+  },
+  "app(): style string to object transition drops stale inline styles": async () => {
+    const root = document.createElement("div");
+    const container = document.createElement("div");
+    root.appendChild(container);
+    const state = { useObject: false };
+    app(
+      container,
+      state,
+      (s) => [DIV, { style: s.useObject ? { fontWeight: "bold" } : "color: red" }, "text"]
+    );
+    const el = container._vode.vode.node;
+    await eventually(() => /^color: red;?$/.test(el.style.cssText)).toEqual(true);
+    state.patch({ useObject: true });
+    await eventually(() => /^color: red;?$/.test(el.style.cssText)).toEqual(false);
+    await eventually(() => el.style.fontWeight).toEqual("bold");
+  },
+  // onMount/onUnmount are intentionally reflected onto the DOM node so that a
+  // post-hydration pass can walk incoming server-rendered HTML and invoke the
+  // lifecycle hooks itself (hydrated A->A nodes are never "created", so render
+  // does not auto-fire their onMount).
+  "app(): onMount/onUnmount stay reachable on the DOM node for post-hydration invocation": async () => {
+    const root = document.createElement("div");
+    const container = document.createElement("div");
+    root.appendChild(container);
+    const preSpan = document.createElement("span");
+    preSpan.appendChild(document.createTextNode("text"));
+    container.appendChild(preSpan);
+    const calls = [];
+    const state = createState({ mounted: false });
+    app(
+      container,
+      state,
+      () => [
+        DIV,
+        [SPAN, {
+          onMount: (_s, node) => {
+            calls.push(["mount", node]);
+            return { mounted: true };
+          },
+          onUnmount: (_s, node) => {
+            calls.push(["unmount", node]);
+          }
+        }, "text"]
+      ]
+    );
+    await expect(calls.length).toEqual(0);
+    const span = container.children[0];
+    await expect(span.tagName).toEqual("SPAN");
+    await expect(span.onMount).toBeA("function");
+    await expect(span.onUnmount).toBeA("function");
+    span.onMount(span);
+    await expect(calls.length).toEqual(1);
+    await expect(calls[0][0]).toEqual("mount");
+    await expect(calls[0][1] === span).toEqual(true);
+    await eventually(() => state.mounted).toEqual(true);
   }
 };
 

@@ -849,6 +849,7 @@ var V = (() => {
           }
         }
       } else {
+        if (oldValue) node.style.cssText = "";
         for (let k in newValue) {
           node.style[k] = newValue[k];
         }
