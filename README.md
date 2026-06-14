@@ -719,6 +719,12 @@ function SettingsForm(ctx: SubContext<Settings>) {
 ```
 
 When you have deeply nested state, context gives you a way to access and patch that slice without manually writing the full path every time.
+The context itself is always lazy evaluated so you don't have to worry about intermediate object references changing.
+
+A state context has 3 functions:
+- **get()**: returns the sub-state targeted by this context
+- **put(value)**: assign given value to the sub-state place (see silent patch). Use this if you want to ensure the object reference of value is preserved
+- **patch(value, animated)**: patch given value to the sub-state by constructing the necessary nested structure (see render patch)
 
 #### isolated state
 You can have multiple isolated vode app instances on a page, each with its own state and render function.
