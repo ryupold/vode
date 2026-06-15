@@ -882,7 +882,7 @@ function patchProperty<S extends PatchableState>(
         } else if (oldValue && typeof oldValue === "object") {
             for (let k in oldValue) {
                 const nv = newValue[k as keyof PropertyValue<S>];
-                if (!nv) {
+                if (nv === undefined || nv === null) {
                     node.style[k as keyof PropertyValue<S>] = <string><unknown>null;
                 }
             }
