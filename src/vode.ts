@@ -524,23 +524,21 @@ function mergeState(target: Record<string, unknown>, source: Record<string, unkn
     for (const key in source) {
         const value = (<Record<string, unknown>>source)[key];
         if (value && typeof value === "object") {
-            const targetValue = target[key];
-            if (targetValue) {
-                if (Array.isArray(value)) {
-                    target[key] = [...value];
-                } else if (value instanceof Date && targetValue !== value) {
-                    target[key] = new Date(value);
-                } else {
-                    if (Array.isArray(targetValue)) target[key] = mergeState({}, value, allowDeletion);
-                    else if (typeof targetValue === "object") mergeState(target[key] as Record<string, unknown>, value, allowDeletion);
-                    else target[key] = mergeState({}, value, allowDeletion);
-                }
-            } else if (Array.isArray(value)) {
-                target[key] = [...value];
-            } else if (value instanceof Date) {
-                target[key] = new Date(value);
+            const proto = Object.getPrototypeOf(value);
+            if (proto !== Object.prototype && proto !== null) {
+                target[key] = value;
             } else {
-                target[key] = mergeState({}, value, allowDeletion);
+                const targetValue = target[key];
+                if (targetValue) {
+                    if (Array.isArray(targetValue))
+                        target[key] = mergeState({}, value, allowDeletion);
+                    else if (typeof targetValue === "object")
+                        mergeState(target[key] as Record<string, unknown>, value, allowDeletion);
+                    else
+                        target[key] = mergeState({}, value, allowDeletion);
+                } else {
+                    target[key] = mergeState({}, value, allowDeletion);
+                }
             }
         }
         else if (value === undefined && allowDeletion) {

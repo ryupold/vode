@@ -1,4 +1,4 @@
-import { expect } from "./helper";
+import { eventually, expect } from "./helper";
 import { app, createState, DIV } from "../index";
 
 function setup() {
@@ -19,14 +19,22 @@ export default {
         await expect(state.items).toEqual([4, 5, 6]);
     },
 
-    "patch-merge: Date property stores correctly": async () => {
+    "patch-merge: classes (prototypes) are stored by reference": async () => {
         const container = setup();
-        const state: any = createState({ date: new Date("2024-01-01") });
+
+        const dateA = new Date("2024-01-01");
+        const dateB = new Date("2025-06-15");
+        const regexA = new RegExp("[V,{},d,e]")
+
+        const state: any = createState({ date: dateA, regex: regexA });
         app(container, state, () => [DIV]);
 
-        state.patch({ date: new Date("2025-06-15") });
+        state.patch({ date: dateB });
 
         await expect(state.date instanceof Date).toEqual(true);
+        await expect(state.regex instanceof RegExp).toEqual(true);
+        await eventually(() => state.date === dateB).toEqual(true);
+        await eventually(() => state.regex === regexA).toEqual(true);
         await expect(state.date.getFullYear()).toEqual(2025);
         await expect(state.date.getMonth()).toEqual(5);
         await expect(state.date.getDate()).toEqual(15);

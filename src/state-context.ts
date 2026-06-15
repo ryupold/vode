@@ -94,8 +94,8 @@ export function context<S extends PatchableState, SS = S>(state: S, producePath?
 class ProxyStateContextImpl<S extends PatchableState, SubState> {
 
     constructor(
-        private readonly state: S,
-        private readonly keys: string[]
+        readonly state: S,
+        readonly keys: string[]
     ) {
         function putDeep(value: SubState | DeepPartial<SubState> | undefined | null, target: S | DeepPartial<S>) {
             if (keys.length > 1) {
