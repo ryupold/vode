@@ -40,7 +40,7 @@ export default {
     "context(s)...put(): on nested object replaces the sub-object": async () => {
         const state = createState({ a: { b: { x: 1, y: 2 } } });
         const ctx = context(state);
-        ctx.a.b.put({ y: 99 });
+        ctx.a.b.put({ y: 99 } as any); // note: forcing a value here
 
         await expect(state.a.b)
             .toEqual({ y: 99 });
@@ -49,7 +49,7 @@ export default {
     "context(s)...put(): at root level with empty keys": async () => {
         const state = createState({ a: 1, b: 2 });
         const ctx = context(state);
-        ctx.put({ b: undefined });
+        ctx.put({ b: undefined } as any); // note: forcing a value here
 
         await expect(state)
             .toEqual({ a: 1 });
@@ -127,11 +127,11 @@ export default {
         await expect(state.a.y).toEqual(1);
     },
 
-    "context(s)...put(): merges into existing object properties via Object.assign": async () => {
+    "context(s)...put(): single key replaces the sub-object": async () => {
         const state = createState({ items: { count: 0, name: "test", hidden: false } });
         const ctx = context(state);
-        ctx.items.put({ count: 5 });
-        await expect(state.items).toEqual({ count: 5, name: "test", hidden: false });
+        ctx.items.put({ count: 5 } as any); // note: forcing a value here
+        await expect(state.items).toEqual({ count: 5 });
     },
 
     "context(state, s => s).get(): returns whole state": async () => {
@@ -170,7 +170,7 @@ export default {
     "context(state, s => s.a.b).put(): on nested object replaces the sub-object": async () => {
         const state = createState({ a: { b: { x: 1, y: 2 } } });
         const ctx = context(state, s => s.a.b);
-        ctx.put({ y: 99 });
+        ctx.put({ y: 99 } as any); // note: forcing a value here
 
         await expect(state.a.b)
             .toEqual({ y: 99 });
@@ -179,7 +179,7 @@ export default {
     "context(state, s => s).put(): at root level with empty keys": async () => {
         const state = createState({ a: 1, b: 2 });
         const ctx = context(state, s => s);
-        ctx.put({ b: undefined });
+        ctx.put({ b: undefined } as any); // note: forcing a value here
 
         await expect(state)
             .toEqual({ a: 1 });
@@ -266,11 +266,11 @@ export default {
         await expect(state.a.y).toEqual(1);
     },
 
-    "context(state, s => s.items).put(): merges into existing object properties via Object.assign": async () => {
+    "context(state, s => s.items).put(): single key replaces the sub-object": async () => {
         const state = createState({ items: { count: 0, name: "test", hidden: false } });
         const ctx = context(state, s => s.items);
-        ctx.put({ count: 5 });
-        await expect(state.items).toEqual({ count: 5, name: "test", hidden: false });
+        ctx.put({ count: 5 } as any); // note: forcing a value here
+        await expect(state.items).toEqual({ count: 5 });
     },
 
     "context(state, s => s.get|put|patch...): 'get','put','patch' as intermediate properties without conflict": async () => {

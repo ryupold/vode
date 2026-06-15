@@ -556,7 +556,7 @@ export default {
         await expect(unmounts).toEqual(["unmount article"]);
     },
 
-    "onUnmount(): called for all child nodes that have registerd when parent node is removed from the DOM": async () => {
+    "onUnmount(): called for all child nodes that have registered when parent node is removed from the DOM": async () => {
         const container = setup();
         const unmounts: string[] = [];
         const state = createState({ showArticle: true });
@@ -1406,7 +1406,7 @@ export default {
 
         patch({ showTimer: false });
 
-        await eventually(() => container._vode.stats.syncRenderCount >= 4).toEqual(true);
+        await eventually(() => container._vode.stats.syncRenderCount).toBeGreaterOrEqualThan(4);
 
         await expect(logs).toEqual([
             'Input mounted',
@@ -1419,8 +1419,9 @@ export default {
     "onMount() + onUnmount(): Not called when DOM does not require element creation or removal (same TAGs)": async () => {
         const container = setup();
         const logs = <string[]>[];
+        const state = createState({ showB: false, showD: false });
 
-        const Comp: (name: string) => Component = (name: string) => () => [ARTICLE,
+        const Comp: (name: string) => Component<typeof state> = (name: string) => () => [ARTICLE,
             [DIV,
                 {
                     onMount: () => logs.push("mount " + name),
@@ -1428,8 +1429,6 @@ export default {
                 },
                 "Component " + name]
         ];
-
-        const state = createState({ showB: false, showD: false });
         app<typeof state>(container, state, s => [DIV,
             // this way they both "share a slot"
             s.showB ? Comp("B") : Comp("A"),

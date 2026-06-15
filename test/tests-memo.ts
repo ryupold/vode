@@ -1,5 +1,5 @@
 import { expect } from "./helper";
-import { memo, DIV, app, createState, SPAN, H1, BR, P, UL, LI, Component } from "../index";
+import { memo, DIV, app, createState, SPAN, H1, BR, P, UL, LI, Component, Vode } from "../index";
 
 export default {
     "memo(): throws when compare is not an array": async () => {
@@ -116,11 +116,11 @@ export default {
                 memo(
                     [s.title, s.body],
                     (s) => {
-                        const list = [UL];
+                        const items: Vode[] = [];
                         for (let i = 0; i < 10000; i++) {
-                            list.push(LI, `Item ${i}`);
+                            items.push([LI, `Item ${i}`]);
                         }
-                        return list;
+                        return [UL, ...items] as Vode;
                     },
                 )
             ];

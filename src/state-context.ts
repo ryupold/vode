@@ -2,7 +2,7 @@ import { DeepPartial, Patchable, PatchableState, RenderPatch } from "./vode";
 
 /**
  * State context for type-safe access and manipulation of nested state paths
- * while still be able to access the parent state. 
+ * while still being able to access the parent state.
  */
 export interface StateContext<S extends Patchable<S>, SubState> extends SubContext<SubState> { }
 
@@ -11,7 +11,7 @@ export interface StateContext<S extends Patchable<S>, SubState> extends SubConte
  */
 export interface SubContext<SubState> {
     /**
-     * Reads the current value of the substate if it exists.
+     * Reads the current value of the sub-state if it exists.
      * 
      * @returns The current value, or undefined if the path doesn't exist
      */
@@ -21,9 +21,9 @@ export interface SubContext<SubState> {
      * Updates the nested sub-state value WITHOUT triggering a render.
      * This performs a silent mutation of the parent state object.
      * 
-     * @param {DeepPartial<SubState>} value - The new value or partial update to apply
+     * @param {DeepPartial<SubState>} value - The new value to assign
      */
-    put(value: SubState | Partial<SubState> | DeepPartial<SubState>): void;
+    put(value: SubState): void;
 
     /**
      * Updates the nested sub-state value AND triggers a render.
@@ -31,7 +31,7 @@ export interface SubContext<SubState> {
      * 
      * @param value - The new value or partial update to apply
      */
-    patch(value: SubState | Partial<SubState> | DeepPartial<SubState> | Array<DeepPartial<SubState>>, isAsync?: boolean): void;
+    patch(value: SubState | Partial<SubState> | DeepPartial<SubState>, animated?: boolean): void;
 }
 
 export type ProxyStateContext<S extends PatchableState, SubState> = StateContext<S, SubState> & {
@@ -70,12 +70,12 @@ type ProxyState<SubState> = SubState & {
  *
  * Both forms return a `ProxyStateContext` that supports the same operations:
  * ```typescript
- * ctx.get();                   // read current value
- * ctx.patch({ theme: 'light' }); // update and trigger render
- * ctx.put({ lang: 'de' });       // update without render (silent mutation)
+ * ctx.get();                               // read current value
+ * ctx.patch({ theme: 'light' });           // update and trigger render
+ * ctx.put({ lang: 'de', theme: 'light' }); // update without render (silent mutation)
  * ```
  *
- * @param state - The root `PatchableState` to create a context for
+ * @param state - The root `PatchableState` to create a context on
  * @param producePath - Optional path producer; receives a proxy of the state and should return the desired sub-node
  * @returns A `ProxyStateContext` rooted at the given path, with further property-chain access available
  */
@@ -91,8 +91,7 @@ export function context<S extends PatchableState, SS = S>(state: S, producePath?
     return new ProxyStateContextImpl<S, S>(state, []) as unknown as ProxyStateContext<S, SS>;
 }
 
-class ProxyStateContextImpl<S extends PatchableState, SubState>
-    implements StateContext<S, SubState> {
+class ProxyStateContextImpl<S extends PatchableState, SubState> {
 
     constructor(
         private readonly state: S,
@@ -114,12 +113,7 @@ class ProxyStateContextImpl<S extends PatchableState, SubState>
                 }
                 raw[keys[i]] = value;
             } else if (keys.length === 1) {
-                if (typeof (<any>target)[keys[0]] === "object" && typeof value === "object" && value !== null) {
-                    Object.assign((<any>target)[keys[0]], value);
-                }
-                else {
-                    (<any>target)[keys[0]] = value;
-                }
+                (<any>target)[keys[0]] = value;
             } else {
                 Object.assign(target, value as DeepPartial<S>);
             }
@@ -142,12 +136,12 @@ class ProxyStateContextImpl<S extends PatchableState, SubState>
             return raw;
         }
 
-        function put(value: SubState | DeepPartial<SubState> | undefined | null) {
+        function put(value: SubState) {
             putDeep(value, state);
         }
 
-        function patch(value: SubState | DeepPartial<SubState> | Array<DeepPartial<SubState>> | undefined | null, isAsync?: boolean) {
-            if (isAsync) {
+        function patch(value: SubState | DeepPartial<SubState> | Array<DeepPartial<SubState>> | undefined | null, animated?: boolean) {
+            if (animated) {
                 state.patch([createPatch(value as DeepPartial<SubState>)]);
             }
             else {
@@ -168,7 +162,7 @@ class ProxyStateContextImpl<S extends PatchableState, SubState>
                     return patch;
 
                 // otherwise return a new ProxyStateContext for nested access
-            const newKeys = [...keys, String(prop)];
+                const newKeys = [...keys, String(prop)];
                 return new ProxyStateContextImpl<S, any>(target.state, newKeys);
             },
             set: (target: this, p: string | symbol, newValue: any, receiver: any) => {
@@ -177,9 +171,6 @@ class ProxyStateContextImpl<S extends PatchableState, SubState>
         });
     }
 
-    get(): SubState { return undefined as unknown as SubState; }
-    put(value: SubState | DeepPartial<SubState>): void { }
-    patch(value: SubState | DeepPartial<SubState> | DeepPartial<SubState>[]): void { }
 }
 
 
