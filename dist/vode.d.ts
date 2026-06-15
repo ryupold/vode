@@ -35,9 +35,10 @@ export type DeepPartial<S> = {
 	[P in keyof S]?: S[P] extends Array<infer I> ? Array<DeepPartial<I>> : DeepPartial<S[P]>;
 };
 export type Effect<S> = (() => Patch<S>) | EventFunction<S> | Generator<Patch<S>> | AsyncGenerator<Patch<S>>;
-export type EventFunction<S> = (state: S, evt: Event) => Patch<S>;
+export type EventFunction<S = PatchableState> = (state: S, evt: Event) => Patch<S>;
+export type EventProp<S = PatchableState> = EventFunction<S> | Patch<S>;
 export interface Props<S = PatchableState> extends Partial<Omit<HTMLElement, keyof (DocumentFragment & ElementCSSInlineStyle & GlobalEventHandlers)> & {
-	[K in keyof EventsMap]: EventFunction<S> | Patch<S>;
+	[K in keyof EventsMap]: EventProp<S>;
 }> {
 	[_: string]: unknown;
 	xmlns?: string | null;
@@ -51,16 +52,16 @@ export interface Props<S = PatchableState> extends Partial<Omit<HTMLElement, key
 	catch?: ((s: S, error: Error) => ChildVode<S>) | ChildVode<S>;
 }
 export type MountFunction<S> = ((s: S, node: HTMLElement) => Patch<S>) | ((s: S, node: SVGSVGElement) => Patch<S>) | ((s: S, node: MathMLElement) => Patch<S>);
-export type ClassProp = "" | false | null | undefined | string | string[] | Record<string, boolean | undefined | null>;
-export type StyleProp = (Record<number, never> & {
+export type ClassProp = string | string[] | Record<string, boolean | undefined | null> | "" | false | null | undefined;
+export type StyleProp = string | (Record<number, never> & {
 	[K in keyof CSSStyleDeclaration]?: CSSStyleDeclaration[K] | null;
-}) | string | "" | null | undefined;
+}) | "" | false | null | undefined;
 export type EventsMapBase = {
 	[K in keyof HTMLElementEventMap as `on${K}`]: HTMLElementEventMap[K];
 } & {
-	[K in keyof WindowEventMap as `on${K}`]: WindowEventMap[K];
-} & {
 	[K in keyof SVGElementEventMap as `on${K}`]: SVGElementEventMap[K];
+} & {
+	[K in keyof MathMLElementEventMap as `on${K}`]: MathMLElementEventMap[K];
 };
 export interface EventsMap extends EventsMapBase {
 }
@@ -113,7 +114,7 @@ export declare function vode<S = PatchableState>(tag: Tag | Vode<S>, props?: Pro
 /** create a vode app inside a container element
  * @param container will use this container as root and places the result of the dom function and further renderings in it
  * @param state the state object that is used as singleton state bound to the vode app and is updated with `patch()`
- * @param dom function is alled every render and returnes the vode-dom that is updated incrementally to the DOM based on the state.
+ * @param dom function is called every render and returns the vode-dom that is updated incrementally to the DOM based on the state.
  * @param initialPatches variadic list of patches that are applied after the first render
  * @returns a patch function that can be used to update the state
  */
@@ -140,7 +141,7 @@ export declare function memo<S = PatchableState>(compare: unknown[], component: 
 export declare function createState<S = PatchableState>(state: S): PatchableState<S>;
 /** type safe way to create a patch. useful for type inference and autocompletion. */
 export declare function createPatch<S = PatchableState>(p: DeepPartial<S> | Effect<S> | IgnoredPatch): typeof p;
-/** html tag of the vode or undefined if it has none or is a text node */
+/** HTML tag of the vode or undefined if it has none or is a text node */
 export declare function tag(v: ChildVode): Tag | undefined;
 /** get properties object of a vode, if there is any */
 export declare function props<S = PatchableState>(vode: ChildVode<S> | AttachedVode<S>): Props<S> | undefined;
@@ -353,17 +354,17 @@ export declare const MUNDEROVER: Tag;
 export declare const SEMANTICS: Tag;
 /** merge `ClassProp`s regardless of structure */
 export declare function mergeClass(...classes: ClassProp[]): ClassProp;
-/** merge `StyleProps`s regardless of type
+/** merge `StyleProp`s regardless of type
  * @returns {string} merged StyleProp */
 export declare function mergeStyle(...props: StyleProp[]): StyleProp;
 /** merge `Props` from left to right
  * utilizing `mergeStyle` for style properties and `mergeClass` for class properties.
  * @returns {Props<S>} merged Prop object or undefined if no props were provided
  */
-export declare function mergeProps<S extends PatchableState = PatchableState>(...props: (Props<S> | undefined | null)[]): Props<S> | undefined;
+export declare function mergeProps<S extends PatchableState = PatchableState>(...props: (Props<S> | null | undefined)[]): Props<S> | null | undefined;
 /**
  * State context for type-safe access and manipulation of nested state paths
- * while still be able to access the parent state.
+ * while still being able to access the parent state.
  */
 export interface StateContext<S extends Patchable<S>, SubState> extends SubContext<SubState> {
 }
@@ -372,7 +373,7 @@ export interface StateContext<S extends Patchable<S>, SubState> extends SubConte
  */
 export interface SubContext<SubState> {
 	/**
-	 * Reads the current value of the substate if it exists.
+	 * Reads the current value of the sub-state if it exists.
 	 *
 	 * @returns The current value, or undefined if the path doesn't exist
 	 */
@@ -381,16 +382,16 @@ export interface SubContext<SubState> {
 	 * Updates the nested sub-state value WITHOUT triggering a render.
 	 * This performs a silent mutation of the parent state object.
 	 *
-	 * @param {DeepPartial<SubState>} value - The new value or partial update to apply
+	 * @param {DeepPartial<SubState>} value - The new value to assign
 	 */
-	put(value: SubState | Partial<SubState> | DeepPartial<SubState>): void;
+	put(value: SubState): void;
 	/**
 	 * Updates the nested sub-state value AND triggers a render.
 	 * This is the recommended way to update nested state in most cases.
 	 *
 	 * @param value - The new value or partial update to apply
 	 */
-	patch(value: SubState | Partial<SubState> | DeepPartial<SubState> | Array<DeepPartial<SubState>>, isAsync?: boolean): void;
+	patch(value: SubState | Partial<SubState> | DeepPartial<SubState>, animated?: boolean): void;
 }
 export type ProxyStateContext<S extends PatchableState, SubState> = StateContext<S, SubState> & {
 	[K in keyof SubState]-?: SubState[K] extends object | null ? ProxyStateContext<S, SubState[K]> : StateContext<S, SubState[K]>;
@@ -419,12 +420,12 @@ export type ProxyState<SubState> = SubState & {
  *
  * Both forms return a `ProxyStateContext` that supports the same operations:
  * ```typescript
- * ctx.get();                   // read current value
- * ctx.patch({ theme: 'light' }); // update and trigger render
- * ctx.put({ lang: 'de' });       // update without render (silent mutation)
+ * ctx.get();                               // read current value
+ * ctx.patch({ theme: 'light' });           // update and trigger render
+ * ctx.put({ lang: 'de', theme: 'light' }); // update without render (silent mutation)
  * ```
  *
- * @param state - The root `PatchableState` to create a context for
+ * @param state - The root `PatchableState` to create a context on
  * @param producePath - Optional path producer; receives a proxy of the state and should return the desired sub-node
  * @returns A `ProxyStateContext` rooted at the given path, with further property-chain access available
  */

@@ -1,6 +1,6 @@
 {
     "name": "@ryupold/vode",
-    "version": "1.9.4",
+    "version": "1.10.0",
     "description": "a minimalist web framework",
     "author": "Michael Scherbakow (ryupold)",
     "license": "MIT",
@@ -32,7 +32,7 @@
             "tests": "./dist/vode.tests.mjs",
             "import": "./dist/vode.min.mjs",
             "require": "./dist/vode.cjs.min.js",
-            "default": "./dist/vode.min.js"
+            "default": "./dist/vode.min.mjs"
         }
     },
     "scripts": {
@@ -45,7 +45,7 @@
         "babel-classic": "npx babel dist/vode.js --out-file dist/vode.es5.min.js",
         "release": "npm run build && npm run build-min && npm run build-classic && npm run build-classic-min && npm run babel && npm run babel-classic && npm run types && npm run build-tests",
         "publish": "npm publish --access public",
-        "clean": "tsc -b --clean && rm dist/*",
+        "clean": "tsc -b --clean && node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
         "watch": "tsc -b -w",
         "test": "tsc -p tsconfig.test.json && esbuild test/run-tests.ts --bundle --outfile=test/run-tests.js --platform=node && node test/run-tests.js",
         "build-tests": "esbuild test/index.ts --bundle --format=esm --outfile=dist/vode.tests.mjs"

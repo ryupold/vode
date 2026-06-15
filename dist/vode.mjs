@@ -6,9 +6,14 @@ var globals = {
 };
 function vode(tag2, props2, ...children2) {
   if (!tag2) throw new Error("first argument to vode() must be a tag name or a vode");
-  if (Array.isArray(tag2)) return tag2;
-  else if (typeof props2 === "object") return [tag2, props2, ...children2];
-  else return [tag2, ...children2];
+  if (Array.isArray(tag2))
+    return tag2;
+  else if (props2 !== null && typeof props2 === "object")
+    return [tag2, props2, ...children2];
+  else if (props2 === void 0)
+    return [tag2, ...children2];
+  else
+    return [tag2, props2, ...children2];
 }
 function app(container, state, dom, ...initialPatches) {
   if (!container?.parentElement) throw new Error("first argument to app() must be a valid HTMLElement inside the <html></html> document");
@@ -82,7 +87,7 @@ function app(container, state, dom, ...initialPatches) {
           _vode.renderSync();
         }
       } else {
-        if (isAnimated) {
+        if (isAnimated && !!_vode.asyncRenderer) {
           _vode.stats.asyncRenderPatchCount++;
           _vode.qAsync = mergeState(_vode.qAsync || {}, action, false);
           _vode.renderAsync();
@@ -99,7 +104,7 @@ function app(container, state, dom, ...initialPatches) {
     _vode.vode = render(_vode.state, container.parentElement, 0, 0, _vode.vode, dom);
     if (container.tagName.toLowerCase() !== _vode.vode[0].toLowerCase()) {
       container = _vode.vode.node;
-      container._vode = _vode;
+      container["_vode"] = _vode;
     }
     if (!isAnimated) {
       _vode.stats.lastSyncRenderTime = performance.now() - sw;
@@ -154,7 +159,7 @@ function app(container, state, dom, ...initialPatches) {
   });
   _vode.state = patchableState;
   const root = container;
-  root._vode = _vode;
+  root["_vode"] = _vode;
   const indexInParent = Array.from(container.parentElement.children).indexOf(container);
   const patchCountBefore = _vode.stats.syncRenderPatchCount;
   _vode.isRendering = _vode.stats.syncRenderPatchCount;
@@ -168,7 +173,7 @@ function app(container, state, dom, ...initialPatches) {
   );
   if (container.tagName.toLowerCase() !== _vode.vode[0].toLowerCase()) {
     container = _vode.vode.node;
-    container._vode = _vode;
+    container["_vode"] = _vode;
   }
   const continueRendering = _vode.stats.syncRenderPatchCount !== patchCountBefore;
   _vode.isRendering = 0;
@@ -180,7 +185,7 @@ function app(container, state, dom, ...initialPatches) {
   return (action) => patchableState.patch(action);
 }
 function defuse(container) {
-  if (container?._vode) {
+  if (container?.["_vode"]) {
     let clearEvents2 = function(av) {
       if (!av?.node) return;
       const p = props(av);
@@ -190,9 +195,9 @@ function defuse(container) {
             av.node[key] = null;
           }
         }
-        av.node["catch"] = null;
+        av.node.catch = null;
       }
-      if (av.node._vode) {
+      if (av.node["_vode"]) {
         defuse(av.node);
       } else {
         const kids = children(av);
@@ -204,7 +209,7 @@ function defuse(container) {
       }
     };
     var clearEvents = clearEvents2;
-    const v = container._vode;
+    const v = container["_vode"];
     delete container["_vode"];
     Object.defineProperty(v.state, "patch", { value: void 0 });
     Object.defineProperty(v, "renderSync", { value: () => {
@@ -320,23 +325,21 @@ function mergeState(target, source, allowDeletion) {
   for (const key in source) {
     const value = source[key];
     if (value && typeof value === "object") {
-      const targetValue = target[key];
-      if (targetValue) {
-        if (Array.isArray(value)) {
-          target[key] = [...value];
-        } else if (value instanceof Date && targetValue !== value) {
-          target[key] = new Date(value);
-        } else {
-          if (Array.isArray(targetValue)) target[key] = mergeState({}, value, allowDeletion);
-          else if (typeof targetValue === "object") mergeState(target[key], value, allowDeletion);
-          else target[key] = mergeState({}, value, allowDeletion);
-        }
-      } else if (Array.isArray(value)) {
-        target[key] = [...value];
-      } else if (value instanceof Date) {
-        target[key] = new Date(value);
+      const proto = Object.getPrototypeOf(value);
+      if (proto !== Object.prototype && proto !== null) {
+        target[key] = value;
       } else {
-        target[key] = mergeState({}, value, allowDeletion);
+        const targetValue = target[key];
+        if (targetValue) {
+          if (Array.isArray(targetValue))
+            target[key] = mergeState({}, value, allowDeletion);
+          else if (typeof targetValue === "object")
+            mergeState(target[key], value, allowDeletion);
+          else
+            target[key] = mergeState({}, value, allowDeletion);
+        } else {
+          target[key] = mergeState({}, value, allowDeletion);
+        }
       }
     } else if (value === void 0 && allowDeletion) {
       delete target[key];
@@ -482,12 +485,13 @@ function render(state, parent, childIndex, indexInParent, oldVode, newVode, xmln
     const catchVode = typeof newVode === "function" ? props(oldVode)?.catch : props(newVode)?.catch;
     if (catchVode) {
       const handledVode = typeof catchVode === "function" ? catchVode(state, error) : catchVode;
+      const catchNode = newVode?.node || oldVode?.node;
       return render(
         state,
         parent,
         childIndex,
         indexInParent,
-        hydrate(newVode?.node || oldVode?.node, true),
+        hydrate(catchNode, true),
         handledVode,
         xmlns
       );
@@ -593,7 +597,7 @@ function patchProperty(s, node, key, oldValue, newValue, xmlMode) {
     } else if (oldValue && typeof oldValue === "object") {
       for (let k in oldValue) {
         const nv = newValue[k];
-        if (!nv) {
+        if (nv === void 0 || nv === null) {
           node.style[k] = null;
         }
       }
@@ -869,7 +873,7 @@ function mergeClass(...classes) {
       const classSet = /* @__PURE__ */ new Set([...aSplit, ...bSplit]);
       finalClass = Array.from(classSet).join(" ").trim();
     } else if (typeof a === "string" && Array.isArray(b)) {
-      const classSet = /* @__PURE__ */ new Set([...b, ...a.split(" ")]);
+      const classSet = /* @__PURE__ */ new Set([...a.split(" "), ...b]);
       finalClass = Array.from(classSet).join(" ").trim();
     } else if (Array.isArray(a) && typeof b === "string") {
       const classSet = /* @__PURE__ */ new Set([...a, ...b.split(" ")]);
@@ -878,9 +882,15 @@ function mergeClass(...classes) {
       const classSet = /* @__PURE__ */ new Set([...a, ...b]);
       finalClass = Array.from(classSet).join(" ").trim();
     } else if (typeof a === "string" && typeof b === "object") {
-      finalClass = { [a]: true, ...b };
+      const aSplit = a.split(" ");
+      const aObj = {};
+      for (const cls of aSplit) aObj[cls] = true;
+      finalClass = { ...aObj, ...b };
     } else if (typeof a === "object" && typeof b === "string") {
-      finalClass = { ...a, [b]: true };
+      const bSplit = b.split(" ");
+      const bObj = {};
+      for (const cls of bSplit) bObj[cls] = true;
+      finalClass = { ...a, ...bObj };
     } else if (typeof a === "object" && Array.isArray(b)) {
       const aa = { ...a };
       for (const item of b) {
@@ -904,32 +914,36 @@ function mergeClass(...classes) {
 }
 
 // src/merge-style.ts
-var tempDivForStyling;
 function mergeStyle(...props2) {
-  if (!tempDivForStyling) {
-    tempDivForStyling = document.createElement("div");
+  let stylingElement = globals.stylingElement;
+  if (!stylingElement) {
+    globals.stylingElement = stylingElement = document.createElement("div");
+  }
+  if (props2.length === 1) {
+    return props2[0];
   }
   try {
-    const merged = tempDivForStyling.style;
+    const merged = stylingElement.style;
     for (const style of props2) {
       if (typeof style === "object" && style !== null) {
         for (const key in style) {
           merged[key] = style[key];
         }
       } else if (typeof style === "string") {
-        merged.cssText += ";" + style;
+        const old = merged.cssText;
+        merged.cssText = old?.length > 0 && old[old.length - 1] !== ";" ? old + ";" + style : old + style;
       }
     }
     return merged.cssText;
   } finally {
-    tempDivForStyling.style.cssText = "";
+    stylingElement.style.cssText = "";
   }
 }
 
 // src/merge-props.ts
 function mergeProps(...props2) {
   if (props2.length === 0) return void 0;
-  if (props2.length === 1) return props2[0] || void 0;
+  if (props2.length === 1) return props2[0];
   let combined;
   for (const p of props2) {
     if (typeof p !== "object" || p === null) continue;
@@ -976,11 +990,7 @@ var ProxyStateContextImpl = class _ProxyStateContextImpl {
         }
         raw[keys[i]] = value;
       } else if (keys.length === 1) {
-        if (typeof target[keys[0]] === "object" && typeof value === "object" && value !== null) {
-          Object.assign(target[keys[0]], value);
-        } else {
-          target[keys[0]] = value;
-        }
+        target[keys[0]] = value;
       } else {
         Object.assign(target, value);
       }
@@ -1002,8 +1012,8 @@ var ProxyStateContextImpl = class _ProxyStateContextImpl {
     function put(value) {
       putDeep(value, state);
     }
-    function patch(value, isAsync) {
-      if (isAsync) {
+    function patch(value, animated) {
+      if (animated) {
         state.patch([createPatch2(value)]);
       } else {
         state.patch(createPatch2(value));
@@ -1027,13 +1037,6 @@ var ProxyStateContextImpl = class _ProxyStateContextImpl {
   }
   state;
   keys;
-  get() {
-    return void 0;
-  }
-  put(value) {
-  }
-  patch(value) {
-  }
 };
 function proxyState(state, keys) {
   return new Proxy(state, {
