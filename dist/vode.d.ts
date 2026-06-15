@@ -382,7 +382,7 @@ export interface SubContext<SubState> {
 	 * Updates the nested sub-state value WITHOUT triggering a render.
 	 * This performs a silent mutation of the parent state object.
 	 *
-	 * @param {DeepPartial<SubState>} value - The new value to assign
+	 * @param {SubState} value - The new value to assign
 	 */
 	put(value: SubState): void;
 	/**
@@ -390,6 +390,7 @@ export interface SubContext<SubState> {
 	 * This is the recommended way to update nested state in most cases.
 	 *
 	 * @param value - The new value or partial update to apply
+	 * @param animated - when true the patch runs through a view transition (if available)
 	 */
 	patch(value: SubState | Partial<SubState> | DeepPartial<SubState>, animated?: boolean): void;
 }
