@@ -30,12 +30,13 @@ export type Effect<S> =
     | Generator<Patch<S>>
     | AsyncGenerator<Patch<S>>;
 
-export type EventFunction<S> = (state: S, evt: Event) => Patch<S>;
+export type EventFunction<S = PatchableState> = (state: S, evt: Event) => Patch<S>;
+export type EventProp<S = PatchableState> = EventFunction<S> | Patch<S>;
 
 export interface Props<S = PatchableState> extends Partial<
     Omit<HTMLElement,
         keyof (DocumentFragment & ElementCSSInlineStyle & GlobalEventHandlers)> &
-    { [K in keyof EventsMap]: EventFunction<S> | Patch<S> } // all on* events
+    { [K in keyof EventsMap]: EventProp<S> } // all on* events
 > {
     [_: string]: unknown,
     xmlns?: string | null,
@@ -55,20 +56,20 @@ export type MountFunction<S> =
     | ((s: S, node: MathMLElement) => Patch<S>);
 
 export type ClassProp =
-    | "" | false | null | undefined // no class
     | string // "class1 class2"
     | string[] // ["class1", "class2"]
-    | Record<string, boolean | undefined | null>; // { class1: true, class2: false }
+    | Record<string, boolean | undefined | null> // { class1: true, class2: false }
+    | "" | false | null | undefined; // no class
 
 export type StyleProp =
-    | (Record<number, never> & { [K in keyof CSSStyleDeclaration]?: CSSStyleDeclaration[K] | null })
     | string
-    | "" | null | undefined; // no style
+    | (Record<number, never> & { [K in keyof CSSStyleDeclaration]?: CSSStyleDeclaration[K] | null })
+    | "" | false | null | undefined; // no style
 
 type EventsMapBase =
     & { [K in keyof HTMLElementEventMap as `on${K}`]: HTMLElementEventMap[K] }
-    & { [K in keyof WindowEventMap as `on${K}`]: WindowEventMap[K] }
-    & { [K in keyof SVGElementEventMap as `on${K}`]: SVGElementEventMap[K] };
+    & { [K in keyof SVGElementEventMap as `on${K}`]: SVGElementEventMap[K] }
+    & { [K in keyof MathMLElementEventMap as `on${K}`]: MathMLElementEventMap[K] };
 
 export interface EventsMap extends EventsMapBase { }
 
@@ -139,7 +140,7 @@ export function vode<S = PatchableState>(tag: Tag | Vode<S>, props?: Props<S> | 
 /** create a vode app inside a container element
  * @param container will use this container as root and places the result of the dom function and further renderings in it
  * @param state the state object that is used as singleton state bound to the vode app and is updated with `patch()`
- * @param dom function is alled every render and returnes the vode-dom that is updated incrementally to the DOM based on the state.
+ * @param dom function is called every render and returns the vode-dom that is updated incrementally to the DOM based on the state.
  * @param initialPatches variadic list of patches that are applied after the first render
  * @returns a patch function that can be used to update the state
  */
@@ -169,7 +170,7 @@ export function app<S extends PatchableState = PatchableState>(
     async function promisePatch(action: Promise<Patch<S>>, isAnimated?: boolean) {
         _vode.stats.liveEffectCount++;
         try {
-            const resolvedPatch = await (action as Promise<S>);
+            const resolvedPatch = await (action as Promise<unknown>);
             await patchableState.patch(<Patch<S>>resolvedPatch, isAnimated);
         } finally {
             _vode.stats.liveEffectCount--;
@@ -216,7 +217,7 @@ export function app<S extends PatchableState = PatchableState>(
                     for (const p of action) {
                         patchableState.patch(p, !!_vode.asyncRenderer);
                     }
-                } else { //when [] is patched: 1. skip current animation 2. merge all queued async patches into synced queue
+                } else { //when [] is patched: 1. skip current animation 2. merge all queued async patches into state and schedule a sync render
                     mergeState(_vode.state as Record<string, unknown>, _vode.qAsync, true);
                     _vode.qAsync = null;
                     try { globals.currentViewTransition?.skipTransition(); } catch { }
@@ -244,7 +245,7 @@ export function app<S extends PatchableState = PatchableState>(
         if ((<ContainerNode<S>>container).tagName.toLowerCase() !== (<Vode<S>>_vode.vode)[0].toLowerCase()) {
             //the tag name was changed during render -> update reference to vode-app-root 
             container = _vode.vode.node as DomElement;
-            (<ContainerNode<S>>container)._vode = _vode
+            (<ContainerNode<S>>container)["_vode"] = _vode
         }
 
         if (!isAnimated) {
@@ -305,7 +306,7 @@ export function app<S extends PatchableState = PatchableState>(
     _vode.state = patchableState;
 
     const root = container as ContainerNode<S>;
-    root._vode = _vode;
+    root["_vode"] = _vode;
     const indexInParent = Array.from(container.parentElement.children).indexOf(container);
 
     const patchCountBefore = _vode.stats.syncRenderPatchCount;
@@ -322,7 +323,7 @@ export function app<S extends PatchableState = PatchableState>(
     // if during initial render the tag of the root vode was changed (catch or different Tag)
     if (container.tagName.toLowerCase() !== (<Vode<S>>_vode.vode)[0].toLowerCase()) {
         container = _vode.vode.node!;
-        (container as ContainerNode<S>)._vode = _vode;
+        (container as ContainerNode<S>)["_vode"] = _vode;
     }
 
     const continueRendering = _vode.stats.syncRenderPatchCount !== patchCountBefore;
@@ -344,21 +345,21 @@ export function app<S extends PatchableState = PatchableState>(
  * leaves the DOM as is
  */
 export function defuse(container: ContainerNode) {
-    if (container?._vode) {
+    if (container?.["_vode"]) {
         function clearEvents(av: AttachedVode) {
             if (!av?.node) return;
 
             const p = props(av);
             if (p) {
                 for (const key in p) {
-                    if (key[0] === 'o' && key[1] === 'n') {
+                    if (key[0] === "o" && key[1] === "n") {
                         (av.node)[key] = null;
                     }
                 }
-                av.node['catch'] = null;
+                av.node.catch = null;
             }
 
-            if ((av.node as unknown as ContainerNode)._vode) {
+            if ((av.node as unknown as ContainerNode)["_vode"]) {
                 defuse(av.node as unknown as ContainerNode);
             } else {
                 const kids = children(av);
@@ -370,8 +371,8 @@ export function defuse(container: ContainerNode) {
             }
         }
 
-        const v = container._vode;
-        delete (container as { _vode?: ContainerNode["_vode"] })["_vode"];
+        const v = container["_vode"];
+        delete (container as Partial<ContainerNode>)["_vode"];
         Object.defineProperty(v.state, "patch", { value: undefined });
         Object.defineProperty(v, "renderSync", { value: () => { } });
         Object.defineProperty(v, "renderAsync", { value: () => { } });
@@ -466,7 +467,7 @@ export function createState<S = PatchableState>(state: S): PatchableState<S> {
 /** type safe way to create a patch. useful for type inference and autocompletion. */
 export function createPatch<S = PatchableState>(p: DeepPartial<S> | Effect<S> | IgnoredPatch): typeof p { return p; }
 
-/** html tag of the vode or undefined if it has none or is a text node */
+/** HTML tag of the vode or undefined if it has none or is a text node */
 export function tag(v: ChildVode): Tag | undefined {
     const t = !!v && Array.isArray(v) && v[0] as Tag;
     if (typeof t === "string") return t;
@@ -641,9 +642,9 @@ function render<S extends PatchableState>(state: S, parent: Element, childIndex:
             //set properties for new child in xml mode to prevent using the dom properties
             patchProperties(state, newNode, undefined, properties, xmlns ?? null);
 
-            if (!!properties && 'catch' in properties) {
-                (<AttachedElementVode<S>>newVode).node['catch'] = null;
-                (<AttachedElementVode<S>>newVode).node.removeAttribute('catch');
+            if (!!properties && "catch" in properties) {
+                (<AttachedElementVode<S>>newVode).node["catch"] = null;
+                (<AttachedElementVode<S>>newVode).node.removeAttribute("catch");
             }
 
             if (oldNode) {
@@ -698,8 +699,8 @@ function render<S extends PatchableState>(state: S, parent: Element, childIndex:
             patchProperties(state, node, oldProps, properties, xmlns);
 
             if (!!properties?.catch && oldProps?.catch !== properties.catch) {
-                node['catch'] = null;
-                node.removeAttribute('catch');
+                node["catch"] = null;
+                node.removeAttribute("catch");
             }
 
             const newStart = childrenStart(newVode);
@@ -735,8 +736,9 @@ function render<S extends PatchableState>(state: S, parent: Element, childIndex:
                 ? (<(s: S, error: Error) => ChildVode<S>>catchVode)(state, error)
                 : catchVode;
 
+            const catchNode = ((<AttachedVode<S>>newVode)?.node || oldVode?.node)!;
             return render(state, parent, childIndex, indexInParent,
-                hydrate(((<AttachedVode<S>>newVode)?.node || oldVode?.node)!, true) as AttachedVode<S>,
+                hydrate(catchNode, true) as AttachedVode<S>,
                 handledVode,
                 xmlns);
         } else {
@@ -936,5 +938,5 @@ function classString(classProp: ClassProp): string {
     else if (typeof classProp === "object")
         return Object.keys(classProp!).filter(k => classProp![k]).join(" ");
     else
-        return '';
+        return "";
 }
