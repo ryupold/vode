@@ -222,7 +222,7 @@ but as a function of state, it can become very useful to express conditional UI 
 
 ### app
 
-`app` is a function that takes a HTML node, a state object, and a render function (`Component<State>`).  
+`app` is a function that takes an HTML node, a state object, and a render function (`Component<State>`).  
 
 ```typescript
 const containerNode = document.getElementById('ANY-ELEMENT');
@@ -340,9 +340,9 @@ const CompBar = (s) => [DIV, { class: "container" },
         },
 
         // events can be attached conditionally
-        ondblclick : s.counter > 20 && (s, evt) => {
-            return { counter: s.counter * 2 }; 
-        },
+        ondblclick: s.counter > 20 && ((s, evt) => {
+            return { counter: s.counter * 2 };
+        }),
 
         class: { bar: s.pointing }
     }, "Click me!"],
@@ -360,6 +360,7 @@ During the call to `app`, the state object is bound to the vode app instance and
 Also a `patch` function is added to the state object; it is the same function that is also returned by `app`.
 A re-render happens when a patch object is supplied to the `patch` function or via event.
 When an object is passed to `patch`, its properties are recursively deep merged onto the state object.
+Use `createState()` if you need to queue patches before `app()` initialization.
 
 ```javascript
 const s = {
@@ -450,9 +451,9 @@ const CompMemoList: Component<State> = (s) =>
             // this is the component function that will be 
             // called only when the array changes
             (s) => {
-                const list = [UL];
+                const list = <Vode>[UL];
                 for (let i = 0; i < 10000; i++) {
-                    list.push(LI, `Item ${i}`);
+                    list.push([LI, `Item ${i}`]);
                 }
                 return list;
             },
@@ -499,7 +500,7 @@ Or just don't make errors happen in the first place :)
 The library provides some helper functions for common tasks.
 
 ```typescript
-import { tag, props, children, mergeClass, hydrate, vode } from '@ryupold/vode';
+import { tag, props, children, mergeClass, mergeStyle, mergeProps, hydrate, vode } from '@ryupold/vode';
 
 // Merge class props intelligently (additive)
 mergeClass('foo', ['baz', 'bar']);  // -> 'foo baz bar'
@@ -508,7 +509,7 @@ mergeClass({zig: true, zag: false}, 'foo', ['baz', 'bar']);  // -> 'zig foo baz 
 
 // Merge style props intelligently (same style properties are overwritten from left to right)
 mergeStyle({ color: 'red' }, 'font-weight: bold;'); // -> 'color: red; font-weight: bold;'
-mergeStyle('color: white; background-color: blue;', { marginTop: '10px', color: 'green' }); // -> 'background-color: blue; margin-top: 10px; color: green;'
+mergeStyle('color: white; background-color: blue;', { marginTop: '10px', color: 'green' }); // -> 'color: green; background-color: blue; margin-top: 10px;'
 
 // Merge props objects intelligently (class and style props are merged with the helper functions above, other props are overwritten from left to right)
 mergeProps(
@@ -545,7 +546,7 @@ These are called when the element is created or removed during rendering.
 They receive the `State` as the first argument and the DOM element as the second argument.
 
 ```typescript
-const container = document.createElement(DIV);
+const container = document.getElementById('app')!;
 const state = createState({
     startTime: 0,
     inputReady: false,
@@ -730,7 +731,7 @@ A state context has 3 functions:
 You can have multiple isolated vode app instances on a page, each with its own state and render function.
 The returned patch function from `app` can be used to synchronize the state between them.
 
-#### advances examples
+#### advanced examples
 
 See [test/tests-examples.ts](./test/tests-examples.ts) for more advanced examples of the features described here.
 
