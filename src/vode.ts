@@ -225,7 +225,7 @@ export function app<S extends PatchableState = PatchableState>(
                     _vode.renderSync();
                 }
             } else {
-                if (isAnimated) {
+                if (isAnimated && !!_vode.asyncRenderer) {
                     _vode.stats.asyncRenderPatchCount++;
                     _vode.qAsync = mergeState(_vode.qAsync || {}, action, false);
                     _vode.renderAsync();
