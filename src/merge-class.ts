@@ -2,7 +2,7 @@ import { ClassProp } from "./vode";
 
 /** merge `ClassProp`s regardless of structure */
 export function mergeClass(...classes: ClassProp[]): ClassProp {
-    if ((!classes || classes.length === 0)) return null;
+    if (!classes || classes.length === 0) return null;
     if (classes.length === 1) return classes[0];
 
     let finalClass: ClassProp = classes[0];
@@ -21,7 +21,7 @@ export function mergeClass(...classes: ClassProp[]): ClassProp {
             finalClass = Array.from(classSet).join(" ").trim();
         }
         else if (typeof a === "string" && Array.isArray(b)) {
-            const classSet = new Set([...b, ...a.split(" ")]);
+            const classSet = new Set([...a.split(" "), ...b]);
             finalClass = Array.from(classSet).join(" ").trim();
         }
         else if (Array.isArray(a) && typeof b === "string") {
@@ -33,10 +33,16 @@ export function mergeClass(...classes: ClassProp[]): ClassProp {
             finalClass = Array.from(classSet).join(" ").trim();
         }
         else if (typeof a === "string" && typeof b === "object") {
-            finalClass = { [a]: true, ...b };
+            const aSplit = a.split(" ");
+            const aObj: Record<string, true> = {};
+            for (const cls of aSplit) aObj[cls] = true;
+            finalClass = { ...aObj, ...b };
         }
         else if (typeof a === "object" && typeof b === "string") {
-            finalClass = { ...a, [b]: true };
+            const bSplit = b.split(" ");
+            const bObj: Record<string, true> = {};
+            for (const cls of bSplit) bObj[cls] = true;
+            finalClass = { ...a, ...bObj };
         }
         else if (typeof a === "object" && Array.isArray(b)) {
             const aa = { ...a };

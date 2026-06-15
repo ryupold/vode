@@ -16,7 +16,7 @@ export default {
     },
 
     "mergeClass(): string and array": async () => {
-        await expect(mergeClass("foo", ["bar", "baz"])).toEqual("bar baz foo");
+        await expect(mergeClass("foo", ["bar", "baz"])).toEqual("foo bar baz");
     },
 
     "mergeClass(): array and string": async () => {
@@ -60,7 +60,7 @@ export default {
 
     "mergeClass(): multiple args (3+)": async () => {
         await expect(mergeClass("a", "b", "c")).toEqual("a b c");
-        await expect(mergeClass("x", null, ["y", "z"], "w")).toEqual("y z x w");
+        await expect(mergeClass("x", null, ["y", "z"], "w")).toEqual("x y z w");
     },
 
     "mergeClass(): incompatible types throw": async () => {
