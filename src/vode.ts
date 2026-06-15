@@ -665,13 +665,12 @@ function render<S extends PatchableState>(state: S, parent: Element, childIndex:
 
             const newStart = childrenStart(newVode);
             if (newStart > 0) {
-                const childOffset = !!properties ? 2 : 1;
                 let indexP = 0;
                 for (let i = 0; i < (<Vode<S>>newVode).length - newStart; i++) {
                     const child = (<Vode<S>>newVode)[i + newStart] as ChildVode<S>;
                     // render child in xml mode to prevent using the dom properties
                     const attached = render(state, newNode as Element, i, indexP, undefined, child, xmlns ?? null);
-                    (<Vode<S>>newVode!)[i + childOffset] = <Vode<S>>attached;
+                    (<Vode<S>>newVode!)[i + newStart] = <Vode<S>>attached;
                     if (attached) indexP++;
                 }
             }

@@ -433,12 +433,11 @@ function render(state, parent, childIndex, indexInParent, oldVode, newVode, xmln
       }
       const newStart = childrenStart(newVode);
       if (newStart > 0) {
-        const childOffset = !!properties ? 2 : 1;
         let indexP = 0;
         for (let i = 0; i < newVode.length - newStart; i++) {
           const child2 = newVode[i + newStart];
           const attached = render(state, newNode, i, indexP, void 0, child2, xmlns ?? null);
-          newVode[i + childOffset] = attached;
+          newVode[i + newStart] = attached;
           if (attached) indexP++;
         }
       }
