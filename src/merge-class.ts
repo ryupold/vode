@@ -18,30 +18,30 @@ export function mergeClass(...classes: ClassProp[]): ClassProp {
             const aSplit = a.split(" ");
             const bSplit = b.split(" ");
             const classSet = new Set([...aSplit, ...bSplit]);
-            finalClass = Array.from(classSet).join(" ").trim();
+            finalClass = Array.from(classSet).join(" ");
         }
         else if (typeof a === "string" && Array.isArray(b)) {
             const classSet = new Set([...a.split(" "), ...b]);
-            finalClass = Array.from(classSet).join(" ").trim();
+            finalClass = Array.from(classSet).join(" ");
         }
         else if (Array.isArray(a) && typeof b === "string") {
             const classSet = new Set([...a, ...b.split(" ")]);
-            finalClass = Array.from(classSet).join(" ").trim();
+            finalClass = Array.from(classSet).join(" ");
         }
         else if (Array.isArray(a) && Array.isArray(b)) {
             const classSet = new Set([...a, ...b]);
-            finalClass = Array.from(classSet).join(" ").trim();
+            finalClass = Array.from(classSet).join(" ");
         }
         else if (typeof a === "string" && typeof b === "object") {
             const aSplit = a.split(" ");
             const aObj: Record<string, true> = {};
-            for (const cls of aSplit) aObj[cls] = true;
+            for (const cls of aSplit) if (cls) aObj[cls] = true;
             finalClass = { ...aObj, ...b };
         }
         else if (typeof a === "object" && typeof b === "string") {
             const bSplit = b.split(" ");
             const bObj: Record<string, true> = {};
-            for (const cls of bSplit) bObj[cls] = true;
+            for (const cls of bSplit) if (cls) bObj[cls] = true;
             finalClass = { ...a, ...bObj };
         }
         else if (typeof a === "object" && Array.isArray(b)) {

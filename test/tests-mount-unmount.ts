@@ -137,7 +137,7 @@ export default {
         const container = setup();
         const mounts: string[] = [];
         const state = createState({ addMount: false });
-        const patch = app<typeof state>(container, state, (s) =>
+        const patch = app(container, state, (s) =>
             [DIV,
                 [P,
                     s.addMount ? {
@@ -159,7 +159,7 @@ export default {
         const container = setup();
         const mounts: string[] = [];
         const state = createState({ removeMount: false });
-        const patch = app<typeof state>(container, state, (s) =>
+        const patch = app(container, state, (s) =>
             [DIV,
                 [P,
                     s.removeMount ? {} : {
@@ -181,7 +181,7 @@ export default {
         const container = setup();
         const mounts: string[] = [];
         const state = createState({ version: "a" });
-        const patch = app<typeof state>(container, state, (s) =>
+        const patch = app(container, state, (s) =>
             [DIV,
                 [P,
                     {
@@ -203,7 +203,7 @@ export default {
         const container = setup();
         const mounts: string[] = [];
         const state = createState({ showArticle: true });
-        const patch = app<typeof state>(container, state, (s) =>
+        const patch = app(container, state, (s) =>
             [DIV,
                 s.showArticle
                     ? [ARTICLE,
@@ -234,7 +234,7 @@ export default {
         const container = setup();
         const mounts: string[] = [];
         const state = createState({ showArticle: true });
-        const patch = app<typeof state>(container, state, (s) =>
+        const patch = app(container, state, (s) =>
             [DIV,
                 s.showArticle
                     ? [ARTICLE,
@@ -275,7 +275,7 @@ export default {
         const container = setup();
         const mounts: string[] = [];
         const state = createState({ showArticle: true });
-        const patch = app<typeof state>(container, state, (s) =>
+        const patch = app(container, state, (s) =>
             [DIV,
                 s.showArticle
                     ? [ARTICLE,
@@ -310,7 +310,7 @@ export default {
         const container = setup();
         const mounts: string[] = [];
         const state = createState({ showElement: false });
-        const patch = app<typeof state>(container, state, (s) =>
+        const patch = app(container, state, (s) =>
             [DIV,
                 s.showElement
                     ? [ARTICLE,
@@ -406,7 +406,7 @@ export default {
         const container = setup();
         const mounts: string[] = [];
         const state = createState({ count: 1 });
-        const patch = app<typeof state>(container, state, (s) =>
+        const patch = app(container, state, (s) =>
             [DIV,
                 [SECTION,
                     s.count >= 1 && [P, { onMount: (s: unknown, ele: HTMLElement) => { mounts.push("mount p0"); } }, "item 0"],
@@ -427,7 +427,7 @@ export default {
         const container = setup();
         const mounts: string[] = [];
         const state = createState({ show: false });
-        const patch = app<typeof state>(container, state, (s) =>
+        const patch = app(container, state, (s) =>
             [DIV,
                 [P,
                     "static",
@@ -448,7 +448,7 @@ export default {
         await expect(mounts).toEqual(["mount span"]);
     },
 
-    "onMount(): with catched component, replacement vode's onMount fires when error occurs": async () => {
+    "onMount(): with caught component, replacement vode's onMount fires when error occurs": async () => {
         const container = setup();
         const mounts: string[] = [];
         const broken: any = () => { throw new Error("boom"); };
@@ -471,7 +471,7 @@ export default {
         await expect(mounts).toEqual(["mount fallback"]);
     },
 
-    "onMount(): with catched component, returned vode's onMount fires and receives error": async () => {
+    "onMount(): with caught component, returned vode's onMount fires and receives error": async () => {
         const container = setup();
         const mounts: string[] = [];
         const caughtErrors: string[] = [];
@@ -499,7 +499,7 @@ export default {
         await expect(caughtErrors).toEqual(["boom"]);
     },
 
-    "onMount(): with catched component, original element's onMount does NOT fire when error caused replacement": async () => {
+    "onMount(): with caught component, original element's onMount does NOT fire when error caused replacement": async () => {
         const container = setup();
         const logs: string[] = [];
         const broken: any = () => { throw new Error("boom"); };
@@ -538,7 +538,7 @@ export default {
         const container = setup();
         const unmounts: string[] = [];
         const state = createState({ showArticle: true });
-        const patch = app<typeof state>(container, state, (s) =>
+        const patch = app(container, state, (s) =>
             [DIV,
                 s.showArticle && [ARTICLE,
                     {
@@ -560,7 +560,7 @@ export default {
         const container = setup();
         const unmounts: string[] = [];
         const state = createState({ showArticle: true });
-        const patch = app<typeof state>(container, state, (s) =>
+        const patch = app(container, state, (s) =>
             [DIV,
                 s.showArticle && [ARTICLE,
                     {
@@ -590,7 +590,7 @@ export default {
         const container = setup() as unknown as ContainerNode;
         const unmounts: string[] = [];
         const state = createState({ toggle: false, remove: false });
-        const patch = app<typeof state>(container, state, (s) =>
+        const patch = app(container, state, (s) =>
             [DIV,
                 !s.remove && [SECTION,
                     s.toggle ? {
@@ -622,7 +622,7 @@ export default {
         const container = setup();
         const unmounts: string[] = [];
         const state = createState({ toggle: false, remove: false });
-        const patch = app<typeof state>(container, state, (s) =>
+        const patch = app(container, state, (s) =>
             [DIV,
                 !s.remove && [SECTION,
                     !s.toggle && {
@@ -644,7 +644,7 @@ export default {
         const container = setup();
         const unmounts: string[] = [];
         const state = createState({ version: "a", remove: false });
-        const patch = app<typeof state>(container, state, (s) =>
+        const patch = app(container, state, (s) =>
             [DIV,
                 !s.remove && [SECTION,
                     {
@@ -670,7 +670,7 @@ export default {
         const container = setup();
         const unmounts: string[] = [];
         const state = createState({ showArticle: true });
-        const patch = app<typeof state>(container, state, (s) =>
+        const patch = app(container, state, (s) =>
             [DIV,
                 s.showArticle
                     ? [ARTICLE,
@@ -701,7 +701,7 @@ export default {
         const container = setup();
         const unmounts: string[] = [];
         const state = createState({ showArticle: true });
-        const patch = app<typeof state>(container, state, (s) =>
+        const patch = app(container, state, (s) =>
             [DIV,
                 s.showArticle
                     ? [ARTICLE,
@@ -738,7 +738,7 @@ export default {
         const container = setup();
         const unmounts: string[] = [];
         const state = createState({ showArticle: true });
-        const patch = app<typeof state>(container, state, (s) =>
+        const patch = app(container, state, (s) =>
             [DIV,
                 s.showArticle
                     ? [ARTICLE,
@@ -776,7 +776,7 @@ export default {
         const container = setup();
         const unmounts: string[] = [];
         const state = createState({ showElement: true });
-        const patch = app<typeof state>(container, state, (s) =>
+        const patch = app(container, state, (s) =>
             [DIV,
                 s.showElement
                     ? [ARTICLE,
@@ -800,7 +800,7 @@ export default {
         const container = setup();
         const unmounts: string[] = [];
         const state = createState({ showElement: false, remove: false });
-        const patch = app<typeof state>(container, state, (s) =>
+        const patch = app(container, state, (s) =>
             [DIV,
                 s.remove ? undefined :
                     s.showElement
@@ -829,7 +829,7 @@ export default {
         const container = setup();
         const unmounts: string[] = [];
         const state = createState({ show: true });
-        const patch = app<typeof state>(container, state, (s) =>
+        const patch = app(container, state, (s) =>
             [DIV,
                 s.show && [NAV,
                     {
@@ -878,7 +878,7 @@ export default {
         const container = setup();
         const unmounts: string[] = [];
         const state = createState({ showFirst: true, showSecond: true });
-        const patch = app<typeof state>(container, state, (s) =>
+        const patch = app(container, state, (s) =>
             [DIV,
                 s.showFirst && [ARTICLE,
                     {
@@ -922,7 +922,7 @@ export default {
         const container = setup();
         const unmounts: string[] = [];
         const state = createState({ show: true });
-        const patch = app<typeof state>(container, state, (s) =>
+        const patch = app(container, state, (s) =>
             [DIV,
                 s.show && [SECTION,
                     [ARTICLE,
@@ -954,7 +954,7 @@ export default {
         const container = setup();
         const unmounts: string[] = [];
         const state = createState({ count: 3 });
-        const patch = app<typeof state>(container, state, (s) =>
+        const patch = app(container, state, (s) =>
             [DIV,
                 [SECTION,
                     s.count >= 1 && [P, { onUnmount: (s: unknown, ele: HTMLElement) => { unmounts.push("unmount p0"); } }, "item 0"],
@@ -973,7 +973,7 @@ export default {
         const container = setup();
         const unmounts: string[] = [];
         const state = createState({ show: true });
-        const patch = app<typeof state>(container, state, (s) =>
+        const patch = app(container, state, (s) =>
             [DIV,
                 s.show && [SECTION,
                     {
@@ -1007,7 +1007,7 @@ export default {
         const container = setup();
         const unmounts: string[] = [];
         const state = createState({ show: true });
-        const patch = app<typeof state>(container, state, (s) =>
+        const patch = app(container, state, (s) =>
             [DIV,
                 s.show && [SECTION,
                     [DIV,
@@ -1046,7 +1046,7 @@ export default {
         const container = setup();
         const unmounts: string[] = [];
         const state = createState({ showExtraChild: true, remove: false });
-        const patch = app<typeof state>(container, state, (s) =>
+        const patch = app(container, state, (s) =>
             [DIV,
                 !s.remove && [SECTION,
                     [P,
@@ -1093,7 +1093,7 @@ export default {
         const container = setup();
         const unmounts: string[] = [];
         const state = createState({ showDiv: true });
-        const patch = app<typeof state>(container, state, (s) =>
+        const patch = app(container, state, (s) =>
             s.showDiv
                 ? [DIV,
                     {
@@ -1122,7 +1122,7 @@ export default {
         const container = setup();
         const unmounts: string[] = [];
         const state = createState({ addUnmount: false, show: true });
-        const patch = app<typeof state>(container, state, (s) =>
+        const patch = app(container, state, (s) =>
             [DIV,
                 s.show && [ARTICLE,
                     s.addUnmount ? {
@@ -1148,7 +1148,7 @@ export default {
         const container = setup();
         const unmounts: string[] = [];
         const state = createState({ showArticle: true });
-        const patch = app<typeof state>(container, state, (s) =>
+        const patch = app(container, state, (s) =>
             [DIV,
                 s.showArticle
                     ? [ARTICLE,
@@ -1183,7 +1183,7 @@ export default {
         const container = setup();
         const fired: string[] = [];
         const state = createState({ expanded: false, showB: true });
-        const patch = app<typeof state>(container, state, (s) =>
+        const patch = app(container, state, (s) =>
             [DIV,
                 [SPAN,
                     {
@@ -1223,7 +1223,7 @@ export default {
         const container = setup();
         const fired: string[] = [];
         const state = createState({ expanded: false, showB: true });
-        const patch = app<typeof state>(container, state, (s) =>
+        const patch = app(container, state, (s) =>
             [DIV,
                 [SPAN,
                     {
@@ -1255,12 +1255,12 @@ export default {
         await expect(fired).toEqual(["unmount B"]);
     },
 
-    "onUnmount(): with catched component, replacement vode's onUnmount fires when removed": async () => {
+    "onUnmount(): with caught component, replacement vode's onUnmount fires when removed": async () => {
         const container = setup();
         const unmounts: string[] = [];
         const state = createState({ show: true });
         const broken: any = () => { throw new Error("boom"); };
-        const patch = app<typeof state>(container, state, (s) =>
+        const patch = app(container, state, (s) =>
             [DIV,
                 s.show && [SECTION,
                     {
@@ -1283,12 +1283,12 @@ export default {
         await expect(unmounts).toEqual(["unmount fallback"]);
     },
 
-    "onUnmount(): with catched component, deep replacement tree fires in post-order": async () => {
+    "onUnmount(): with caught component, deep replacement tree fires in post-order": async () => {
         const container = setup();
         const unmounts: string[] = [];
         const state = createState({ show: true });
         const broken: any = () => { throw new Error("boom"); };
-        const patch = app<typeof state>(container, state, (s) =>
+        const patch = app(container, state, (s) =>
             [DIV,
                 s.show && [SECTION,
                     {
@@ -1326,12 +1326,12 @@ export default {
         await expect(unmounts).toEqual(["unmount span", "unmount p", "unmount article"]);
     },
 
-    "onMount() + onUnmount(): with catched component, full lifecycle symmetry of catch replacement": async () => {
+    "onMount() + onUnmount(): with caught component, full lifecycle symmetry of catch replacement": async () => {
         const container = setup();
         const logs: string[] = [];
         const state = createState({ show: true });
         const broken: any = () => { throw new Error("boom"); };
-        const patch = app<typeof state>(container, state, (s) =>
+        const patch = app(container, state, (s) =>
             [DIV,
                 s.show && [SECTION,
                     {
@@ -1365,30 +1365,29 @@ export default {
             showInput: true,
             showTimer: true
         });
-        type State = typeof state;
         const logs: string[] = [];
 
-        const patch = app<State>(container, state, (s) => {
+        const patch = app(container, state, (s) => {
             return [DIV,
                 s.showInput && [INPUT, {
                     type: 'text',
                     placeholder: 'Auto-focused on mount',
-                    onMount: (s: State, ele: HTMLElement) => {
+                    onMount: (s: typeof state, ele: HTMLElement) => {
                         logs.push('Input mounted');
                         return { inputReady: true };
                     },
-                    onUnmount: (s: State, ele: HTMLElement) => {
+                    onUnmount: (s: typeof state, ele: HTMLElement) => {
                         logs.push('Input removed');
                         return { inputReady: false };
                     }
                 }],
 
                 s.showTimer && [P, {
-                    onMount: (s: State, ele: HTMLElement) => {
+                    onMount: (s: typeof state, ele: HTMLElement) => {
                         logs.push('Timer started');
                         return { startTime: Date.now() };
                     },
-                    onUnmount: (s: State, ele: HTMLElement) => {
+                    onUnmount: (s: typeof state, ele: HTMLElement) => {
                         logs.push('Timer removed');
                     }
                 }, 'Mount/unmount lifecycle demo']
@@ -1429,7 +1428,7 @@ export default {
                 },
                 "Component " + name]
         ];
-        app<typeof state>(container, state, s => [DIV,
+        app(container, state, s => [DIV,
             // this way they both "share a slot"
             s.showB ? Comp("B") : Comp("A"),
 

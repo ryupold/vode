@@ -25,11 +25,23 @@
     },
     "homepage": "https://github.com/ryupold/vode#readme",
     "type": "module",
+    "files": [
+        "dist",
+        "src",
+        "index.ts",
+        "tsconfig.json",
+        "README.md",
+        "LICENSE",
+        "icon.webp",
+        "logo.webp"
+    ],
+    "publishConfig": {
+        "access": "public"
+    },
     "exports": {
         ".": {
             "entrypoint": "./index.ts",
             "types": "./dist/vode.d.ts",
-            "tests": "./dist/vode.tests.mjs",
             "import": "./dist/vode.min.mjs",
             "require": "./dist/vode.cjs.min.js",
             "default": "./dist/vode.min.mjs"

@@ -46,7 +46,7 @@ The use cases can be single page applications or isolated components with comple
 </html>
 ```
 
-### Classic (iife)
+### Classic (IIFE)
 Binds the library to the global `V` variable.
 
 ```html
@@ -55,7 +55,7 @@ Binds the library to the global `V` variable.
 <head>
     <meta charset="utf-8">
     <script src="https://unpkg.com/@ryupold/vode/dist/vode.es5.min.js"></script>
-    <title>Vode ES5 (iife) Script Example</title>
+    <title>Vode ES5 (IIFE) Script Example</title>
 </head>
 <body>
     <div id="app"></div>
@@ -109,12 +109,10 @@ const state = createState({
     counter: 0,
 });
 
-type State = typeof state;
-
 const appNode = document.getElementById('app')!;
 
-app<State>(appNode, state,
-    (s: State) => [DIV,
+app(appNode, state,
+    (s) => [DIV,
         [INPUT, {
             type: 'button',
             onclick: { counter: s.counter + 1 },
@@ -130,13 +128,13 @@ app<State>(appNode, state,
 
 Let's describe UI as data structures that map 1:1 to DOM elements.
 
-A `vode` is a representation of a virtual DOM node, which is a tree structure of HTML elements. It is written as tuple:
+A `vode` is a representation of a virtual DOM node, which is a tree structure of HTML elements. It is written as a tuple:
 
 ```
 [TAG, PROPS?, CHILDREN...]
 ```
 
-As you can see, it is a simple array with the first element being the tag name, the second element being an optional properties object, and the rest being child-vodes.
+As you can see, it is a simple array with the first element being the tag name, the second element being an optional properties object, and the rest being child vodes.
 
 They are lightweight structures to describe what the DOM should look like.
 
@@ -249,6 +247,12 @@ It will analyze the current structure of the given `ContainerNode` and adjust it
 When render-patches are applied to the `patch` function or via yield/return of events, 
 the `ContainerNode` is updated to match the vode structure 1:1. 
 
+> `app()` infers the state type from the second argument, so you don't need explicit generics or parameter types in the `dom` function. If you prefer, you can still write them explicitly:
+> ```typescript
+> type State = typeof state;
+> app<State>(appNode, state, (s: State) => ...);
+> ```
+
 #### defuse
 
 To release resources associated with the vode app instance, you can call the `defuse` function on the `ContainerNode` that was passed to `app`.
@@ -357,7 +361,7 @@ const CompBar = (s) => [DIV, { class: "container" },
 ### state & patch
 The state object you pass to [`app`](#app) can be updated directly or via `patch`. 
 During the call to `app`, the state object is bound to the vode app instance and becomes a singleton from its perspective. 
-Also a `patch` function is added to the state object; it is the same function that is also returned by `app`.
+A `patch` function is also added to the state object; it is the same function that is returned by `app`.
 A re-render happens when a patch object is supplied to the `patch` function or via event.
 When an object is passed to `patch`, its properties are recursively deep merged onto the state object.
 Use `createState()` if you need to queue patches before `app()` initialization.
@@ -402,7 +406,7 @@ s.patch(async function*(s){
     return { loading: false }; 
 }); // can be awaited to wait for execution
 
-// ignored, also: undefined, number, string, boolean, void
+// ignored, also: undefined, number, string, boolean, symbol, void
 s.patch(null);
 
 // setting a property in a patch to undefined deletes it from the state object
@@ -418,7 +422,7 @@ const ComponentEwww = (s) => {
 
 // ✨ experimental view transitions support ✨
 // patch with a render via view transition
-s.patch([{}, (s) => {/*...*/}]); //all given patches will be part of a view transition
+s.patch([{}, (s) => {/*...*/}]); // all given patches will be part of a view transition
 
 // an empty array tells vode to skip the current view transition
 // and set the queued animated patches until now as current state with a sync patch
@@ -445,7 +449,7 @@ const CompMemoList: Component<State> = (s) =>
         
         // expensive component to render
         memo(
-            // this array is used to determine when to re-render the component, it is shallow compared with the array of the previous render
+            // this array is used to determine when to re-render the component; it is shallow-compared against the previous render's array
             [s.title, s.body],
 
             // this is the component function that will be 
@@ -460,7 +464,7 @@ const CompMemoList: Component<State> = (s) =>
         )
     ];
 
-app<State>(container, state, (s) => [DIV,
+app(container, state, (s) => [DIV,
     CompMemoList,
 ]);
 ```
@@ -490,7 +494,7 @@ const CompWithError: ChildVode = () =>
 ```
 
 If the `catch` property is a function, it will be called with the current state and the error as arguments, and should return a valid child-vode to render instead.
-If it is a vode, it will be rendered directly. 
+If it is a vode, it will be rendered directly.
 If no `catch` property is provided, the error will propagate to the nearest ancestor that has a `catch` property defined, or to the top-level app if none is found.
 Try to keep the `catch` blocks as specific as possible to avoid masking other errors. 
 Or just don't make errors happen in the first place :)
@@ -553,30 +557,29 @@ const state = createState({
     showInput: true,
     showTimer: true
 });
-type State = typeof state;
 
-const patch = app<State>(container, state, (s) =>
+const patch = app(container, state, (s) =>
     [DIV,
         s.showInput && [INPUT, {
             type: 'text',
             placeholder: 'Auto-focused on mount',
-            onMount: (s: State, ele: HTMLElement) => {
+            onMount: (s: typeof state, ele: HTMLElement) => {
                 console.log('Input mounted');
                 (ele as HTMLInputElement).focus();
                 return { inputReady: true };
             },
-            onUnmount: (s: State, ele: HTMLElement) => {
+            onUnmount: (s: typeof state, ele: HTMLElement) => {
                 console.log('Input removed');
                 return { inputReady: false };
             }
         }],
 
         s.showTimer && [P, {
-            onMount: (s: State, ele: HTMLElement) => {
+            onMount: (s: typeof state, ele: HTMLElement) => {
                 console.log('Timer started');
                 s.patch({ startTime: Date.now() });
             },
-            onUnmount: (s: State, ele: HTMLElement) => {
+            onUnmount: (s: typeof state, ele: HTMLElement) => {
                 console.log('Timer stopped after', Date.now() - s.startTime, 'ms');
             }
         }, 'Mount/unmount lifecycle demo']
@@ -618,7 +621,7 @@ Like the other events (onclick, onmouseenter, etc.), these can also be attached 
 >     ];
 >     
 > const state = createState({ showB: false });
-> app<typeof state>(container, state, s => [DIV,
+> app(container, state, s => [DIV,
 >   s.showB ? CompB : CompA,
 > ]);
 > 
@@ -628,6 +631,16 @@ Like the other events (onclick, onmouseenter, etc.), these can also be attached 
 > // > "mount A"
 > ```
 > onMount of B and onUnmount of A are not called because DOM does not require element creation or removal (same TAGs)
+
+When `app()` hydrates pre-existing DOM (e.g. server-rendered HTML), 
+the matching elements take this same A->A path, so their `onMount` does not fire automatically. 
+The hooks are still reflected onto the DOM node though, so you can invoke them yourself after hydration:
+
+```typescript
+const node = document.getElementById('my-hydrated-element')!;
+node.onMount(node);     // runs your onMount(state, node) and patches its return value
+// node.onUnmount(node);   // likewise for onUnmount
+```
 
 
 ### SVG & MathML
@@ -720,12 +733,12 @@ function SettingsForm(ctx: SubContext<Settings>) {
 ```
 
 When you have deeply nested state, context gives you a way to access and patch that slice without manually writing the full path every time.
-The context itself is always lazy evaluated so you don't have to worry about intermediate object references changing.
+The context itself is always lazily evaluated, so you don't have to worry about intermediate object references changing.
 
 A state context has 3 functions:
 - **get()**: returns the sub-state targeted by this context
-- **put(value)**: assign given value to the sub-state place (see silent patch). Use this if you want to ensure the object reference of value is preserved
-- **patch(value, animated)**: patch given value to the sub-state by constructing the necessary nested structure (see render patch)
+- **put(value)**: assign the given value to the sub-state place (see silent patch). Use this if you want to ensure the object reference of value is preserved
+- **patch(value, animated)**: patch the given value to the sub-state by constructing the necessary nested structure (see render patch)
 
 #### isolated state
 You can have multiple isolated vode app instances on a page, each with its own state and render function.
@@ -753,11 +766,8 @@ A few consequences follow from this:
 Scheduling behavior can be overridden with `containerNode._vode.asyncRenderer`.
 
 ```javascript
-// or globally disable view transitions for the vode framework
-import { globals } from '@ryupold/vode';
-globals.startViewTransition = null;
-
-// set to disable view transitions for specific vode-app
+// disable view transitions for a specific vode-app
+// (animated patches become sync patches for this app only)
 containerNode._vode.asyncRenderer = null;
 ```
 
@@ -767,7 +777,7 @@ There are some metrics available on the appNode.
 They are updated on each render.
 
 ```typescript
-app<State>(appNode, state, (s) => ...);
+app(appNode, state, (s) => ...);
 
 console.log(appNode._vode.stats);
 ```

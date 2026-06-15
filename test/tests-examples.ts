@@ -13,7 +13,7 @@ export default {
         const container = setup();
         const state = createState({ count: 0 });
 
-        app<typeof state>(container, state, (s) => [DIV,
+        app(container, state, (s) => [DIV,
             [H1, `Count: ${s.count}`],
             [BUTTON, { onclick: () => ({ count: s.count + 1 }) }, "Increment"],
             [BUTTON, { onclick: () => ({ count: 0 }), disabled: s.count === 0 }, "Reset"],
@@ -63,7 +63,7 @@ export default {
             },
         });
 
-        app<typeof state>(container, state, (s) => {
+        app(container, state, (s) => {
             const filtered = s.todos.items.filter((item) => {
                 if (s.todos.filter === "active") return !item.done;
                 if (s.todos.filter === "done") return item.done;
@@ -157,9 +157,8 @@ export default {
             },
         });
 
-        app<typeof state>(container, state, (s) => {
-            return [
-                DIV,
+        app(container, state, (s) => {
+            return [DIV,
                 s.fetch.status === "loading"
                     ? [P, "Loading..."]
                     : s.fetch.status === "error"
@@ -208,10 +207,8 @@ export default {
             },
         });
 
-        app<typeof state>(container, state, (s) => {
-            const ctx = context(s).ui;
-            return [
-                DIV,
+        app(container, state, (s) => {
+            return [DIV,
                 [NAV, { class: "tabs" },
                     [BUTTON, { class: { active: s.ui.activeTab === "home" } }, "Home"],
                     [BUTTON, { class: { active: s.ui.activeTab === "settings" } }, "Settings"],
@@ -292,9 +289,8 @@ export default {
             },
         });
 
-        app<typeof state>(container, state, (s) => {
-            return [
-                DIV,
+        app(container, state, (s) => {
+            return [DIV,
                 s.form.submitted
                     ? [P, { class: "success" }, "Form submitted successfully!"]
                     : [FORM,
@@ -425,8 +421,7 @@ export default {
                 Badge,
             ];
 
-        app<State>(container, state, (s) => [
-            DIV,
+        app(container, state, (s) => [DIV,
             Header,
             [MAIN, Card],
             [BUTTON, {
@@ -505,7 +500,7 @@ export default {
             },
         });
 
-        app<typeof state>(container, state, (s) => {
+        app(container, state, (s) => {
             const ctxA = context(s).panelA;
             const ctxB = context(s).panelB;
             return [DIV,
@@ -594,7 +589,7 @@ export default {
             },
         });
 
-        app<typeof state>(container, state, (s) => {
+        app(container, state, (s) => {
             return [DIV,
                 [SVG, { xmlns: "http://www.w3.org/2000/svg", width: "200", height: "200" },
                     [CIRCLE, {
@@ -683,9 +678,8 @@ export default {
             },
         });
 
-        app<typeof state>(container, state, (s) => {
-            return [
-                DIV,
+        app(container, state, (s) => {
+            return [DIV,
                 s.config.showImage && [IMG, {
                     src: s.config.imageUrl,
                     alt: s.config.alt,
@@ -813,8 +807,7 @@ export default {
             );
         }
 
-        app<Outer>(container, outerState, (s) => [
-            DIV,
+        app<Outer>(container, outerState, (s) => [DIV,
             [H1, s.title],
             [P, "Outer content"],
             s.visible && [DIV, { class: "inner-wrapper" },
@@ -903,7 +896,7 @@ export default {
         });
         const broken = (msg: string) => (() => { throw new Error(msg); }) as Component;
 
-        app<typeof state>(container, state, (s) =>
+        app(container, state, (s) =>
             <Vode>[DIV,
                 [H1, "User List"],
                 ...s.users.map(user =>
@@ -945,9 +938,8 @@ export default {
     "Example 12: State Machine - sequential phase transitions via function patches": async () => {
         const container = setup();
         const state = createState({ phase: "idle", count: 0 });
-        type State = typeof state;
 
-        app<State>(container, state, (s) =>
+        app(container, state, (s) =>
             [DIV,
                 [P, `Phase: ${s.phase}`],
                 [P, `Count: ${s.count}`],
@@ -958,7 +950,7 @@ export default {
         await expect(state.phase).toEqual("running");
         await expect(state.count).toEqual(1);
 
-        function step(s: State) {
+        function step(s: typeof state) {
             const next = s.count < 5
                 ? { count: s.count + 1 }
                 : { phase: "done", count: s.count };

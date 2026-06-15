@@ -43,7 +43,7 @@ export default {
         const container = document.createElement("div");
         root.appendChild(container);
 
-        const err = expect(() => app(container, "oops", () => [DIV]))
+        const err = expect(() => app(container, "oops" as any, () => [DIV]))
             .toFail();
 
         await expect(err.message).toEqual("second argument to app() must be a state object");
@@ -217,10 +217,33 @@ export default {
         state.patch(null);
         state.patch(undefined);
         state.patch(42);
+        state.patch(42n);
         state.patch("ignored");
         state.patch(true);
 
         await expect(state.x).toEqual(1);
+    },
+
+    "app(): no-render child values are skipped": async () => {
+        const root = document.createElement("div");
+        const container = document.createElement("div");
+        root.appendChild(container);
+
+        // false, null, undefined, numbers, booleans and bigints are all
+        // NoVode values and must be ignored as children (not rendered, not thrown on)
+        app(container, {}, () => [DIV,
+            false,
+            null,
+            undefined,
+            0,
+            42,
+            true,
+            0n,
+            42n,
+            [SPAN, "kept"],
+        ] as any);
+
+        await expect(container).toMatch([DIV, [SPAN, "kept"]]);
     },
 
     "app(): isolated state of multiple independent vode app instances": async () => {
@@ -230,7 +253,7 @@ export default {
         const containerFoo = document.createElement("div");
         root.appendChild(containerFoo);
         const stateFoo = createState({ count: 0 });
-        const patchFoo = app<typeof stateFoo>(containerFoo, stateFoo, (s) => [
+        const patchFoo = app(containerFoo, stateFoo, (s) => [
             DIV,
             [P, `App 1 count: ${s.count}`],
             [BUTTON, {
@@ -247,7 +270,7 @@ export default {
         const containerBar = document.createElement("div");
         root.appendChild(containerBar);
         const stateBar = createState({ count: 0 });
-        const patchBar = app<typeof stateBar>(containerBar, stateBar, (s) => [
+        const patchBar = app(containerBar, stateBar, (s) => [
             DIV,
             [P, `App 2 count: ${s.count}`],
         ]);
@@ -314,7 +337,7 @@ export default {
         root.appendChild(container);
         const state = createState({ useSection: false });
 
-        const patch = app<typeof state>(container, state, (s) =>
+        const patch = app(container, state, (s) =>
             s.useSection ? [SECTION, "section mode"] : [DIV, "div mode"]
         );
 
@@ -418,7 +441,7 @@ export default {
         const calls: Array<[string, any]> = [];
         const state = createState({ mounted: false });
 
-        app<typeof state>(container, state, () =>
+        app(container, state, () =>
             [DIV,
                 [SPAN, {
                     onMount: (_s: any, node: any) => { calls.push(["mount", node]); return { mounted: true }; },

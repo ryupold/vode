@@ -116,7 +116,7 @@ export default {
         const state = createState({ catchValue: "v1", showBroken: false });
         const broken = () => { throw new Error("boom"); };
 
-        const patch = app<typeof state>(container, state, (s) =>
+        const patch = app(container, state, (s) =>
             [DIV,
                 [SECTION,
                     { catch: [P, s.catchValue] },
@@ -158,7 +158,7 @@ export default {
         );
     },
 
-    "catch: bubbles up to the root component if deeply nested vodes dont catch it earlier": async () => {
+    "catch: bubbles up to the root component if deeply nested vodes don't catch it earlier": async () => {
         const root = document.createElement("div");
         const container = document.createElement("div");
         root.appendChild(container);
@@ -218,7 +218,7 @@ export default {
         );
     },
 
-    "catch: directly evaluated DOM expressions cannot be catched": async () => {
+    "catch: directly evaluated DOM expressions cannot be caught": async () => {
         if(!(globalThis.window as any)?._fake) return; // this test relies on the fake DOM's requestAnimationFrame error handling, so skip if not running in fake DOM 
 
         (globalThis.window as any).continueAfterRequestAnimationFrameError = true;

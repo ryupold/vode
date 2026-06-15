@@ -8,7 +8,6 @@
     "declarationDir": null,
     "composite": false,
     "noEmit": true
-    
   },
   "include": [
     "index.ts",

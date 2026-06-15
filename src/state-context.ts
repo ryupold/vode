@@ -86,7 +86,7 @@ export function context<S extends PatchableState, SS>(state: S, producePath: (ct
 export function context<S extends PatchableState, SS = S>(state: S, producePath?: (ctx: ProxyState<S>) => ProxyState<SS>): ProxyStateContext<S, SS> {
     if (producePath) {
         const proxy = producePath(proxyState<S>(state, [] as string[]));
-        const keys = (proxy as any)["___KeYs___"] as string[];
+        const keys = (proxy as any)[KEYS_SYMBOL] as string[];
         return new ProxyStateContextImpl<S, SS>(state, keys) as unknown as ProxyStateContext<S, SS>;
     }
     return new ProxyStateContextImpl<S, S>(state, []) as unknown as ProxyStateContext<S, SS>;
@@ -175,13 +175,15 @@ class ProxyStateContextImpl<S extends PatchableState, SubState> {
 }
 
 
+const KEYS_SYMBOL = Symbol("vode.keys");
+
 function proxyState<S extends PatchableState>(
     state: S,
     keys: string[]
 ) {
     return new Proxy(state, {
         get: (target, prop, receiver) => {
-            if (prop === "___KeYs___") {
+            if (prop === KEYS_SYMBOL) {
                 return keys;
             }
 

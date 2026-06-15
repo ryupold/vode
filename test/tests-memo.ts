@@ -23,7 +23,7 @@ export default {
         root.appendChild(container);
 
         let box: { callCount: number } = { callCount: 0 };
-        app<typeof state>(container, state, (s) => [DIV, memo(
+        app(container, state, (s) => [DIV, memo(
             [s.count],
             (s) => {
                 box.callCount++;
@@ -55,7 +55,7 @@ export default {
         root.appendChild(container);
 
         let callCount = 0;
-        app<typeof state>(container, state, (s) => [DIV,
+        app(container, state, (s) => [DIV,
             () => memo(
                 [s.count],
                 (s) => {
@@ -81,7 +81,7 @@ export default {
             box.callCount++;
             return [DIV, [SPAN, s.test]];
         };
-        app<typeof state>(container, state, (s) => [DIV,
+        app(container, state, (s) => [DIV,
             memo(
                 [s.test],
                 Comp,
@@ -125,9 +125,28 @@ export default {
                 )
             ];
 
-        app<State>(container, state, (s) => [DIV,
+        app(container, state, (s) => [DIV,
             CompMemoList,
         ]);
+    },
+
+    "memo(): a memoized component may return null (renders nothing)": async () => {
+        const state = createState({ show: true });
+        const root = document.createElement("div");
+        const container = document.createElement("div");
+        root.appendChild(container);
+
+        app(container, state, (s) => [DIV,
+            memo([s.show], (s) => s.show ? [SPAN, "here"] : null),
+        ]);
+
+        await expect(container).toMatch([DIV, [SPAN, "here"]]);
+
+        state.patch({ show: false });
+        await expect(container).toMatch([DIV]);
+
+        state.patch({ show: true });
+        await expect(container).toMatch([DIV, [SPAN, "here"]]);
     },
 
     "memo(): double-wrapping ignores the inner memo dependencies, only the outer memo is checked": async () => {

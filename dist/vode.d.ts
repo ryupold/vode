@@ -30,15 +30,14 @@ export type ElementNode<S> = HTMLElement & SVGSVGElement & MathMLElement & Recor
 export type Patch<S> = IgnoredPatch | RenderPatch<S> | Promise<Patch<S>> | Effect<S>;
 export type IgnoredPatch = undefined | null | number | boolean | bigint | string | symbol | void;
 export type RenderPatch<S> = {} | DeepPartial<S>;
-export type AnimatedPatch<S> = Array<Patch<S>>;
 export type DeepPartial<S> = {
 	[P in keyof S]?: S[P] extends Array<infer I> ? Array<DeepPartial<I>> : DeepPartial<S[P]>;
 };
 export type Effect<S> = (() => Patch<S>) | EventFunction<S> | Generator<Patch<S>> | AsyncGenerator<Patch<S>>;
-export type EventFunction<S = PatchableState> = (state: S, evt: Event) => Patch<S>;
-export type EventProp<S = PatchableState> = EventFunction<S> | Patch<S>;
+export type EventFunction<S = PatchableState, E extends Event = Event> = (state: S, evt: E) => Patch<S>;
+export type EventProp<S = PatchableState, E extends Event = Event> = EventFunction<S, E> | Patch<S>;
 export interface Props<S = PatchableState> extends Partial<Omit<HTMLElement, keyof (DocumentFragment & ElementCSSInlineStyle & GlobalEventHandlers)> & {
-	[K in keyof EventsMap]: EventProp<S>;
+	[K in keyof EventsMap]: EventProp<S, EventsMap[K]>;
 }> {
 	[_: string]: unknown;
 	xmlns?: string | null;
@@ -66,11 +65,14 @@ export type EventsMapBase = {
 export interface EventsMap extends EventsMapBase {
 }
 export type PropertyValue<S> = string | boolean | null | undefined | void | StyleProp | ClassProp | Patch<S>;
-export type Dispatch<S> = (action: Patch<S>) => void | Promise<void>;
+export type Dispatch<S> = (action: Patch<S>, animate?: boolean) => void | Promise<void>;
 export interface Patchable<S = object> {
 	patch: Dispatch<S>;
 }
 export type PatchableState<S = object> = S & Patchable<S>;
+export type AsPatchable<S> = S extends {
+	patch: any;
+} ? S : PatchableState<S>;
 export declare const globals: {
 	currentViewTransition: ViewTransition | null | undefined;
 	requestAnimationFrame: (cb: () => void) => void;
@@ -79,14 +81,14 @@ export declare const globals: {
 export type ContainerNode<S = PatchableState> = DomElement & {
 	/** the `_vode` property is added to the container in `app()`.
 	 * it contains all necessary stuff for the vode app to function.
-	 * remove the container node to clear vodes resources */
+	 * remove the container node to clear vode's resources */
 	_vode: {
 		state: PatchableState<S>;
 		vode: AttachedVode<S>;
 		renderSync: () => void;
 		renderAsync: () => Promise<unknown>;
 		syncRenderer: (cb: () => void) => void;
-		asyncRenderer: ((cb: () => void) => ViewTransition) | null | undefined;
+		asyncRenderer: ((cb: () => void) => ViewTransition) | null;
 		qAsync: {} | undefined | null;
 		isRendering: number;
 		isAnimating: boolean;
@@ -113,12 +115,12 @@ export type ContainerNode<S = PatchableState> = DomElement & {
 export declare function vode<S = PatchableState>(tag: Tag | Vode<S>, props?: Props<S> | ChildVode<S>, ...children: ChildVode<S>[]): Vode<S>;
 /** create a vode app inside a container element
  * @param container will use this container as root and places the result of the dom function and further renderings in it
- * @param state the state object that is used as singleton state bound to the vode app and is updated with `patch()`
+ * @param state the state object that is used as singleton state bound to the vode app and is updated with `patch()`. its type is inferred, so the `dom` function and the returned `patch` are typed without annotations.
  * @param dom function is called every render and returns the vode-dom that is updated incrementally to the DOM based on the state.
  * @param initialPatches variadic list of patches that are applied after the first render
  * @returns a patch function that can be used to update the state
  */
-export declare function app<S extends PatchableState = PatchableState>(container: DomElement, state: Omit<S, "patch">, dom: (s: S) => Vode<S>, ...initialPatches: Patch<S>[]): Dispatch<S>;
+export declare function app<S extends object = PatchableState>(container: DomElement, state: S, dom: (s: AsPatchable<S>) => Vode<AsPatchable<S>>, ...initialPatches: Patch<AsPatchable<S>>[]): Dispatch<AsPatchable<S>>;
 /** unregister vode app from container and free resources
  * of all vodes inside the container.
  * removes all event listeners registered by vode

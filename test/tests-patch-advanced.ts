@@ -12,7 +12,7 @@ export default {
     "patch(): generator function yields multiple state updates": async () => {
         const container = setup();
         const state = createState({ count: 0 });
-        app<typeof state>(container, state, (s) => [DIV, String(s.count)]);
+        app(container, state, (s) => [DIV, String(s.count)]);
 
         await expect(state.count).toEqual(0);
 
@@ -31,7 +31,7 @@ export default {
     "patch(): async generator yields over time": async () => {
         const container = setup();
         const state = createState({ phase: "start", value: 0 });
-        app<typeof state>(container, state, (s) => [DIV, s.phase, String(s.value)]);
+        app(container, state, (s) => [DIV, s.phase, String(s.value)]);
 
         await expect(state.phase).toEqual("start");
 
@@ -54,7 +54,7 @@ export default {
     "patch(): Promise resolves and applies patch": async () => {
         const container = setup();
         const state = createState({ msg: "before" });
-        app<typeof state>(container, state, (s) => [DIV, s.msg]);
+        app(container, state, (s) => [DIV, s.msg]);
 
         await state.patch(Promise.resolve({ msg: "after" }));
 
@@ -76,7 +76,7 @@ export default {
     "patch(): array with null/undefined items skips them": async () => {
         const container = setup();
         const state = createState({ x: 0, y: 0 });
-        app<typeof state>(container, state, (s) => [DIV, String(s.x), String(s.y)]);
+        app(container, state, (s) => [DIV, String(s.x), String(s.y)]);
 
         state.patch([null, { x: 10 }, undefined, { y: 20 }]);
 
@@ -87,7 +87,7 @@ export default {
     "patch(): returns Promise for generator functions, can be awaited": async () => {
         const container = setup();
         const state = createState({ count: 0 });
-        app<typeof state>(container, state, (s) => [DIV, String(s.count)]);
+        app(container, state, (s) => [DIV, String(s.count)]);
 
         await expect(container._vode.stats.patchCount).toEqual(0);
         const result = state.patch(function* () {
@@ -109,7 +109,7 @@ export default {
     "patch(): returns Promise for Promise patches, can be awaited": async () => {
         const container = setup();
         const state = createState({ msg: "before" });
-        app<typeof state>(container, state, (s) => [DIV, s.msg]);
+        app(container, state, (s) => [DIV, s.msg]);
 
         const result = state.patch(Promise.resolve({ msg: "after" }));
 
@@ -125,7 +125,7 @@ export default {
     "patch(): returns void for object patches": async () => {
         const container = setup();
         const state = createState({ x: 1 });
-        app<typeof state>(container, state, (s) => [DIV, String(s.x)]);
+        app(container, state, (s) => [DIV, String(s.x)]);
 
         const result = state.patch({ x: 2 });
 
@@ -138,7 +138,7 @@ export default {
     "patch(): forward promise error when one happens during patch": async () => {
         const container = setup();
         const state = createState({ msg: "before" });
-        app<typeof state>(container, state, (s) => [DIV, s.msg]);
+        app(container, state, (s) => [DIV, s.msg]);
 
         const mockPromise = Promise.withResolvers<void>();
         const promisePatchResult = state.patch(mockPromise.promise);
@@ -158,7 +158,7 @@ export default {
     "patch(): forward generator error when one happens during patch": async () => {
         const container = setup();
         const state = createState({ msg: "before" });
-        app<typeof state>(container, state, (s) => [DIV, s.msg]);
+        app(container, state, (s) => [DIV, s.msg]);
 
         const err = await expect(
             () => state.patch(
@@ -175,7 +175,7 @@ export default {
     "patch(): forward error when one happens during patch": async () => {
         const container = setup();
         const state = createState({ msg: "before" });
-        app<typeof state>(container, state, (s) => [DIV, s.msg]);
+        app(container, state, (s) => [DIV, s.msg]);
 
         const err = await expect(
             () => state.patch(
@@ -190,12 +190,12 @@ export default {
     "patch(): animated patch while document is hidden": async () => {
         const container = setup();
         const state = createState({ x: 0 });
-        app<typeof state>(container, state, (s) => [DIV, String(s.x)]);
+        app(container, state, (s) => [DIV, String(s.x)]);
 
         setHidden(true);
         
         try {
-            (state.patch as any)({ x: 1 }, true);
+            state.patch({ x: 1 }, true);
 
             // state is applied immediately and the animated queue is drained
             await eventually(() => state.x).toEqual(1);
@@ -208,7 +208,7 @@ export default {
     "patch(): patch animated while hidden renders once visible again": async () => {
         const container = setup();
         const state = createState({ x: 0 });
-        app<typeof state>(container, state, (s) => [DIV, String(s.x)]);
+        app(container, state, (s) => [DIV, String(s.x)]);
 
         await expect(container).toMatch([DIV, "0"]);
 

@@ -147,7 +147,12 @@ function app(container, state, dom, ...initialPatches) {
       try {
         _vode.state = mergeState(_vode.state, _vode.qAsync, true);
         _vode.qAsync = null;
-        globals.currentViewTransition = _vode.asyncRenderer(ar);
+        if (_vode.asyncRenderer) {
+          globals.currentViewTransition = _vode.asyncRenderer(ar);
+        } else {
+          _vode.renderSync();
+          return;
+        }
         await globals.currentViewTransition?.updateCallbackDone;
       } finally {
         _vode.stats.lastAsyncRenderTime = performance.now() - sw;
@@ -352,22 +357,24 @@ function mergeState(target, source, allowDeletion) {
 function render(state, parent, childIndex, indexInParent, oldVode, newVode, xmlns) {
   try {
     newVode = remember(state, newVode, oldVode);
-    const isNoVode = !newVode || typeof newVode === "number" || typeof newVode === "boolean";
+    const isNoVode = !newVode || typeof newVode === "number" || typeof newVode === "boolean" || typeof newVode === "bigint";
     if (newVode === oldVode || !oldVode && isNoVode) {
       return oldVode;
     }
     const oldIsText = oldVode?.nodeType === Node.TEXT_NODE;
     const oldNode = oldIsText ? oldVode : oldVode?.node;
     if (isNoVode) {
-      unmountTree(state, oldVode);
-      oldNode?.remove();
+      if (oldNode) {
+        unmountTree(state, oldVode);
+        oldNode.remove();
+      }
       return void 0;
     }
     const isText = !isNoVode && isTextVode(newVode);
     const isNode = !isNoVode && isNaturalVode(newVode);
     const alreadyAttached = !!newVode && typeof newVode !== "string" && !!(newVode?.node || newVode?.nodeType === Node.TEXT_NODE);
     if (!isText && !isNode && !alreadyAttached && !oldVode) {
-      throw new Error("Invalid vode: " + typeof newVode + " " + JSON.stringify(newVode));
+      throw new Error(`invalid ChildVode at index ${childIndex}: typeof ${typeof newVode}${typeof newVode === "object" ? "\ncould be that you are adding Props at the wrong position?" : ""}`);
     } else if (alreadyAttached && isText) {
       newVode = newVode.wholeText;
     } else if (alreadyAttached && isNode) {
@@ -553,7 +560,7 @@ function remember(state, present, past) {
   while (typeof present === "function") {
     present = present(state);
   }
-  if (typeof present === "object") {
+  if (present && typeof present === "object") {
     present.__memo = presentMemo;
   }
   return present;
@@ -646,7 +653,7 @@ function classString(classProp) {
     return classProp;
   else if (Array.isArray(classProp))
     return classProp.map(classString).join(" ");
-  else if (typeof classProp === "object")
+  else if (classProp && typeof classProp === "object")
     return Object.keys(classProp).filter((k) => classProp[k]).join(" ");
   else
     return "";
@@ -870,25 +877,25 @@ function mergeClass(...classes) {
       const aSplit = a.split(" ");
       const bSplit = b.split(" ");
       const classSet = /* @__PURE__ */ new Set([...aSplit, ...bSplit]);
-      finalClass = Array.from(classSet).join(" ").trim();
+      finalClass = Array.from(classSet).join(" ");
     } else if (typeof a === "string" && Array.isArray(b)) {
       const classSet = /* @__PURE__ */ new Set([...a.split(" "), ...b]);
-      finalClass = Array.from(classSet).join(" ").trim();
+      finalClass = Array.from(classSet).join(" ");
     } else if (Array.isArray(a) && typeof b === "string") {
       const classSet = /* @__PURE__ */ new Set([...a, ...b.split(" ")]);
-      finalClass = Array.from(classSet).join(" ").trim();
+      finalClass = Array.from(classSet).join(" ");
     } else if (Array.isArray(a) && Array.isArray(b)) {
       const classSet = /* @__PURE__ */ new Set([...a, ...b]);
-      finalClass = Array.from(classSet).join(" ").trim();
+      finalClass = Array.from(classSet).join(" ");
     } else if (typeof a === "string" && typeof b === "object") {
       const aSplit = a.split(" ");
       const aObj = {};
-      for (const cls of aSplit) aObj[cls] = true;
+      for (const cls of aSplit) if (cls) aObj[cls] = true;
       finalClass = { ...aObj, ...b };
     } else if (typeof a === "object" && typeof b === "string") {
       const bSplit = b.split(" ");
       const bObj = {};
-      for (const cls of bSplit) bObj[cls] = true;
+      for (const cls of bSplit) if (cls) bObj[cls] = true;
       finalClass = { ...a, ...bObj };
     } else if (typeof a === "object" && Array.isArray(b)) {
       const aa = { ...a };
@@ -914,12 +921,46 @@ function mergeClass(...classes) {
 
 // src/merge-style.ts
 function mergeStyle(...props2) {
-  let stylingElement = globals.stylingElement;
-  if (!stylingElement) {
-    globals.stylingElement = stylingElement = document.createElement("div");
+  if (props2.length === 0) {
+    return "";
   }
   if (props2.length === 1) {
     return props2[0];
+  }
+  if (typeof document === "undefined") {
+    const merged = /* @__PURE__ */ new Map();
+    for (const style of props2) {
+      if (typeof style === "string") {
+        for (const declaration of style.split(";")) {
+          const colon = declaration.indexOf(":");
+          if (colon < 0) continue;
+          const key = declaration.slice(0, colon).trim();
+          if (key) merged.set(key, declaration.slice(colon + 1).trim());
+        }
+      } else if (typeof style === "object" && style !== null) {
+        for (const key in style) {
+          const value = style[key];
+          if (value === void 0 || value === null) continue;
+          let cssKey = key;
+          const vendorMatch = key.match(/^(webkit|moz|ms|o)(?=[A-Z])/i);
+          if (vendorMatch) {
+            const prefix = vendorMatch[1].toLowerCase();
+            const rest = key.slice(prefix.length);
+            cssKey = "-" + prefix + rest.replace(/([A-Z])/g, "-$1").toLowerCase();
+          } else {
+            cssKey = key.replace(/[A-Z]/g, "-$&").toLowerCase();
+          }
+          merged.set(cssKey, String(value));
+        }
+      }
+    }
+    let result = "";
+    for (const [key, value] of merged) result += `${key}: ${value}; `;
+    return result.trimEnd();
+  }
+  let stylingElement = globals.stylingElement;
+  if (!stylingElement) {
+    globals.stylingElement = stylingElement = document.createElement("div");
   }
   try {
     const merged = stylingElement.style;
@@ -964,7 +1005,7 @@ function mergeProps(...props2) {
 function context(state, producePath) {
   if (producePath) {
     const proxy = producePath(proxyState(state, []));
-    const keys = proxy["___KeYs___"];
+    const keys = proxy[KEYS_SYMBOL];
     return new ProxyStateContextImpl(state, keys);
   }
   return new ProxyStateContextImpl(state, []);
@@ -1037,10 +1078,11 @@ var ProxyStateContextImpl = class _ProxyStateContextImpl {
   state;
   keys;
 };
+var KEYS_SYMBOL = /* @__PURE__ */ Symbol("vode.keys");
 function proxyState(state, keys) {
   return new Proxy(state, {
     get: (target, prop, receiver) => {
-      if (prop === "___KeYs___") {
+      if (prop === KEYS_SYMBOL) {
         return keys;
       }
       const newKeys = [...keys, String(prop)];
