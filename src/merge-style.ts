@@ -1,26 +1,32 @@
-import { StyleProp } from "./vode";
+import { DomElement, StyleProp, globals } from "./vode";
 
-let tempDivForStyling: HTMLElement | undefined;
+type HasTempStyleElement = { stylingElement?: DomElement | undefined };
 
-/** merge `StyleProps`s regardless of type 
+/** merge `StyleProp`s regardless of type
  * @returns {string} merged StyleProp */
 export function mergeStyle(...props: StyleProp[]): StyleProp {
-    if (!tempDivForStyling) {
-        tempDivForStyling = document.createElement('div');
+    let stylingElement = (globals as HasTempStyleElement).stylingElement!;
+    if (!stylingElement) {
+        (globals as HasTempStyleElement).stylingElement = stylingElement = document.createElement("div");
     }
-    try{
-        const merged = tempDivForStyling.style;
+
+    if (props.length === 1) {
+        return props[0];
+    }
+    try {
+        const merged = stylingElement.style;
         for (const style of props) {
-            if (typeof style === 'object' && style !== null) {
+            if (typeof style === "object" && style !== null) {
                 for (const key in style) {
                     merged[key] = style[key];
                 }
-            } else if (typeof style === 'string') {
-                merged.cssText += ';' + style;
+            } else if (typeof style === "string") {
+                const old = merged.cssText;
+                merged.cssText = (old?.length > 0 && old[old.length - 1] !== ";") ? (old + ";" + style) : (old + style);
             }
         }
         return merged.cssText;
     } finally {
-        tempDivForStyling.style.cssText = '';
+        stylingElement.style.cssText = "";
     }
 }

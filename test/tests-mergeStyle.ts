@@ -8,7 +8,8 @@ function normalizeStyle(s: string): string {
 
 function hasStyle(result: string, prop: string, value: string): boolean {
     const normalized = normalizeStyle(result);
-    return normalized.includes(`${prop}:${value}`.toLowerCase());
+
+    return normalized.includes(`${prop}:${value}`) || normalized.includes(`${prop}: ${value}`);
 }
 
 export default {
@@ -16,9 +17,9 @@ export default {
         await expect(mergeStyle()).toEqual("");
     },
 
-    "mergeStyle(): object style sets properties, returns cssText": async () => {
+    "mergeStyle(): single object style just returns it": async () => {
         const result = mergeStyle({ color: "red", fontSize: "14px" });
-        await expect(typeof result).toEqual("string");
+        expect(result).toBeA("object");
     },
 
     "mergeStyle(): single string includes the style": async () => {
@@ -28,8 +29,9 @@ export default {
 
     "mergeStyle(): two strings are concatenated": async () => {
         const result = mergeStyle("color: red", "font-size: 14px") as string;
-        await expect(hasStyle(result, "color", "red")).toEqual(true);
-        await expect(hasStyle(result, "font-size", "14px")).toEqual(true);
+
+        await expect(hasStyle(result, "color", "red")).toEqual(true, "has color: red");
+        await expect(hasStyle(result, "font-size", "14px")).toEqual(true, "has font-size: 14px");
     },
 
     "mergeStyle(): object then string": async () => {
