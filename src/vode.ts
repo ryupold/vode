@@ -126,9 +126,14 @@ export type ContainerNode<S = PatchableState> = DomElement & {
 export function vode<S = PatchableState>(tag: Tag | Vode<S>, props?: Props<S> | ChildVode<S>, ...children: ChildVode<S>[]): Vode<S> {
     if (!tag) throw new Error("first argument to vode() must be a tag name or a vode");
 
-    if (Array.isArray(tag)) return tag;
-    else if (typeof props === "object") return [tag, props as Props<S>, ...children];
-    else return [tag, ...children];
+    if (Array.isArray(tag))
+        return tag;
+    else if (props !== null && typeof props === "object")
+        return [tag, props as Props<S>, ...children];
+    else if (props === undefined)
+        return [tag, ...children];
+    else
+        return [tag, props as ChildVode<S>, ...children];
 }
 
 /** create a vode app inside a container element
