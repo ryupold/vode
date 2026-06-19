@@ -53,8 +53,8 @@
         "build-min": "esbuild index.ts --bundle --format=esm --minify --outfile=dist/vode.min.mjs",
         "build-classic": "esbuild index.ts --outfile=dist/vode.js --bundle --format=iife --global-name=V",
         "build-classic-min": "esbuild index.ts --outfile=dist/vode.min.js --bundle --format=iife  --global-name=V --minify",
-        "babel": "npx babel dist/vode.mjs --out-file dist/vode.cjs.min.js",
-        "babel-classic": "npx babel dist/vode.js --out-file dist/vode.es5.min.js",
+        "babel": "npx babel dist/vode.mjs --minified --out-file dist/vode.cjs.min.js",
+        "babel-classic": "npx babel dist/vode.js --config-file ./babel.es5.config.json --minified --out-file dist/vode.es5.min.js",
         "release": "npm run build && npm run build-min && npm run build-classic && npm run build-classic-min && npm run babel && npm run babel-classic && npm run types && npm run build-tests",
         "publish": "npm publish --access public",
         "clean": "tsc -b --clean && node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
@@ -63,12 +63,14 @@
         "build-tests": "esbuild test/index.ts --bundle --format=esm --outfile=dist/vode.tests.mjs"
     },
     "devDependencies": {
-        "@babel/cli": "7.29.7",
-        "@babel/core": "7.29.7",
-        "@babel/preset-env": "7.29.7",
-        "babel-preset-minify": "0.5.2",
+        "@babel/cli": "8.0.1",
+        "@babel/core": "8.0.1",
+        "@babel/preset-env": "8.0.2",
         "dts-bundle-generator": "9.5.1",
         "esbuild": "0.28.1",
         "typescript": "6.0.3"
+    },
+    "allowScripts": {
+        "esbuild@0.28.1": true
     }
 }
