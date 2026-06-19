@@ -219,7 +219,7 @@ export default {
     },
 
     "catch: directly evaluated DOM expressions cannot be caught": async () => {
-        if(!(globalThis.window as any)?._fake) return; // this test relies on the fake DOM's requestAnimationFrame error handling, so skip if not running in fake DOM 
+        if (!(globalThis.window as any)?._fake) return; // this test relies on the fake DOM's requestAnimationFrame error handling, so skip if not running in fake DOM 
 
         (globalThis.window as any).continueAfterRequestAnimationFrameError = true;
         const root = document.createElement("div");
@@ -246,6 +246,107 @@ export default {
 
         await eventually(() => (globalThis.window as any)?.requestAnimationFrameErrors?.[0])
             .toEqual(error);
+    },
+
+    "catch: onUnmount called on already-rendered child before error UI shown (A→A path)": async () => {
+        const container = setup();
+        const state = createState({ showBroken: false });
+        let unmountCalled = false;
+        const broken = () => { throw new Error("boom"); };
+
+        const patch = app(container, state, (s) =>
+            [DIV,
+                [SECTION,
+                    { catch: [P, "error"] },
+                    [ARTICLE,
+                        { onUnmount: () => { unmountCalled = true; } }
+                    ],
+                    s.showBroken ? broken : "ok"
+                ]
+            ]
+        );
+
+        await expect(container).toMatch([DIV, [SECTION, [ARTICLE], "ok"]]);
+        await expect(unmountCalled).toEqual(false);
+
+        patch({ showBroken: true });
+
+        await expect(container).toMatch([DIV, [P, "error"]]);
+        await expect(unmountCalled).toEqual(true);
+    },
+
+    "catch: onUnmount called on mounted child created before sibling throws (A→B path)": async () => {
+        const container = setup();
+        let mountCalled = false;
+        let unmountCalled = false;
+        const broken = () => { throw new Error("boom"); };
+
+        app(container, {}, () =>
+            [DIV,
+                [SECTION,
+                    { catch: [P, "error"] },
+                    [ARTICLE,
+                        {
+                            onMount: () => { mountCalled = true; },
+                            onUnmount: () => { unmountCalled = true; },
+                        }
+                    ],
+                    broken
+                ]
+            ]
+        );
+
+        await expect(container).toMatch([DIV, [P, "error"]]);
+        await expect(mountCalled).toEqual(true);
+        await expect(unmountCalled).toEqual(true);
+    },
+
+    "catch: onMount fires on error UI root when its tag matches the catch boundary element": async () => {
+        const container = setup();
+        let errorUiMountCalled = false;
+        const broken = () => { throw new Error("boom"); };
+
+        app(container, {}, () =>
+            [DIV,
+                [SECTION,
+                    {
+                        catch: (s: unknown, err: Error) => [SECTION,
+                            { onMount: () => { errorUiMountCalled = true; } },
+                            "error"
+                        ] as any,
+                    },
+                    broken
+                ]
+            ]
+        );
+
+        await expect(container).toMatch([DIV, [SECTION, "error"]]);
+        await expect(errorUiMountCalled).toEqual(true);
+    },
+
+    "catch: onMount fires on error UI child when its tag matches an element that was removed by the error": async () => {
+        const container = setup();
+        let errorUiMountCalled = false;
+        const broken = () => { throw new Error("boom"); };
+
+        app(container, {}, () =>
+            [DIV,
+                [SECTION,
+                    {
+                        catch: (s: unknown, err: Error) => [SECTION,
+                            [ARTICLE,
+                                { onMount: () => { errorUiMountCalled = true; } }
+                            ]
+                        ]
+                    },
+                    [ARTICLE],
+                    broken
+                ]
+            ]
+        );
+
+        await expect(container).toMatch([DIV, [SECTION, [ARTICLE]]]);
+        await expect(errorUiMountCalled).toEqual(true);
     },
 
     "catch: use old vodes catch if new vode needs evaluation before knowing": async () => {

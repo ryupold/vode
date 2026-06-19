@@ -739,19 +739,44 @@ function render<S extends PatchableState>(state: S, parent: DomElement, childInd
             return <AttachedVode<S>>newVode;
         }
     } catch (error: any) {
+        const oldProps = props(oldVode);
+        const newProps = props(newVode);
+
         const catchVode = typeof newVode === "function"
-            ? props(oldVode)?.catch
-            : props(newVode)?.catch;
+            ? oldProps?.catch
+            : newProps?.catch;
         if (catchVode) {
+            const catchNode = (<AttachedVode<S>>newVode)?.node || oldVode?.node;
+            if (!catchNode) throw error;
+
             const handledVode = typeof catchVode === "function"
                 ? (<(s: S, error: Error) => ChildVode<S>>catchVode)(state, error)
                 : catchVode;
 
-            const catchNode = ((<AttachedVode<S>>newVode)?.node || oldVode?.node)!;
-            return render(state, parent, childIndex, indexInParent,
+            if (Array.isArray(newVode) && (<AttachedElementVode<S>>newVode).node) {
+                const partialCount = (newProps?.onUnmount ? 1 : 0) + sumChildUnmountCounts(<AttachedElementVode<S>>newVode);
+                if (partialCount > 0) {
+                    (<AttachedElementVode<S>>newVode)._unmountCount = partialCount;
+                    unmountTree(state, <AttachedElementVode<S>>newVode);
+                }
+            }
+
+            while (catchNode.firstChild) (catchNode.firstChild as ChildNode).remove();
+
+            const errorUi = render(state, parent, childIndex, indexInParent,
                 hydrate(catchNode, true) as AttachedVode<S>,
                 handledVode,
                 xmlns);
+
+            // reused catchNode's DOM node. fire onMount if it has one
+            if ((<AttachedElementVode<S>>errorUi)?.node === catchNode) {
+                const errorUiProps = props(errorUi as AttachedVode<S>);
+                if (typeof errorUiProps?.onMount === "function") {
+                    state.patch(errorUiProps.onMount(state, catchNode as HTMLElement & SVGSVGElement & MathMLElement));
+                }
+            }
+
+            return errorUi;
         } else {
             throw error;
         }
