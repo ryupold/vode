@@ -488,11 +488,22 @@ function render(state, parent, childIndex, indexInParent, oldVode, newVode, xmln
       return newVode;
     }
   } catch (error) {
-    const catchVode = typeof newVode === "function" ? props(oldVode)?.catch : props(newVode)?.catch;
+    const oldProps = props(oldVode);
+    const newProps = props(newVode);
+    const catchVode = typeof newVode === "function" ? oldProps?.catch : newProps?.catch;
     if (catchVode) {
-      const handledVode = typeof catchVode === "function" ? catchVode(state, error) : catchVode;
       const catchNode = newVode?.node || oldVode?.node;
-      return render(
+      if (!catchNode) throw error;
+      const handledVode = typeof catchVode === "function" ? catchVode(state, error) : catchVode;
+      if (Array.isArray(newVode) && newVode.node) {
+        const partialCount = (newProps?.onUnmount ? 1 : 0) + sumChildUnmountCounts(newVode);
+        if (partialCount > 0) {
+          newVode._unmountCount = partialCount;
+          unmountTree(state, newVode);
+        }
+      }
+      while (catchNode.firstChild) catchNode.firstChild.remove();
+      const errorUi = render(
         state,
         parent,
         childIndex,
@@ -501,6 +512,13 @@ function render(state, parent, childIndex, indexInParent, oldVode, newVode, xmln
         handledVode,
         xmlns
       );
+      if (errorUi?.node === catchNode) {
+        const errorUiProps = props(errorUi);
+        if (typeof errorUiProps?.onMount === "function") {
+          state.patch(errorUiProps.onMount(state, catchNode));
+        }
+      }
+      return errorUi;
     } else {
       throw error;
     }
@@ -748,37 +766,6 @@ function mergeStyle(...props2) {
   }
   if (props2.length === 1) {
     return props2[0];
-  }
-  if (typeof document === "undefined") {
-    const merged = /* @__PURE__ */ new Map();
-    for (const style of props2) {
-      if (typeof style === "string") {
-        for (const declaration of style.split(";")) {
-          const colon = declaration.indexOf(":");
-          if (colon < 0) continue;
-          const key = declaration.slice(0, colon).trim();
-          if (key) merged.set(key, declaration.slice(colon + 1).trim());
-        }
-      } else if (typeof style === "object" && style !== null) {
-        for (const key in style) {
-          const value = style[key];
-          if (value === void 0 || value === null) continue;
-          let cssKey = key;
-          const vendorMatch = key.match(/^(webkit|moz|ms|o)(?=[A-Z])/i);
-          if (vendorMatch) {
-            const prefix = vendorMatch[1].toLowerCase();
-            const rest = key.slice(prefix.length);
-            cssKey = "-" + prefix + rest.replace(/([A-Z])/g, "-$1").toLowerCase();
-          } else {
-            cssKey = key.replace(/[A-Z]/g, "-$&").toLowerCase();
-          }
-          merged.set(cssKey, String(value));
-        }
-      }
-    }
-    let result = "";
-    for (const [key, value] of merged) result += `${key}: ${value}; `;
-    return result.trimEnd();
   }
   let stylingElement = globals.stylingElement;
   if (!stylingElement) {
@@ -2580,21 +2567,6 @@ var tests_mergeStyle_default = {
       { background: "blue" }
     );
     await expect(hasStyle(result, "font-size", "14px")).toEqual(true);
-  },
-  "mergeStyle(): without a DOM (SSR) still dedupes and overrides left-to-right": async () => {
-    if (!globalThis.document?._fake) return;
-    const savedDocument = globalThis.document;
-    globalThis.document = void 0;
-    try {
-      await expect(
-        mergeStyle("color: white; background-color: blue;", { marginTop: "10px", color: "green" })
-      ).toEqual("color: green; background-color: blue; margin-top: 10px;");
-      await expect(
-        mergeStyle({ color: "red" }, "font-weight: bold;")
-      ).toEqual("color: red; font-weight: bold;");
-    } finally {
-      globalThis.document = savedDocument;
-    }
   }
 };
 
@@ -5691,6 +5663,132 @@ var tests_catch_default = {
     });
     patch({ error: true });
     await eventually(() => globalThis.window?.requestAnimationFrameErrors?.[0]).toEqual(error);
+  },
+  "catch: onUnmount called on already-rendered child before error UI shown (A\u2192A path)": async () => {
+    const container = setup3();
+    const state = createState({ showBroken: false });
+    let unmountCalled = false;
+    const broken = () => {
+      throw new Error("boom");
+    };
+    const patch = app(
+      container,
+      state,
+      (s) => [
+        DIV,
+        [
+          SECTION,
+          { catch: [P, "error"] },
+          [
+            ARTICLE,
+            { onUnmount: () => {
+              unmountCalled = true;
+            } }
+          ],
+          s.showBroken ? broken : "ok"
+        ]
+      ]
+    );
+    await expect(container).toMatch([DIV, [SECTION, [ARTICLE], "ok"]]);
+    await expect(unmountCalled).toEqual(false);
+    patch({ showBroken: true });
+    await expect(container).toMatch([DIV, [P, "error"]]);
+    await expect(unmountCalled).toEqual(true);
+  },
+  "catch: onUnmount called on mounted child created before sibling throws (A\u2192B path)": async () => {
+    const container = setup3();
+    let mountCalled = false;
+    let unmountCalled = false;
+    const broken = () => {
+      throw new Error("boom");
+    };
+    app(
+      container,
+      {},
+      () => [
+        DIV,
+        [
+          SECTION,
+          { catch: [P, "error"] },
+          [
+            ARTICLE,
+            {
+              onMount: () => {
+                mountCalled = true;
+              },
+              onUnmount: () => {
+                unmountCalled = true;
+              }
+            }
+          ],
+          broken
+        ]
+      ]
+    );
+    await expect(container).toMatch([DIV, [P, "error"]]);
+    await expect(mountCalled).toEqual(true);
+    await expect(unmountCalled).toEqual(true);
+  },
+  "catch: onMount fires on error UI root when its tag matches the catch boundary element": async () => {
+    const container = setup3();
+    let errorUiMountCalled = false;
+    const broken = () => {
+      throw new Error("boom");
+    };
+    app(
+      container,
+      {},
+      () => [
+        DIV,
+        [
+          SECTION,
+          {
+            catch: (s, err) => [
+              SECTION,
+              { onMount: () => {
+                errorUiMountCalled = true;
+              } },
+              "error"
+            ]
+          },
+          broken
+        ]
+      ]
+    );
+    await expect(container).toMatch([DIV, [SECTION, "error"]]);
+    await expect(errorUiMountCalled).toEqual(true);
+  },
+  "catch: onMount fires on error UI child when its tag matches an element that was removed by the error": async () => {
+    const container = setup3();
+    let errorUiMountCalled = false;
+    const broken = () => {
+      throw new Error("boom");
+    };
+    app(
+      container,
+      {},
+      () => [
+        DIV,
+        [
+          SECTION,
+          {
+            catch: (s, err) => [
+              SECTION,
+              [
+                ARTICLE,
+                { onMount: () => {
+                  errorUiMountCalled = true;
+                } }
+              ]
+            ]
+          },
+          [ARTICLE],
+          broken
+        ]
+      ]
+    );
+    await expect(container).toMatch([DIV, [SECTION, [ARTICLE]]]);
+    await expect(errorUiMountCalled).toEqual(true);
   },
   "catch: use old vodes catch if new vode needs evaluation before knowing": async () => {
     const root = document.createElement("div");
