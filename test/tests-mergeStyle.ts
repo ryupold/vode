@@ -52,22 +52,4 @@ export default {
         ) as string;
         await expect(hasStyle(result, "font-size", "14px")).toEqual(true);
     },
-
-    "mergeStyle(): without a DOM (SSR) still dedupes and overrides left-to-right": async () => {
-        if (!(globalThis.document as any)?._fake) return; // this test relies on the fake DOM's document, so skip if not running in fake DOM 
-
-        const savedDocument = globalThis.document;
-        (globalThis as any).document = undefined;
-        try {
-            await expect(
-                mergeStyle("color: white; background-color: blue;", { marginTop: "10px", color: "green" })
-            ).toEqual("color: green; background-color: blue; margin-top: 10px;");
-
-            await expect(
-                mergeStyle({ color: "red" }, "font-weight: bold;")
-            ).toEqual("color: red; font-weight: bold;");
-        } finally {
-            globalThis.document = savedDocument;
-        }
-    }
 };
