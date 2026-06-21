@@ -73,11 +73,6 @@ export type PatchableState<S = object> = S & Patchable<S>;
 export type AsPatchable<S> = S extends {
 	patch: any;
 } ? S : PatchableState<S>;
-export declare const globals: {
-	currentViewTransition: ViewTransition | null | undefined;
-	requestAnimationFrame: (cb: () => void) => void;
-	startViewTransition: ((callbackOptions?: ViewTransitionUpdateCallback | StartViewTransitionOptions) => ViewTransition) | null;
-};
 export type ContainerNode<S = PatchableState> = DomElement & {
 	/** the `_vode` property is added to the container in `app()`.
 	 * it contains all necessary stuff for the vode app to function.
@@ -85,6 +80,9 @@ export type ContainerNode<S = PatchableState> = DomElement & {
 	_vode: {
 		state: PatchableState<S>;
 		vode: AttachedVode<S>;
+		document: Document & {
+			currentViewTransition?: ViewTransition | null;
+		};
 		renderSync: () => void;
 		renderAsync: () => Promise<unknown>;
 		syncRenderer: (cb: () => void) => void;

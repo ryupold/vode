@@ -231,7 +231,6 @@ var V = (() => {
     createPatch: () => createPatch,
     createState: () => createState,
     defuse: () => defuse,
-    globals: () => globals,
     hydrate: () => hydrate,
     memo: () => memo,
     mergeClass: () => mergeClass,
@@ -243,11 +242,8 @@ var V = (() => {
   });
 
   // src/vode.ts
-  var globals = {
-    currentViewTransition: void 0,
-    requestAnimationFrame: typeof window !== "undefined" && typeof window.requestAnimationFrame === "function" ? window.requestAnimationFrame.bind(window) : ((cb) => cb()),
-    startViewTransition: typeof document !== "undefined" && typeof document.startViewTransition === "function" ? document.startViewTransition.bind(document) : null
-  };
+  var ELEMENT_NODE = 1;
+  var TEXT_NODE = 3;
   function vode(tag2, props2, ...children2) {
     if (!tag2) throw new Error("first argument to vode() must be a tag name or a vode");
     if (Array.isArray(tag2))
@@ -264,8 +260,14 @@ var V = (() => {
     if (!state || typeof state !== "object") throw new Error("second argument to app() must be a state object");
     if (typeof dom !== "function") throw new Error("third argument to app() must be a function that returns a vode");
     const _vode = {};
-    _vode.syncRenderer = globals.requestAnimationFrame;
-    _vode.asyncRenderer = globals.startViewTransition;
+    _vode.document = container.ownerDocument;
+    const win = _vode.document.defaultView;
+    _vode.syncRenderer = win?.requestAnimationFrame ? win.requestAnimationFrame.bind(win) : function(cb) {
+      const t = performance.now();
+      cb(t);
+      return t;
+    };
+    _vode.asyncRenderer = typeof _vode.document.startViewTransition === "function" ? _vode.document.startViewTransition.bind(_vode.document) : null;
     _vode.isRendering = 0;
     _vode.qAsync = null;
     _vode.stats = { lastSyncRenderTime: 0, lastAsyncRenderTime: 0, syncRenderCount: 0, asyncRenderCount: 0, liveEffectCount: 0, patchCount: 0, syncRenderPatchCount: 0, asyncRenderPatchCount: 0 };
@@ -324,7 +326,7 @@ var V = (() => {
             mergeState(_vode.state, _vode.qAsync, true);
             _vode.qAsync = null;
             try {
-              globals.currentViewTransition?.skipTransition();
+              _vode.document.currentViewTransition?.skipTransition();
             } catch {
             }
             _vode.stats.syncRenderPatchCount++;
@@ -377,9 +379,9 @@ var V = (() => {
       writable: false,
       value: async () => {
         if (_vode.isAnimating || !_vode.qAsync) return;
-        await globals.currentViewTransition?.updateCallbackDone;
+        await _vode.document.currentViewTransition?.updateCallbackDone;
         if (_vode.isAnimating || !_vode.qAsync) return;
-        if (document.hidden) {
+        if (_vode.document.hidden) {
           _vode.state = mergeState(_vode.state, _vode.qAsync, true);
           _vode.qAsync = null;
           _vode.stats.syncRenderPatchCount++;
@@ -392,12 +394,12 @@ var V = (() => {
           _vode.state = mergeState(_vode.state, _vode.qAsync, true);
           _vode.qAsync = null;
           if (_vode.asyncRenderer) {
-            globals.currentViewTransition = _vode.asyncRenderer(ar);
+            _vode.document.currentViewTransition = _vode.asyncRenderer(ar);
           } else {
             _vode.renderSync();
             return;
           }
-          await globals.currentViewTransition?.updateCallbackDone;
+          await _vode.document.currentViewTransition?.updateCallbackDone;
         } finally {
           _vode.stats.lastAsyncRenderTime = performance.now() - sw;
           _vode.stats.asyncRenderCount++;
@@ -473,11 +475,11 @@ var V = (() => {
     }
   }
   function hydrate(element, prepareForRender) {
-    if (element?.nodeType === Node.TEXT_NODE) {
+    if (element?.nodeType === TEXT_NODE) {
       if (element.nodeValue?.trim() !== "")
         return prepareForRender ? element : element.nodeValue;
       return void 0;
-    } else if (element.nodeType === Node.ELEMENT_NODE) {
+    } else if (element.nodeType === ELEMENT_NODE) {
       const tag2 = element.tagName.toLowerCase();
       const root = [tag2];
       if (prepareForRender) root.node = element;
@@ -543,7 +545,7 @@ var V = (() => {
   }
   function props(vode2) {
     if (Array.isArray(vode2) && vode2.length > 1 && vode2[1] && !Array.isArray(vode2[1])) {
-      if (typeof vode2[1] === "object" && vode2[1].nodeType !== Node.TEXT_NODE) {
+      if (typeof vode2[1] === "object" && vode2[1].nodeType !== TEXT_NODE) {
         return vode2[1];
       }
     }
@@ -605,7 +607,7 @@ var V = (() => {
       if (newVode === oldVode || !oldVode && isNoVode) {
         return oldVode;
       }
-      const oldIsText = oldVode?.nodeType === Node.TEXT_NODE;
+      const oldIsText = oldVode?.nodeType === TEXT_NODE;
       const oldNode = oldIsText ? oldVode : oldVode?.node;
       if (isNoVode) {
         if (oldNode) {
@@ -616,7 +618,7 @@ var V = (() => {
       }
       const isText = !isNoVode && isTextVode(newVode);
       const isNode = !isNoVode && isNaturalVode(newVode);
-      const alreadyAttached = !!newVode && typeof newVode !== "string" && !!(newVode?.node || newVode?.nodeType === Node.TEXT_NODE);
+      const alreadyAttached = !!newVode && typeof newVode !== "string" && !!(newVode?.node || newVode?.nodeType === TEXT_NODE);
       if (!isText && !isNode && !alreadyAttached && !oldVode) {
         throw new Error(`invalid ChildVode at index ${childIndex}: typeof ${typeof newVode}${typeof newVode === "object" ? "\ncould be that you are adding Props at the wrong position?" : ""}`);
       } else if (alreadyAttached && isText) {
@@ -631,7 +633,7 @@ var V = (() => {
         return oldVode;
       }
       if (isText && (!oldNode || !oldIsText)) {
-        const text = document.createTextNode(newVode);
+        const text = parent.ownerDocument.createTextNode(newVode);
         if (oldNode) {
           unmountTree(state, oldVode);
           oldNode.replaceWith(text);
@@ -658,7 +660,7 @@ var V = (() => {
         }
         const properties = props(newVode);
         if (properties?.xmlns !== void 0) xmlns = properties.xmlns;
-        const newNode = xmlns ? document.createElementNS(xmlns, newVode[0]) : document.createElement(newVode[0]);
+        const newNode = xmlns ? parent.ownerDocument.createElementNS(xmlns, newVode[0]) : parent.ownerDocument.createElement(newVode[0]);
         newVode.node = newNode;
         patchProperties(state, newNode, void 0, properties, xmlns ?? null);
         if (!!properties && "catch" in properties) {
@@ -799,7 +801,7 @@ var V = (() => {
     return Array.isArray(x) && x.length > 0 && typeof x[0] === "string";
   }
   function isTextVode(x) {
-    return typeof x === "string" || x?.nodeType === Node.TEXT_NODE;
+    return typeof x === "string" || x?.nodeType === TEXT_NODE;
   }
   function remember(state, present, past) {
     while (typeof present === "function" && !present.__memo) {
@@ -1182,6 +1184,7 @@ var V = (() => {
   }
 
   // src/merge-style.ts
+  var stylingElement;
   function mergeStyle(...props2) {
     if (props2.length === 0) {
       return "";
@@ -1189,26 +1192,57 @@ var V = (() => {
     if (props2.length === 1) {
       return props2[0];
     }
-    let stylingElement = globals.stylingElement;
-    if (!stylingElement) {
-      globals.stylingElement = stylingElement = document.createElement("div");
-    }
-    try {
-      const merged = stylingElement.style;
-      for (const style of props2) {
-        if (typeof style === "object" && style !== null) {
-          for (const key in style) {
-            merged[key] = style[key];
+    if (typeof document !== "undefined") {
+      const styling = stylingElement ??= document.createElement("div");
+      try {
+        const merged = styling.style;
+        for (const style of props2) {
+          if (typeof style === "object" && style !== null) {
+            for (const key in style) {
+              merged[key] = style[key];
+            }
+          } else if (typeof style === "string") {
+            const old = merged.cssText;
+            merged.cssText = old?.length > 0 && old[old.length - 1] !== ";" ? old + ";" + style : old + style;
           }
-        } else if (typeof style === "string") {
-          const old = merged.cssText;
-          merged.cssText = old?.length > 0 && old[old.length - 1] !== ";" ? old + ";" + style : old + style;
+        }
+        return merged.cssText;
+      } finally {
+        styling.style.cssText = "";
+      }
+    }
+    return mergeStyleFallback(props2);
+  }
+  function mergeStyleFallback(props2) {
+    const declarations = /* @__PURE__ */ new Map();
+    const set = (rawProp, rawValue) => {
+      const prop = rawProp.trim();
+      if (!prop) return;
+      const key = prop.startsWith("--") ? prop : prop.replace(/[A-Z]/g, (m) => "-" + m.toLowerCase());
+      const value = rawValue.trim();
+      if (value === "") {
+        declarations.delete(key);
+      } else {
+        declarations.set(key, value);
+      }
+    };
+    for (const style of props2) {
+      if (typeof style === "object" && style !== null) {
+        for (const k in style) {
+          const v = style[k];
+          set(k, v === null || v === void 0 ? "" : String(v));
+        }
+      } else if (typeof style === "string") {
+        for (const declaration of style.split(";")) {
+          const i = declaration.indexOf(":");
+          if (i < 0) continue;
+          set(declaration.slice(0, i), declaration.slice(i + 1));
         }
       }
-      return merged.cssText;
-    } finally {
-      stylingElement.style.cssText = "";
     }
+    let out = "";
+    for (const [k, v] of declarations) out += `${k}: ${v}; `;
+    return out.trimEnd();
   }
 
   // src/merge-props.ts

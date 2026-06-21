@@ -83,12 +83,6 @@ export type PatchableState<S = object> = S & Patchable<S>;
 export type AsPatchable<S> = S extends { patch: any } ? S : PatchableState<S>;
 type PreparedState<S> = { patch: { initialPatches: Patch<S>[] } };
 
-export const globals = {
-    currentViewTransition: <ViewTransition | null | undefined>undefined,
-    requestAnimationFrame: typeof window !== "undefined" && typeof window.requestAnimationFrame === "function" ? window.requestAnimationFrame.bind(window) : ((cb: () => void) => cb()),
-    startViewTransition: typeof document !== "undefined" && typeof document.startViewTransition === "function" ? document.startViewTransition.bind(document) : null,
-};
-
 export type ContainerNode<S = PatchableState> = DomElement & {
     /** the `_vode` property is added to the container in `app()`.
      * it contains all necessary stuff for the vode app to function.
@@ -96,6 +90,7 @@ export type ContainerNode<S = PatchableState> = DomElement & {
     _vode: {
         state: PatchableState<S>,
         vode: AttachedVode<S>,
+        document: Document & { currentViewTransition?: ViewTransition | null },
         renderSync: () => void,
         renderAsync: () => Promise<unknown>,
         syncRenderer: (cb: () => void) => void,
@@ -116,9 +111,10 @@ export type ContainerNode<S = PatchableState> = DomElement & {
         },
     }
 };
+const ELEMENT_NODE = 1, TEXT_NODE = 3;
 
 /** type-safe way to create a vode. useful for type inference and autocompletion.
- * 
+ *
  * - just a tag: `vode("div")` => `["div"]` --*rendered*-> `<div></div>`
  * - tag and props: `vode("div", { class: "foo" })` => `["div", { class: "foo" }]` --*rendered*-> `<div class="foo"></div>`
  * - tag, props and children: `vode("div", { class: "foo" }, ["span", "bar"])` => `["div", { class: "foo" }, ["span", "bar"]]` --*rendered*-> `<div class="foo"><span>bar</span></div>`
@@ -161,8 +157,18 @@ export function app<S extends PatchableState = PatchableState>(
     if (typeof dom !== "function") throw new Error("third argument to app() must be a function that returns a vode");
 
     const _vode = {} as ContainerNode<S>["_vode"];
-    _vode.syncRenderer = globals.requestAnimationFrame;
-    _vode.asyncRenderer = globals.startViewTransition;
+    _vode.document = container.ownerDocument;
+    const win = _vode.document.defaultView;
+    _vode.syncRenderer = win?.requestAnimationFrame
+        ? win.requestAnimationFrame.bind(win)
+        : function (cb: FrameRequestCallback) {
+            const t = performance.now();
+            cb(t);
+            return t;
+        };
+    _vode.asyncRenderer = typeof _vode.document.startViewTransition === "function"
+        ? _vode.document.startViewTransition.bind(_vode.document)
+        : null;
     _vode.isRendering = 0;
     _vode.qAsync = null;
     _vode.stats = { lastSyncRenderTime: 0, lastAsyncRenderTime: 0, syncRenderCount: 0, asyncRenderCount: 0, liveEffectCount: 0, patchCount: 0, syncRenderPatchCount: 0, asyncRenderPatchCount: 0 };
@@ -227,7 +233,7 @@ export function app<S extends PatchableState = PatchableState>(
                     // when an empty array is patched: skip the current animation, merge all queued async patches into state, and schedule a sync render
                     mergeState(_vode.state as Record<string, unknown>, _vode.qAsync, true);
                     _vode.qAsync = null;
-                    try { globals.currentViewTransition?.skipTransition(); } catch { }
+                    try { _vode.document.currentViewTransition?.skipTransition(); } catch { }
                     _vode.stats.syncRenderPatchCount++;
                     _vode.renderSync();
                 }
@@ -281,10 +287,10 @@ export function app<S extends PatchableState = PatchableState>(
         enumerable: false, configurable: true,
         writable: false, value: async () => {
             if (_vode.isAnimating || !_vode.qAsync) return;
-            await globals.currentViewTransition?.updateCallbackDone; // wait for previous VT to complete
+            await _vode.document.currentViewTransition?.updateCallbackDone; // wait for previous VT to complete
             if (_vode.isAnimating || !_vode.qAsync) return;
 
-            if (document.hidden) {
+            if (_vode.document.hidden) {
                 _vode.state = mergeState(_vode.state as Record<string, unknown>, _vode.qAsync, true) as PatchableState<S>;
                 _vode.qAsync = null;
                 _vode.stats.syncRenderPatchCount++;
@@ -299,13 +305,13 @@ export function app<S extends PatchableState = PatchableState>(
                 _vode.qAsync = null;
 
                 if (_vode.asyncRenderer) {
-                    globals.currentViewTransition = _vode.asyncRenderer(ar);
+                    _vode.document.currentViewTransition = _vode.asyncRenderer(ar);
                 } else {
                     _vode.renderSync();
                     return;
                 }
 
-                await globals.currentViewTransition?.updateCallbackDone;
+                await _vode.document.currentViewTransition?.updateCallbackDone;
             } finally {
                 _vode.stats.lastAsyncRenderTime = performance.now() - sw;
                 _vode.stats.asyncRenderCount++;
@@ -400,12 +406,12 @@ export function defuse(container: ContainerNode) {
 export function hydrate<S = PatchableState>(element: DomElement | Text): Vode<S> | string | undefined;
 export function hydrate<S = PatchableState>(element: DomElement | Text, prepareForRender: boolean): AttachedVode<S> | undefined;
 export function hydrate<S = PatchableState>(element: DomElement | Text, prepareForRender?: boolean): Vode<S> | string | AttachedVode<S> | undefined {
-    if ((element as Text)?.nodeType === Node.TEXT_NODE) {
+    if ((element as Text)?.nodeType === TEXT_NODE) {
         if ((element as Text).nodeValue?.trim() !== "")
             return prepareForRender ? element as Text : (element as Text).nodeValue!;
         return undefined; //ignore (mostly html whitespace)
     }
-    else if (element.nodeType === Node.ELEMENT_NODE) {
+    else if (element.nodeType === ELEMENT_NODE) {
         const tag: Tag = (<Element>element).tagName.toLowerCase();
         const root = [tag] as unknown as FullVode<S>;
 
@@ -495,7 +501,7 @@ export function props<S = PatchableState>(vode: ChildVode<S> | AttachedVode<S>):
     ) {
         if (
             typeof vode[1] === "object"
-            && (vode[1] as unknown as Node).nodeType !== Node.TEXT_NODE
+            && (vode[1] as unknown as Node).nodeType !== TEXT_NODE
         ) {
             return vode[1];
         }
@@ -573,7 +579,7 @@ function render<S extends PatchableState>(state: S, parent: DomElement, childInd
             return oldVode;
         }
 
-        const oldIsText = (oldVode as Text)?.nodeType === Node.TEXT_NODE;
+        const oldIsText = (oldVode as Text)?.nodeType === TEXT_NODE;
         const oldNode = oldIsText
             ? oldVode as Text
             : oldVode?.node;
@@ -589,7 +595,7 @@ function render<S extends PatchableState>(state: S, parent: DomElement, childInd
 
         const isText = !isNoVode && isTextVode(newVode);
         const isNode = !isNoVode && isNaturalVode(newVode);
-        const alreadyAttached = !!newVode && typeof newVode !== "string" && !!((<AttachedVode<S>>newVode)?.node || (<Text><AttachedVode<S>>newVode)?.nodeType === Node.TEXT_NODE);
+        const alreadyAttached = !!newVode && typeof newVode !== "string" && !!((<AttachedVode<S>>newVode)?.node || (<Text><AttachedVode<S>>newVode)?.nodeType === TEXT_NODE);
 
         if (!isText && !isNode && !alreadyAttached && !oldVode) {
             throw new Error(`invalid ChildVode at index ${childIndex}: typeof ${typeof newVode}${typeof newVode === "object" ? "\ncould be that you are adding Props at the wrong position?" : ""}`);
@@ -610,7 +616,7 @@ function render<S extends PatchableState>(state: S, parent: DomElement, childInd
         }
         // falsy|element -> text
         if (isText && (!oldNode || !oldIsText)) {
-            const text = document.createTextNode(newVode as string);
+            const text = parent.ownerDocument.createTextNode(newVode as string);
             if (oldNode) {
                 unmountTree(state, oldVode as ChildVode<S>);
                 oldNode.replaceWith(text);
@@ -646,8 +652,8 @@ function render<S extends PatchableState>(state: S, parent: DomElement, childInd
 
             const newNode = <ElementNode<S>>(
                 xmlns
-                    ? document.createElementNS(xmlns, (<Vode<S>>newVode)[0])
-                    : document.createElement((<Vode<S>>newVode)[0])
+                    ? parent.ownerDocument.createElementNS(xmlns, (<Vode<S>>newVode)[0])
+                    : parent.ownerDocument.createElement((<Vode<S>>newVode)[0])
             );
             (<AttachedVode<S>>newVode).node = newNode;
 
@@ -820,7 +826,7 @@ function isNaturalVode<S>(x: ChildVode<S>): x is Vode<S> {
 }
 
 function isTextVode<S>(x: ChildVode<S>): x is TextVode {
-    return typeof x === "string" || (<Text><unknown>x)?.nodeType === Node.TEXT_NODE;
+    return typeof x === "string" || (<Text><unknown>x)?.nodeType === TEXT_NODE;
 }
 
 function remember<S>(state: S, present: MemoNode<S>, past?: MemoNode<S>): ChildVode<S> | AttachedVode<S> {

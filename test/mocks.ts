@@ -1,5 +1,3 @@
-import { globals } from "../src/vode";
-
 const NodeConstants = {
     ELEMENT_NODE: 1,
     ATTRIBUTE_NODE: 2,
@@ -64,6 +62,7 @@ export class FakeElement {
     public fakeAttributes: Record<string, string> = {};
 
     nodeType = NodeConstants.ELEMENT_NODE;
+    ownerDocument: any = null;
     parentElement: HTMLElement | null = null;
     childNodes: NodeListOf<ChildNode> = new FakeNodeList();
     get children(): HTMLCollection {
@@ -140,6 +139,7 @@ export class FakeElement {
 
 export class FakeTextNode {
     nodeType = NodeConstants.TEXT_NODE;
+    ownerDocument: any = null;
     parentElement: HTMLElement | null = null;
     constructor(public nodeValue: string) { }
     get wholeText() { return this.nodeValue; }
@@ -224,9 +224,9 @@ export function resetMocks() {
     }
 
     const fakeDocument: any = {
-        createElement: (tag: string) => new FakeElement(tag),
-        createTextNode: (text: string) => new FakeTextNode(text),
-        createElementNS: (ns: string, tag: string) => new FakeElement(tag),
+        createElement: (tag: string) => { const el = new FakeElement(tag); el.ownerDocument = fakeDocument; return el; },
+        createTextNode: (text: string) => { const t = new FakeTextNode(text); t.ownerDocument = fakeDocument; return t; },
+        createElementNS: (ns: string, tag: string) => { const el = new FakeElement(tag); el.ownerDocument = fakeDocument; return el; },
         startViewTransition: (callbackOptions: any) => {
             return {
                 finished: Promise.resolve(),
@@ -262,6 +262,7 @@ export function resetMocks() {
         },
         _fake: true,
     };
+    fakeDocument.defaultView = fakeWindow;
 
     if ((<typeof fakeDocument>globalThis.document)?._fake)
         globalThis.document = undefined as any;
@@ -271,19 +272,4 @@ export function resetMocks() {
 
     globalThis.document ??= fakeDocument as Document;
     globalThis.window ??= fakeWindow as (Window & typeof globalThis);
-    globalThis.Node ??= NodeConstants as any;
-
-    if ((<typeof fakeWindow>globalThis.window)?._fake) {
-        const raf = globalThis.window?.requestAnimationFrame;
-        if (typeof raf === "function") {
-            globals.requestAnimationFrame = raf.bind(globalThis.window);
-        }
-    }
-
-    if ((<typeof fakeDocument>globalThis.document)?._fake) {
-        const startViewTransition = (globalThis.document as any)?.startViewTransition;
-        globals.startViewTransition = typeof startViewTransition === "function"
-            ? startViewTransition.bind(globalThis.document)
-            : null;
-    }
 }

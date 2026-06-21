@@ -12,6 +12,7 @@ function hasStyle(result: string, prop: string, value: string): boolean {
     return normalized.includes(`${prop}:${value}`) || normalized.includes(`${prop}: ${value}`);
 }
 
+
 export default {
     "mergeStyle(): no args returns empty string": async () => {
         await expect(mergeStyle()).toEqual("");

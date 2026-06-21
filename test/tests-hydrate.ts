@@ -60,7 +60,7 @@ export default {
     },
 
     "hydrate(): only element and text nodes are supported": async () => {
-        const comment = { nodeType: Node.COMMENT_NODE } as any;
+        const comment = { nodeType: 8 /* COMMENT_NODE */ } as any;
 
         await expect(hydrate(comment))
             .toEqual(undefined);
