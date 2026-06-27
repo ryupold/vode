@@ -10,7 +10,7 @@ export type Component<S = PatchableState> = (s: S) => ChildVode<S>;
 export type DomElement = HTMLElement | SVGSVGElement | MathMLElement;
 
 type AttachedVode<S = PatchableState> = AttachedElementVode<S> | Text & { node?: never };
-type AttachedElementVode<S> = Vode<S> & { node: ElementNode<S>, _unmountCount?: number };
+type AttachedElementVode<S> = Vode<S> & { node: ElementNode<S>, _unmountCount?: number, _hydrated?: boolean };
 type ElementNode<S> = HTMLElement & SVGSVGElement & MathMLElement & Record<string, PropertyValue<S>>;
 type MemoNode<S> = ChildVode<S> & { __memo?: unknown[] }
 
@@ -415,7 +415,10 @@ export function hydrate<S = PatchableState>(element: DomElement | Text, prepareF
         const tag: Tag = (<Element>element).tagName.toLowerCase();
         const root = [tag] as unknown as FullVode<S>;
 
-        if (prepareForRender) (<AttachedElementVode<S>>root).node = element as ElementNode<S>;
+        if (prepareForRender) {
+            (<AttachedElementVode<S>>root).node = element as ElementNode<S>;
+            (<AttachedElementVode<S>>root)._hydrated = true;
+        }
         if ((element as HTMLElement)?.hasAttributes()) {
             const props: Props<S> = {};
             const attr = (<HTMLElement>element).attributes;
@@ -742,6 +745,10 @@ function render<S extends PatchableState>(state: S, parent: DomElement, childInd
             }
 
             (<AttachedElementVode<S>>newVode)._unmountCount = (properties?.onUnmount ? 1 : 0) + sumChildUnmountCounts(<AttachedElementVode<S>>newVode);
+            
+            if (typeof properties?.onMount === "function" && (<AttachedElementVode<S>>oldVode)._hydrated) {
+                state.patch(properties.onMount(state, node as HTMLElement & SVGSVGElement & MathMLElement));
+            }
             return <AttachedVode<S>>newVode;
         }
     } catch (error: any) {
@@ -773,14 +780,6 @@ function render<S extends PatchableState>(state: S, parent: DomElement, childInd
                 hydrate(catchNode, true) as AttachedVode<S>,
                 handledVode,
                 xmlns);
-
-            // reused catchNode's DOM node. fire onMount if it has one
-            if ((<AttachedElementVode<S>>errorUi)?.node === catchNode) {
-                const errorUiProps = props(errorUi as AttachedVode<S>);
-                if (typeof errorUiProps?.onMount === "function") {
-                    state.patch(errorUiProps.onMount(state, catchNode as HTMLElement & SVGSVGElement & MathMLElement));
-                }
-            }
 
             return errorUi;
         } else {
