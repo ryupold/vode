@@ -1,5 +1,5 @@
 import { app, Component, ContainerNode, createState, memo } from "../src/vode"
-import { ARTICLE, ASIDE, DIV, INPUT, MAIN, NAV, P, SECTION, SPAN } from "../src/vode-tags";
+import { ARTICLE, ASIDE, DIV, INPUT, MAIN, NAV, P, SECTION, SPAN } from "../src/tags";
 import { eventually, expect, ExpectationError } from "./helper";
 
 function setup() {
