@@ -77,7 +77,7 @@ export type PropertyValue<S> =
     | StyleProp | ClassProp
     | Patch<S>;
 
-export type Dispatch<S> = (action: Patch<S>, animate?: boolean) => void | Promise<void>;
+export type Dispatch<S> = (action: Patch<S>, animated?: boolean) => void | Promise<void>;
 export interface Patchable<S = object> { patch: Dispatch<S>; }
 export type PatchableState<S = object> = S & Patchable<S>;
 export type AsPatchable<S> = S extends { patch: any } ? S : PatchableState<S>;
@@ -179,17 +179,17 @@ export function app<S extends PatchableState = PatchableState>(
         initialPatches = [...(state as unknown as PreparedState<S>).patch.initialPatches, ...initialPatches];
     }
 
-    async function promisePatch(action: Promise<Patch<S>>, isAnimated?: boolean) {
+    async function promisePatch(action: Promise<Patch<S>>, animated?: boolean) {
         _vode.stats.liveEffectCount++;
         try {
             const resolvedPatch = await (action as Promise<unknown>);
-            await patchableState.patch(<Patch<S>>resolvedPatch, isAnimated);
+            await patchableState.patch(resolvedPatch, animated);
         } finally {
             _vode.stats.liveEffectCount--;
         }
     }
 
-    async function generatorPatch(action: AsyncGenerator<Patch<S>>, isAnimated?: boolean) {
+    async function generatorPatch(action: AsyncGenerator<Patch<S>>, animated?: boolean) {
         const generator = action as AsyncGenerator<Patch<S>>;
         _vode.stats.liveEffectCount++;
         try {
@@ -197,13 +197,13 @@ export function app<S extends PatchableState = PatchableState>(
             while (v.done === false) {
                 _vode.stats.liveEffectCount++;
                 try {
-                    await patchableState.patch(v.value, isAnimated);
+                    await patchableState.patch(v.value, animated);
                     v = await generator.next();
                 } finally {
                     _vode.stats.liveEffectCount--;
                 }
             }
-            await patchableState.patch(v.value as Patch<S>, isAnimated);
+            await patchableState.patch(v.value as Patch<S>, animated);
         } finally {
             _vode.stats.liveEffectCount--;
         }
@@ -211,7 +211,7 @@ export function app<S extends PatchableState = PatchableState>(
 
     Object.defineProperty(state, "patch", {
         enumerable: false, configurable: true,
-        writable: false, value: (action: Patch<S>, isAnimated?: boolean): void | Promise<void> => {
+        writable: false, value: (action: Patch<S>, animated?: boolean): void | Promise<void> => {
             while (typeof action === "function") {
                 action = (<(s: S) => unknown>action)(_vode.state);
             }
@@ -238,7 +238,7 @@ export function app<S extends PatchableState = PatchableState>(
                     _vode.renderSync();
                 }
             } else {
-                if (isAnimated && !!_vode.asyncRenderer) {
+                if (animated && !!_vode.asyncRenderer) {
                     _vode.stats.asyncRenderPatchCount++;
                     _vode.qAsync = mergeState(_vode.qAsync || {}, action, false);
                     _vode.renderAsync();
@@ -251,7 +251,7 @@ export function app<S extends PatchableState = PatchableState>(
         }
     });
 
-    function renderDom(isAnimated: boolean) {
+    function renderDom(animated: boolean) {
         const sw = performance.now();
         _vode.vode = render<S>(_vode.state, container.parentElement as DomElement, 0, 0, _vode.vode, dom)!;
 
@@ -261,7 +261,7 @@ export function app<S extends PatchableState = PatchableState>(
             (<ContainerNode<S>>container)["_vode"] = _vode;
         }
 
-        if (!isAnimated) {
+        if (!animated) {
             _vode.stats.lastSyncRenderTime = performance.now() - sw;
             const changesSinceRender = _vode.isRendering !== _vode.stats.syncRenderPatchCount;
             _vode.stats.syncRenderCount++;
@@ -353,7 +353,7 @@ export function app<S extends PatchableState = PatchableState>(
         patchableState.patch(effect);
     }
 
-    return (action: Patch<S>) => patchableState.patch(action);
+    return (action: Patch<S>, animated?: boolean) => patchableState.patch(action, animated);
 }
 
 /** unregister vode app from container and free resources
@@ -469,12 +469,12 @@ export function createState<S = PatchableState>(state: S): PatchableState<S> {
     if (!("patch" in state)) {
         Object.defineProperty(state, "patch", {
             enumerable: false, configurable: true,
-            writable: false, value: (action: Patch<S>) => {
+            writable: false, value: (action: Patch<S>, animated?: boolean) => {
                 const futureState = state as unknown as PreparedState<S>;
                 if (!Array.isArray(futureState.patch.initialPatches)) {
                     futureState.patch.initialPatches = [];
                 }
-                futureState.patch.initialPatches.push(action);
+                futureState.patch.initialPatches.push(animated ? [action] : action);
             }
         });
     }

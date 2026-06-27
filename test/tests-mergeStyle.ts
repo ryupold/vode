@@ -12,6 +12,16 @@ function hasStyle(result: string, prop: string, value: string): boolean {
     return normalized.includes(`${prop}:${value}`) || normalized.includes(`${prop}: ${value}`);
 }
 
+function fakeSSR<T>(fn: () => T): T {
+    const doc = (globalThis as any).document;
+    (globalThis as any).document = undefined;
+    try {
+        return fn();
+    } finally {
+        (globalThis as any).document = doc;
+    }
+}
+
 
 export default {
     "mergeStyle(): no args returns empty string": async () => {
@@ -52,5 +62,37 @@ export default {
             { background: "blue" }
         ) as string;
         await expect(hasStyle(result, "font-size", "14px")).toEqual(true);
+    },
+
+    //=== SSR fallback (no DOM) ===
+
+    "mergeStyle(): [ssr] merges object declarations into the css string": async () => {
+        const result = fakeSSR(() => mergeStyle({ color: "red" }, "font-size: 14px")) as string;
+        await expect(hasStyle(result, "color", "red")).toEqual(true, "object 'color' survives the SSR merge");
+        await expect(hasStyle(result, "font-size", "14px")).toEqual(true);
+    },
+
+    "mergeStyle(): [ssr] converts camelCase keys to kebab-case": async () => {
+        const result = fakeSSR(() => mergeStyle({ fontSize: "14px" }, { backgroundColor: "blue" })) as string;
+        await expect(hasStyle(result, "font-size", "14px")).toEqual(true);
+        await expect(hasStyle(result, "background-color", "blue")).toEqual(true);
+    },
+
+    "mergeStyle(): [ssr] later declarations override earlier ones": async () => {
+        const result = fakeSSR(() => mergeStyle("color: red", { color: "blue" })) as string;
+        await expect(hasStyle(result, "color", "blue")).toEqual(true);
+        await expect(hasStyle(result, "color", "red")).toEqual(false, "earlier 'color' was overridden");
+    },
+
+    "mergeStyle(): [ssr] empty value removes a declaration": async () => {
+        const result = fakeSSR(() => mergeStyle("color: red; font-size: 14px", { color: "" })) as string;
+        await expect(hasStyle(result, "color", "red")).toEqual(false, "'color' removed by empty value");
+        await expect(hasStyle(result, "font-size", "14px")).toEqual(true);
+    },
+
+    "mergeStyle(): [ssr] preserves custom properties verbatim": async () => {
+        const result = fakeSSR(() => mergeStyle("--brand: rebeccapurple", { color: "red" })) as string;
+        await expect(hasStyle(result, "--brand", "rebeccapurple")).toEqual(true, "custom property is not kebab-mangled");
+        await expect(hasStyle(result, "color", "red")).toEqual(true);
     },
 };

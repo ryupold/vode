@@ -205,6 +205,31 @@ export default {
         }
     },
 
+    "patch(): app() dispatch forwards the animate flag": async () => {
+        const container = setup();
+        const state = createState({ x: 0 });
+        const dispatch = app(container, state, (s) => [DIV, String(s.x)]);
+
+        await expect(container._vode.stats.asyncRenderPatchCount).toEqual(0);
+
+        // animated dispatch via the returned function must route through the view-transition path
+        dispatch({ x: 1 }, true);
+        await expect(container._vode.stats.asyncRenderPatchCount).toEqual(1);
+
+        // the animated path merges the queued value into state and drains the async queue
+        await eventually(() => state.x).toEqual(1);
+        await eventually(() => container._vode.qAsync == null).toEqual(true);
+
+        // a non-animated dispatch must stay on the sync path (async count unchanged)
+        const syncBefore = container._vode.stats.syncRenderPatchCount;
+        dispatch({ x: 2 });
+        await expect(container._vode.stats.asyncRenderPatchCount).toEqual(1);
+        await expect(container._vode.stats.syncRenderPatchCount).toEqual(syncBefore + 1);
+
+        await eventually(() => state.x).toEqual(2);
+        await expect(container).toMatch([DIV, "2"]);
+    },
+
     "patch(): patch animated while hidden renders once visible again": async () => {
         const container = setup();
         const state = createState({ x: 0 });
