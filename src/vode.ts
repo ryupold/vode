@@ -182,7 +182,7 @@ export function app<S extends PatchableState = PatchableState>(
     async function promisePatch(action: Promise<Patch<S>>, animated?: boolean) {
         _vode.stats.liveEffectCount++;
         try {
-            const resolvedPatch = await (action as Promise<unknown>);
+            const resolvedPatch = await (action as Promise<Patch<S>>);
             await patchableState.patch(resolvedPatch, animated);
         } finally {
             _vode.stats.liveEffectCount--;
@@ -220,10 +220,10 @@ export function app<S extends PatchableState = PatchableState>(
 
             _vode.stats.patchCount++;
 
-            if ((action as AsyncGenerator<Patch<S>>)?.next) {
-                return generatorPatch(action as AsyncGenerator<Patch<S>>, isAnimated);
-            } else if ((action as Promise<S>).then) {
-                return promisePatch(action as Promise<S>, isAnimated);
+            if (typeof (action as AsyncGenerator<Patch<S>>).next === "function") {
+                return generatorPatch(action as AsyncGenerator<Patch<S>>, animated);
+            } else if (typeof (action as Promise<S>).then === "function") {
+                return promisePatch(action as Promise<S>, animated);
             } else if (Array.isArray(action)) {
                 if (action.length > 0) {
                     for (const p of action) {
