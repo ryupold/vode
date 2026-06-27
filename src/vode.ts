@@ -113,6 +113,14 @@ export type ContainerNode<S = PatchableState> = DomElement & {
 };
 const ELEMENT_NODE = 1, TEXT_NODE = 3;
 
+/** reserved props key (a symbol, so it is invisible to prop-patching and `for..in`):
+ * a userspace hook invoked during an `element(A) -> element(A)` reconcile, *before*
+ * vode's positional child diff. it receives the old attached vode (whose children
+ * still hold the previously rendered nodes), the new vode and the live node, letting
+ * a helper realign children + move real DOM nodes by identity. see `keyed()`. */
+export const RECONCILE: unique symbol = Symbol("vode.reconcile");
+export type ReconcileHook<S = PatchableState> = (oldVode: Vode<S>, newVode: Vode<S>, node: DomElement) => void;
+
 /** type-safe way to create a vode. useful for type inference and autocompletion.
  *
  * - just a tag: `vode("div")` => `["div"]` --*rendered*-> `<div></div>`
@@ -721,6 +729,14 @@ function render<S extends PatchableState>(state: S, parent: DomElement, childInd
             if (!!properties?.catch && oldProps?.catch !== properties.catch) {
                 node["catch"] = null;
                 node.removeAttribute("catch");
+            }
+
+            // userspace child-reconciliation hook (see keyed()): hand the helper the
+            // old attached array + live node so it can realign slots and physically
+            // move real DOM children by identity before the positional child diff.
+            const reconcile = (properties as Record<PropertyKey, unknown> | undefined)?.[RECONCILE];
+            if (typeof reconcile === "function") {
+                (reconcile as ReconcileHook<S>)(oldVode as Vode<S>, newVode as Vode<S>, node);
             }
 
             const newStart = childrenStart(newVode);
