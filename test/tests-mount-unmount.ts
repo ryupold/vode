@@ -1,4 +1,4 @@
-import { app, Component, ContainerNode, createState, memo } from "../src/vode"
+import { app, Component, ContainerNode, createState, memo, VODE } from "../src/vode"
 import { ARTICLE, ASIDE, DIV, INPUT, MAIN, NAV, P, SECTION, SPAN } from "../src/tags";
 import { eventually, expect, ExpectationError } from "./helper";
 
@@ -608,13 +608,13 @@ export default {
         );
 
         await expect(unmounts).toEqual([]);
-        let before = container._vode.stats.syncRenderCount;
+        let before = container[VODE].stats.syncRenderCount;
         patch({ toggle: true });
-        await eventually(() => container._vode.stats.syncRenderCount).toBeGreaterThan(before);
+        await eventually(() => container[VODE].stats.syncRenderCount).toBeGreaterThan(before);
         await expect(unmounts).toEqual([]);
-        before = container._vode.stats.syncRenderCount;
+        before = container[VODE].stats.syncRenderCount;
         patch({ remove: true });
-        await eventually(() => container._vode.stats.syncRenderCount).toBeGreaterThan(before);
+        await eventually(() => container[VODE].stats.syncRenderCount).toBeGreaterThan(before);
         await expect(unmounts).toEqual(["unmount p", "unmount section"]);
     },
 
@@ -658,9 +658,9 @@ export default {
         );
 
         await expect(unmounts).toEqual([]);
-        const before = container._vode.stats.syncRenderCount;
+        const before = container[VODE].stats.syncRenderCount;
         patch({ version: "b" });
-        await eventually(() => container._vode.stats.syncRenderCount).toBeGreaterThan(before);
+        await eventually(() => container[VODE].stats.syncRenderCount).toBeGreaterThan(before);
         await expect(unmounts).toEqual([]);
         patch({ remove: true });
         await expect(unmounts).toEqual(["unmount b"]);
@@ -817,9 +817,9 @@ export default {
         );
 
         await expect(unmounts).toEqual([]);
-        const before = container._vode.stats.syncRenderCount;
+        const before = container[VODE].stats.syncRenderCount;
         patch({ showElement: true });
-        await eventually(() => container._vode.stats.syncRenderCount).toBeGreaterThan(before);
+        await eventually(() => container[VODE].stats.syncRenderCount).toBeGreaterThan(before);
         await expect(unmounts).toEqual([]);
         patch({ remove: true });
         await expect(unmounts).toEqual(["unmount article"]);
@@ -1136,9 +1136,9 @@ export default {
         );
 
         await expect(unmounts).toEqual([]);
-        const before = container._vode.stats.syncRenderCount;
+        const before = container[VODE].stats.syncRenderCount;
         patch({ addUnmount: true });
-        await eventually(() => container._vode.stats.syncRenderCount).toEqual(before + 1);
+        await eventually(() => container[VODE].stats.syncRenderCount).toEqual(before + 1);
         await expect(unmounts).toEqual([]);
         patch({ show: false });
         await expect(unmounts).toEqual(["unmount article"]);
@@ -1405,7 +1405,7 @@ export default {
 
         patch({ showTimer: false });
 
-        await eventually(() => container._vode.stats.syncRenderCount).toBeGreaterOrEqualThan(4);
+        await eventually(() => container[VODE].stats.syncRenderCount).toBeGreaterOrEqualThan(4);
 
         await expect(logs).toEqual([
             'Input mounted',

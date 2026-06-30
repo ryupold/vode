@@ -17,7 +17,6 @@ import exampleTests from "./tests-examples";
 import catchTests from "./tests-catch";
 import patchAdvancedTests from "./tests-patch-advanced";
 import patchMergeTests from "./tests-patch-merge";
-import keyedTests from "./tests-keyed";
 
 export const tests = {
     ...vodeTests,
@@ -43,5 +42,4 @@ export const tests = {
     ...catchTests,
     ...patchAdvancedTests,
     ...patchMergeTests,
-    ...keyedTests,
 };

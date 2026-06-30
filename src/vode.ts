@@ -9,10 +9,17 @@ export type Tag = keyof (HTMLElementTagNameMap & SVGElementTagNameMap & MathMLEl
 export type Component<S = PatchableState> = (s: S) => ChildVode<S>;
 export type DomElement = HTMLElement | SVGSVGElement | MathMLElement;
 
-type AttachedVode<S = PatchableState> = AttachedElementVode<S> | Text & { node?: never };
-type AttachedElementVode<S> = Vode<S> & { node: ElementNode<S>, _unmountCount?: number };
+type AttachedVode<S = PatchableState> = AttachedElementVode<S> | Text & { [NODE]?: never };
+type AttachedElementVode<S> = Vode<S> & { [NODE]: ElementNode<S>, [UNMOUNT_COUNT]?: number };
 type ElementNode<S> = HTMLElement & SVGSVGElement & MathMLElement & Record<string, PropertyValue<S>>;
-type MemoNode<S> = ChildVode<S> & { __memo?: unknown[] }
+type MemoNode<S> = ChildVode<S> & { [MEMO]?: unknown[] }
+
+/** can be used to access the internal vode meta data of a ContainerNode */
+export const VODE = Symbol("vode");
+/** can be used to access the ElementNode of an AttachedVode */
+export const NODE = Symbol("node");
+const UNMOUNT_COUNT = Symbol("ucount");
+const MEMO = Symbol("memo");
 
 export type Patch<S> =
     | IgnoredPatch // ignored
@@ -84,10 +91,10 @@ export type AsPatchable<S> = S extends { patch: any } ? S : PatchableState<S>;
 type PreparedState<S> = { patch: { initialPatches: Patch<S>[] } };
 
 export type ContainerNode<S = PatchableState> = DomElement & {
-    /** the `_vode` property is added to the container in `app()`.
+    /** the `VODE` (symbol) property is added to the container in `app()`.
      * it contains all necessary stuff for the vode app to function.
      * remove the container node to clear vode's resources */
-    _vode: {
+    [VODE]: {
         state: PatchableState<S>,
         vode: AttachedVode<S>,
         document: Document & { currentViewTransition?: ViewTransition | null },
@@ -112,14 +119,6 @@ export type ContainerNode<S = PatchableState> = DomElement & {
     }
 };
 const ELEMENT_NODE = 1, TEXT_NODE = 3;
-
-/** reserved props key (a symbol, so it is invisible to prop-patching and `for..in`):
- * a userspace hook invoked during an `element(A) -> element(A)` reconcile, *before*
- * vode's positional child diff. it receives the old attached vode (whose children
- * still hold the previously rendered nodes), the new vode and the live node, letting
- * a helper realign children + move real DOM nodes by identity. see `keyed()`. */
-export const RECONCILE: unique symbol = Symbol("vode.reconcile");
-export type ReconcileHook<S = PatchableState> = (oldVode: Vode<S>, newVode: Vode<S>, node: DomElement) => void;
 
 /** type-safe way to create a vode. useful for type inference and autocompletion.
  *
@@ -164,7 +163,7 @@ export function app<S extends PatchableState = PatchableState>(
     if (!state || typeof state !== "object") throw new Error("second argument to app() must be a state object");
     if (typeof dom !== "function") throw new Error("third argument to app() must be a function that returns a vode");
 
-    const _vode = {} as ContainerNode<S>["_vode"];
+    const _vode = {} as ContainerNode<S>[typeof VODE];
     _vode.document = container.ownerDocument;
     const win = _vode.document.defaultView;
     _vode.syncRenderer = win?.requestAnimationFrame
@@ -265,8 +264,8 @@ export function app<S extends PatchableState = PatchableState>(
 
         if ((<ContainerNode<S>>container).tagName.toLowerCase() !== (<Vode<S>>_vode.vode)[0].toLowerCase()) {
             // the tag name was changed during render -> update reference to vode-app-root
-            container = _vode.vode.node as DomElement;
-            (<ContainerNode<S>>container)["_vode"] = _vode;
+            container = _vode.vode[NODE] as DomElement;
+            (<ContainerNode<S>>container)[VODE] = _vode;
         }
 
         if (!animated) {
@@ -332,7 +331,7 @@ export function app<S extends PatchableState = PatchableState>(
     _vode.state = patchableState;
 
     const root = container as ContainerNode<S>;
-    root["_vode"] = _vode;
+    root[VODE] = _vode;
     const indexInParent = Array.from(container.parentElement.children).indexOf(container);
 
     const patchCountBefore = _vode.stats.syncRenderPatchCount;
@@ -348,8 +347,8 @@ export function app<S extends PatchableState = PatchableState>(
 
     // if during initial render the tag of the root vode was changed (catch or different Tag)
     if (container.tagName.toLowerCase() !== (<Vode<S>>_vode.vode)[0].toLowerCase()) {
-        container = _vode.vode.node!;
-        (container as ContainerNode<S>)["_vode"] = _vode;
+        container = _vode.vode[NODE]!;
+        (container as ContainerNode<S>)[VODE] = _vode;
     }
 
     const continueRendering = _vode.stats.syncRenderPatchCount !== patchCountBefore;
@@ -371,22 +370,22 @@ export function app<S extends PatchableState = PatchableState>(
  * leaves the DOM as is
  */
 export function defuse(container: ContainerNode) {
-    if (container?.["_vode"]) {
+    if (container?.[VODE]) {
         function clearEvents(av: AttachedVode) {
-            if (!av?.node) return;
+            if (!av?.[NODE]) return;
 
             const p = props(av);
             if (p) {
                 for (const key in p) {
                     if (key[0] === "o" && key[1] === "n") {
-                        (av.node)[key] = null;
+                        (av[NODE])[key] = null;
                     }
                 }
-                av.node.catch = null;
+                av[NODE].catch = null;
             }
 
-            if ((av.node as unknown as ContainerNode)["_vode"]) {
-                defuse(av.node as unknown as ContainerNode);
+            if ((av[NODE] as unknown as ContainerNode)[VODE]) {
+                defuse(av[NODE] as unknown as ContainerNode);
             } else {
                 const kids = children(av);
                 if (kids) {
@@ -397,8 +396,8 @@ export function defuse(container: ContainerNode) {
             }
         }
 
-        const v = container["_vode"];
-        delete (container as Partial<ContainerNode>)["_vode"];
+        const v = container[VODE];
+        delete (container as Partial<ContainerNode>)[VODE];
         Object.defineProperty(v.state, "patch", { value: undefined });
         Object.defineProperty(v, "renderSync", { value: () => { } });
         Object.defineProperty(v, "renderAsync", { value: () => { } });
@@ -423,7 +422,7 @@ export function hydrate<S = PatchableState>(element: DomElement | Text, prepareF
         const tag: Tag = (<Element>element).tagName.toLowerCase();
         const root = [tag] as unknown as FullVode<S>;
 
-        if (prepareForRender) (<AttachedElementVode<S>>root).node = element as ElementNode<S>;
+        if (prepareForRender) (<AttachedElementVode<S>>root)[NODE] = element as ElementNode<S>;
         if ((element as HTMLElement)?.hasAttributes()) {
             const props: Props<S> = {};
             const attr = (<HTMLElement>element).attributes;
@@ -456,12 +455,12 @@ export function memo<S = PatchableState>(compare: unknown[], component: Componen
     if (!compare || !Array.isArray(compare)) throw new Error("first argument to memo() must be an array of values to compare");
     if (typeof component !== "function") throw new Error("second argument to memo() must be a function that returns a child vode");
 
-    if ((<MemoNode<S>>component).__memo) { // wrap to prevent double memoization
+    if ((<MemoNode<S>>component)[MEMO]) { // wrap to prevent double memoization
         const comp = component;
         component = (s: S) => comp(s);
     }
 
-    (<MemoNode<S>>component).__memo = compare;
+    (<MemoNode<S>>component)[MEMO] = compare;
 
     return component;
 }
@@ -590,7 +589,7 @@ function render<S extends PatchableState>(state: S, parent: DomElement, childInd
         const oldIsText = (oldVode as Text)?.nodeType === TEXT_NODE;
         const oldNode = oldIsText
             ? oldVode as Text
-            : oldVode?.node;
+            : oldVode?.[NODE];
 
         // falsy|text|element(A) -> undefined 
         if (isNoVode) {
@@ -603,7 +602,7 @@ function render<S extends PatchableState>(state: S, parent: DomElement, childInd
 
         const isText = !isNoVode && isTextVode(newVode);
         const isNode = !isNoVode && isNaturalVode(newVode);
-        const alreadyAttached = !!newVode && typeof newVode !== "string" && !!((<AttachedVode<S>>newVode)?.node || (<Text><AttachedVode<S>>newVode)?.nodeType === TEXT_NODE);
+        const alreadyAttached = !!newVode && typeof newVode !== "string" && !!((<AttachedVode<S>>newVode)?.[NODE] || (<Text><AttachedVode<S>>newVode)?.nodeType === TEXT_NODE);
 
         if (!isText && !isNode && !alreadyAttached && !oldVode) {
             throw new Error(`invalid ChildVode at index ${childIndex}: typeof ${typeof newVode}${typeof newVode === "object" ? "\ncould be that you are adding Props at the wrong position?" : ""}`);
@@ -663,14 +662,14 @@ function render<S extends PatchableState>(state: S, parent: DomElement, childInd
                     ? parent.ownerDocument.createElementNS(xmlns, (<Vode<S>>newVode)[0])
                     : parent.ownerDocument.createElement((<Vode<S>>newVode)[0])
             );
-            (<AttachedVode<S>>newVode).node = newNode;
+            (<AttachedVode<S>>newVode)[NODE] = newNode;
 
             //set properties for new child in xml mode to prevent using the dom properties
             patchProperties(state, newNode, undefined, properties, xmlns ?? null);
 
             if (!!properties && "catch" in properties) {
-                (<AttachedElementVode<S>>newVode).node["catch"] = null;
-                (<AttachedElementVode<S>>newVode).node.removeAttribute("catch");
+                (<AttachedElementVode<S>>newVode)[NODE]["catch"] = null;
+                (<AttachedElementVode<S>>newVode)[NODE].removeAttribute("catch");
             }
 
             if (oldNode) {
@@ -703,7 +702,7 @@ function render<S extends PatchableState>(state: S, parent: DomElement, childInd
                 }
             }
 
-            (<AttachedElementVode<S>>newVode)._unmountCount = (properties?.onUnmount ? 1 : 0) + sumChildUnmountCounts(<AttachedElementVode<S>>newVode);
+            (<AttachedElementVode<S>>newVode)[UNMOUNT_COUNT] = (properties?.onUnmount ? 1 : 0) + sumChildUnmountCounts(<AttachedElementVode<S>>newVode);
             if (typeof properties?.onMount === "function") {
                 state.patch(properties.onMount(state, newNode as HTMLElement & SVGSVGElement & MathMLElement));
             }
@@ -713,7 +712,7 @@ function render<S extends PatchableState>(state: S, parent: DomElement, childInd
         //element(A) -> element(A) 
         if (!oldIsText && isNode && (<Vode<S>>oldVode)[0] === (<Vode<S>>newVode)[0]) {
             const node = oldNode as ElementNode<S>;
-            (<AttachedElementVode<S>>newVode).node = node;
+            (<AttachedElementVode<S>>newVode)[NODE] = node;
 
             const properties = props(newVode);
             const oldProps = props(oldVode);
@@ -726,14 +725,6 @@ function render<S extends PatchableState>(state: S, parent: DomElement, childInd
             if (!!properties?.catch && oldProps?.catch !== properties.catch) {
                 node["catch"] = null;
                 node.removeAttribute("catch");
-            }
-
-            // userspace child-reconciliation hook (see keyed()): hand the helper the
-            // old attached array + live node so it can realign slots and physically
-            // move real DOM children by identity before the positional child diff.
-            const reconcile = (properties as Record<PropertyKey, unknown> | undefined)?.[RECONCILE];
-            if (typeof reconcile === "function") {
-                (reconcile as ReconcileHook<S>)(oldVode as Vode<S>, newVode as Vode<S>, node);
             }
 
             const newStart = childrenStart(newVode);
@@ -757,7 +748,7 @@ function render<S extends PatchableState>(state: S, parent: DomElement, childInd
                 }
             }
 
-            (<AttachedElementVode<S>>newVode)._unmountCount = (properties?.onUnmount ? 1 : 0) + sumChildUnmountCounts(<AttachedElementVode<S>>newVode);
+            (<AttachedElementVode<S>>newVode)[UNMOUNT_COUNT] = (properties?.onUnmount ? 1 : 0) + sumChildUnmountCounts(<AttachedElementVode<S>>newVode);
             return <AttachedVode<S>>newVode;
         }
     } catch (error: any) {
@@ -768,17 +759,17 @@ function render<S extends PatchableState>(state: S, parent: DomElement, childInd
             ? oldProps?.catch
             : newProps?.catch;
         if (catchVode) {
-            const catchNode = (<AttachedVode<S>>newVode)?.node || oldVode?.node;
+            const catchNode = (<AttachedVode<S>>newVode)?.[NODE] || oldVode?.[NODE];
             if (!catchNode) throw error;
 
             const handledVode = typeof catchVode === "function"
                 ? (<(s: S, error: Error) => ChildVode<S>>catchVode)(state, error)
                 : catchVode;
 
-            if (Array.isArray(newVode) && (<AttachedElementVode<S>>newVode).node) {
+            if (Array.isArray(newVode) && (<AttachedElementVode<S>>newVode)[NODE]) {
                 const partialCount = (newProps?.onUnmount ? 1 : 0) + sumChildUnmountCounts(<AttachedElementVode<S>>newVode);
                 if (partialCount > 0) {
-                    (<AttachedElementVode<S>>newVode)._unmountCount = partialCount;
+                    (<AttachedElementVode<S>>newVode)[UNMOUNT_COUNT] = partialCount;
                     unmountTree(state, <AttachedElementVode<S>>newVode);
                 }
             }
@@ -791,7 +782,7 @@ function render<S extends PatchableState>(state: S, parent: DomElement, childInd
                 xmlns);
 
             // reused catchNode's DOM node. fire onMount if it has one
-            if ((<AttachedElementVode<S>>errorUi)?.node === catchNode) {
+            if ((<AttachedElementVode<S>>errorUi)?.[NODE] === catchNode) {
                 const errorUiProps = props(errorUi as AttachedVode<S>);
                 if (typeof errorUiProps?.onMount === "function") {
                     state.patch(errorUiProps.onMount(state, catchNode as HTMLElement & SVGSVGElement & MathMLElement));
@@ -809,7 +800,7 @@ function render<S extends PatchableState>(state: S, parent: DomElement, childInd
 
 function unmountTree<S extends PatchableState>(state: S, v: AttachedElementVode<S> | ChildVode<S> | undefined): void {
     if (!v || !Array.isArray(v)) return;
-    if (((v as AttachedElementVode<S>)?._unmountCount ?? 0) === 0) return;
+    if (((v as AttachedElementVode<S>)?.[UNMOUNT_COUNT] ?? 0) === 0) return;
 
     const kidsStart = childrenStart(v);
     if (kidsStart > 0) {
@@ -820,7 +811,7 @@ function unmountTree<S extends PatchableState>(state: S, v: AttachedElementVode<
 
     const p = props(v);
     if (typeof p?.onUnmount === "function") {
-        state.patch(p.onUnmount(state, (v as AttachedElementVode<S>).node));
+        state.patch(p.onUnmount(state, (v as AttachedElementVode<S>)[NODE]));
     }
 }
 
@@ -831,7 +822,7 @@ function sumChildUnmountCounts<S>(v: AttachedElementVode<S>): number {
     for (let i = kidsStart; i < v.length; i++) {
         const k = v[i] as AttachedVode<S>;
         if (Array.isArray(k)) {
-            n += ((k as AttachedElementVode<S>)._unmountCount ?? 0);
+            n += ((k as AttachedElementVode<S>)[UNMOUNT_COUNT] ?? 0);
         }
     }
     return n;
@@ -846,15 +837,15 @@ function isTextVode<S>(x: ChildVode<S>): x is TextVode {
 }
 
 function remember<S>(state: S, present: MemoNode<S>, past?: MemoNode<S>): ChildVode<S> | AttachedVode<S> {
-    while (typeof present === "function" && !present.__memo) {
+    while (typeof present === "function" && !present[MEMO]) {
         present = present(state) as MemoNode<S>;
     }
 
     if (typeof present !== "function")
         return present;
 
-    const presentMemo = present?.__memo;
-    const pastMemo = past?.__memo;
+    const presentMemo = present?.[MEMO];
+    const pastMemo = past?.[MEMO];
 
     if (
         Array.isArray(presentMemo) && Array.isArray(pastMemo)
@@ -877,7 +868,7 @@ function remember<S>(state: S, present: MemoNode<S>, past?: MemoNode<S>): ChildV
 
     // attach memo to the unwrapped present for future comparisons
     if (present && typeof present === "object") {
-        present.__memo = presentMemo;
+        present[MEMO] = presentMemo;
     }
 
     return present;

@@ -1,5 +1,5 @@
 import { expect } from "./helper";
-import { app, DIV, defuse } from "../index";
+import { app, DIV, defuse, VODE, NODE } from "../index";
 
 export default {
     "defuse(): on a container without _vode is a no-op": () => {
@@ -14,10 +14,10 @@ export default {
         const container = document.createElement("div");
         root.appendChild(container);
         app(container, {}, () => [DIV]);
-        await expect(typeof (container as any)._vode).toEqual("object");
+        await expect(typeof (container as any)[VODE]).toEqual("object");
         defuse(container as any);
 
-        await expect((container as any)._vode)
+        await expect((container as any)[VODE])
             .toEqual(undefined);
     },
 
@@ -41,7 +41,7 @@ export default {
         app(container, {}, () => [DIV]);
         defuse(container as any);
 
-        await expect((container as any)._vode)
+        await expect((container as any)[VODE])
             .toEqual(undefined);
     },
 
@@ -50,7 +50,7 @@ export default {
         const container = document.createElement("div");
         root.appendChild(container);
         app(container, {}, () => [DIV, { onclick: () => ({}) }] as any);
-        const node = (container as any)._vode.vode.node;
+        const node = (container as any)[VODE].vode[NODE];
         await expect(typeof node.onclick).toEqual("function");
         defuse(container as any);
 
@@ -79,10 +79,10 @@ export default {
         app(container, {}, () => [DIV, { onclick: () => ({}) },
             [DIV, { onclick: () => ({}) }]
         ] as any);
-        const v = (container as any)._vode.vode;
-        const child1 = (v as any).node;
+        const v = (container as any)[VODE].vode;
+        const child1 = (v as any)[NODE];
         const child1onclick = child1.onclick;
-        const child2 = (v as any)[2].node;
+        const child2 = (v as any)[2][NODE];
         await expect(typeof child1onclick).toEqual("function");
         await expect(typeof child2.onclick).toEqual("function");
         defuse(container as any);

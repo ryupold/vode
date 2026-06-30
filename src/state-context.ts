@@ -175,7 +175,7 @@ class ProxyStateContextImpl<S extends PatchableState, SubState> {
 }
 
 
-const KEYS_SYMBOL = Symbol("vode.keys");
+const KEYS_SYMBOL = Symbol("keys");
 
 function proxyState<S extends PatchableState>(
     state: S,
