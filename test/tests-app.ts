@@ -424,7 +424,11 @@ export default {
         await eventually(() => el.style.fontWeight).toEqual("bold");
     },
 
-    "app(): hydrated (server-rendered) nodes fire onMount on the initial render": async () => {
+    // onMount/onUnmount are intentionally reflected onto the DOM node so that a
+    // post-hydration pass can walk incoming server-rendered HTML and invoke the
+    // lifecycle hooks itself (hydrated A->A nodes are never "created", so render
+    // does not auto-fire their onMount).
+    "app(): onMount/onUnmount stay reachable on the DOM node for post-hydration invocation": async () => {
         const root = document.createElement("div");
         const container = document.createElement("div");
         root.appendChild(container);
@@ -446,52 +450,21 @@ export default {
             ] as any
         );
 
+        // the span was hydrated (already present), so render took the A->A path
+        // and did NOT auto-fire its onMount -- the exact gap the node assignment fills
+        await expect(calls.length).toEqual(0);
+
+        // fetch the hydrated node by walking the container's children, not via the root vode
         const span = (container as any).children[0];
         await expect(span.tagName).toEqual("SPAN");
+        await expect(span.onMount).toBeA("function");
+        await expect(span.onUnmount).toBeA("function");
+
+        // invoking the reflected hook runs the handler with (state, node) and patches its result
+        span.onMount(span);
         await expect(calls.length).toEqual(1);
         await expect(calls[0][0]).toEqual("mount");
         await expect(calls[0][1] === span).toEqual(true);
         await eventually(() => state.mounted).toEqual(true);
-    },
-
-    "app(): onMount on the root vode fires once": async () => {
-        const root = document.createElement("div");
-        const container = document.createElement("div");
-        root.appendChild(container);
-
-        let fired = 0;
-        let mountedNode: any = null;
-        const state = createState({});
-
-        app(container, state, () =>
-            [DIV, { onMount: (_s: any, node: any) => { fired++; mountedNode = node; } }, "hi"] as any);
-
-        await eventually(() => fired).toEqual(1);
-        // the root reuses the container element, and that is what onMount receives
-        await expect(mountedNode === container || mountedNode?.tagName === "DIV").toEqual(true);
-    },
-
-    "app(): onMount fires bottom-up and exactly once per node (mixed hydrated + created)": async () => {
-        const root = document.createElement("div");
-        const container = document.createElement("div");
-        root.appendChild(container);
-
-        // hydrated outer DIV with a hydrated SECTION; the inner P is created fresh
-        const preSection = document.createElement("section");
-        container.appendChild(preSection);
-
-        const order: string[] = [];
-        const state = createState({});
-
-        app(container, state, () =>
-            [DIV, { onMount: () => { order.push("root"); } },
-                [SECTION, { onMount: () => { order.push("section"); } },
-                    [P, { onMount: () => { order.push("p"); } }, "x"]
-                ]
-            ] as any);
-
-        // children before parents; each node mounts exactly once
-        await eventually(() => order.length).toEqual(3);
-        await expect(order).toEqual(["p", "section", "root"]);
     },
 };

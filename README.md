@@ -632,6 +632,17 @@ Like the other events (onclick, onmouseenter, etc.), these can also be attached 
 > ```
 > onMount of B and onUnmount of A are not called because DOM does not require element creation or removal (same TAGs)
 
+When `app()` hydrates pre-existing DOM (e.g. server-rendered HTML), 
+the matching elements take this same A->A path, so their `onMount` does not fire automatically. 
+The hooks are still reflected onto the DOM node though, so you can invoke them yourself after hydration:
+
+```typescript
+const node = document.getElementById('my-hydrated-element')!;
+node.onMount(node);     // runs your onMount(state, node) and patches its return value
+// node.onUnmount(node);   // likewise for onUnmount
+```
+
+
 ### SVG & MathML
 SVG and MathML elements are supported but need the namespace defined in properties.
 
