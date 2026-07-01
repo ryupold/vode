@@ -1,6 +1,6 @@
-import { app, Component, ContainerNode, createState, memo } from "../src/vode"
-import { ARTICLE, ASIDE, DIV, INPUT, MAIN, NAV, P, SECTION, SPAN } from "../src/tags";
-import { eventually, expect, ExpectationError } from "./helper";
+import { app, ContainerNode, createState } from "../src/vode"
+import { ARTICLE, ASIDE, DIV, MAIN, NAV, P, SECTION, SPAN } from "../src/tags";
+import { eventually, expect } from "./helper";
 
 function setup() {
     const root = document.createElement("div");
@@ -17,7 +17,7 @@ export default {
             [DIV,
                 [ARTICLE,
                     {
-                        onRender: (s: unknown, vode: any) => {
+                        onRender: (s, vode) => {
                             renderCalled = true;
                         }
                     },

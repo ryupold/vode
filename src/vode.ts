@@ -13,11 +13,14 @@ type AttachedVode<S = PatchableState> = AttachedElementVode<S> | Text & { [NODE]
 type AttachedElementVode<S> = Vode<S> & { [NODE]: ElementNode<S>, [UNMOUNT_COUNT]?: number };
 type ElementNode<S> = HTMLElement & SVGSVGElement & MathMLElement & Record<string, PropertyValue<S>>;
 type MemoNode<S> = ChildVode<S> & { [MEMO]?: unknown[] }
+export type RenderedVode = Vode & { [NODE]: DomElement };
 
 /** can be used to access the internal vode meta data of a ContainerNode */
 export const VODE = Symbol("vode");
 /** can be used to access the ElementNode of an AttachedVode */
 export const NODE = Symbol("node");
+/** can be used to access the stats on the state object */
+export const STATS = Symbol("stats");
 const UNMOUNT_COUNT = Symbol("ucount");
 const MEMO = Symbol("memo");
 
@@ -55,7 +58,7 @@ export interface Props<S = PatchableState> extends Partial<
     /** used instead of original vode when an error occurs during rendering */
     catch?: ((s: S, error: Error) => ChildVode<S>) | ChildVode<S>;
     /** called on every render */
-    onRender?: ((s: S, vode: AttachedElementVode<S>) => void) | null | false;
+    onRender?: ((s: S, vode: RenderedVode) => void) | null | false;
 };
 
 export type MountFunction<S> =
@@ -88,7 +91,19 @@ export type PropertyValue<S> =
 
 export type Dispatch<S> = (action: Patch<S>, animated?: boolean) => void | Promise<void>;
 export interface Patchable<S = object> { patch: Dispatch<S>; }
-export type PatchableState<S = object> = S & Patchable<S>;
+export type PatchableState<S = object> = S & Patchable<S> & { [STATS]: Stats };
+
+/** stats about the overall patches & render times */
+export type Stats = {
+    patchCount: number,
+    liveEffectCount: number,
+    syncRenderPatchCount: number,
+    asyncRenderPatchCount: number,
+    syncRenderCount: number,
+    asyncRenderCount: number,
+    lastSyncRenderTime: number,
+    lastAsyncRenderTime: number,
+};
 export type AsPatchable<S> = S extends { patch: any } ? S : PatchableState<S>;
 type PreparedState<S> = { patch: { initialPatches: Patch<S>[] } };
 
@@ -107,17 +122,7 @@ export type ContainerNode<S = PatchableState> = DomElement & {
         qAsync: {} | undefined | null,  // next render-patches to be animated after another
         isRendering: number,
         isAnimating: boolean,
-        /** stats about the overall patches & last render time */
-        stats: {
-            patchCount: number,
-            liveEffectCount: number,
-            syncRenderPatchCount: number,
-            asyncRenderPatchCount: number,
-            syncRenderCount: number,
-            asyncRenderCount: number,
-            lastSyncRenderTime: number,
-            lastAsyncRenderTime: number,
-        },
+        stats: Stats,
     }
 };
 const ELEMENT_NODE = 1, TEXT_NODE = 3;
@@ -165,6 +170,7 @@ export function app<S extends PatchableState = PatchableState>(
     if (!state || typeof state !== "object") throw new Error("second argument to app() must be a state object");
     if (typeof dom !== "function") throw new Error("third argument to app() must be a function that returns a vode");
 
+    const patchableState = state as PatchableState<S>;
     const _vode = {} as ContainerNode<S>[typeof VODE];
     _vode.document = container.ownerDocument;
     const win = _vode.document.defaultView;
@@ -180,9 +186,9 @@ export function app<S extends PatchableState = PatchableState>(
         : null;
     _vode.isRendering = 0;
     _vode.qAsync = null;
-    _vode.stats = { lastSyncRenderTime: 0, lastAsyncRenderTime: 0, syncRenderCount: 0, asyncRenderCount: 0, liveEffectCount: 0, patchCount: 0, syncRenderPatchCount: 0, asyncRenderPatchCount: 0 };
 
-    const patchableState = state as PatchableState<S> & { patch: (action: Patch<S>, animate?: boolean) => void | Promise<void> };
+    _vode.stats = patchableState[STATS] ?? { lastSyncRenderTime: 0, lastAsyncRenderTime: 0, syncRenderCount: 0, asyncRenderCount: 0, liveEffectCount: 0, patchCount: 0, syncRenderPatchCount: 0, asyncRenderPatchCount: 0 };
+    patchableState[STATS] = _vode.stats;
 
     if ("patch" in state && typeof state.patch === "function" && Array.isArray((state as PreparedState<S>).patch.initialPatches)) {
         initialPatches = [...(state as unknown as PreparedState<S>).patch.initialPatches, ...initialPatches];
@@ -400,6 +406,7 @@ export function defuse(container: ContainerNode) {
 
         const v = container[VODE];
         delete (container as Partial<ContainerNode>)[VODE];
+        delete (v.state as Partial<PatchableState>)[STATS];
         Object.defineProperty(v.state, "patch", { value: undefined });
         Object.defineProperty(v, "renderSync", { value: () => { } });
         Object.defineProperty(v, "renderAsync", { value: () => { } });
@@ -486,6 +493,10 @@ export function createState<S = PatchableState>(state: S): PatchableState<S> {
                 futureState.patch.initialPatches.push(animated ? [action] : action);
             }
         });
+    }
+
+    if (!(STATS in state)) {
+        (state as PatchableState<S>)[STATS] = { lastSyncRenderTime: 0, lastAsyncRenderTime: 0, syncRenderCount: 0, asyncRenderCount: 0, liveEffectCount: 0, patchCount: 0, syncRenderPatchCount: 0, asyncRenderPatchCount: 0 };
     }
 
     return state as PatchableState<S>;
@@ -709,7 +720,7 @@ function render<S extends PatchableState>(state: S, parent: DomElement, childInd
                 state.patch(properties.onMount(state, newNode as HTMLElement & SVGSVGElement & MathMLElement));
             }
             if (typeof properties?.onRender === "function") {
-                properties.onRender(state, <AttachedElementVode<S>>newVode);
+                properties.onRender(state, newVode as RenderedVode);
             }
             return <AttachedVode<S>>newVode;
         }
@@ -755,7 +766,7 @@ function render<S extends PatchableState>(state: S, parent: DomElement, childInd
 
             (<AttachedElementVode<S>>newVode)[UNMOUNT_COUNT] = (properties?.onUnmount ? 1 : 0) + sumChildUnmountCounts(<AttachedElementVode<S>>newVode);
             if (typeof properties?.onRender === "function") {
-                properties.onRender(state, <AttachedElementVode<S>>newVode);
+                properties.onRender(state, newVode as RenderedVode);
             }
             return <AttachedVode<S>>newVode;
         }
