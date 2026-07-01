@@ -54,6 +54,8 @@ export interface Props<S = PatchableState> extends Partial<
     onUnmount?: MountFunction<S> | null | false,
     /** used instead of original vode when an error occurs during rendering */
     catch?: ((s: S, error: Error) => ChildVode<S>) | ChildVode<S>;
+    /** called on every render */
+    onRender?: ((s: S, vode: AttachedElementVode<S>) => void) | null | false;
 };
 
 export type MountFunction<S> =
@@ -706,6 +708,9 @@ function render<S extends PatchableState>(state: S, parent: DomElement, childInd
             if (typeof properties?.onMount === "function") {
                 state.patch(properties.onMount(state, newNode as HTMLElement & SVGSVGElement & MathMLElement));
             }
+            if (typeof properties?.onRender === "function") {
+                properties.onRender(state, <AttachedElementVode<S>>newVode);
+            }
             return <AttachedVode<S>>newVode;
         }
 
@@ -749,6 +754,9 @@ function render<S extends PatchableState>(state: S, parent: DomElement, childInd
             }
 
             (<AttachedElementVode<S>>newVode)[UNMOUNT_COUNT] = (properties?.onUnmount ? 1 : 0) + sumChildUnmountCounts(<AttachedElementVode<S>>newVode);
+            if (typeof properties?.onRender === "function") {
+                properties.onRender(state, <AttachedElementVode<S>>newVode);
+            }
             return <AttachedVode<S>>newVode;
         }
     } catch (error: any) {

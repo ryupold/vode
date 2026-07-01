@@ -13,6 +13,7 @@ import mergeStyleTests from "./tests-mergeStyle";
 import mergePropsTests from "./tests-mergeProps";
 import stateContextTests from "./tests-state-context";
 import mountUnmountTests from "./tests-mount-unmount";
+import onRenderTests from "./tests-onRender";
 import exampleTests from "./tests-examples";
 import catchTests from "./tests-catch";
 import patchAdvancedTests from "./tests-patch-advanced";
@@ -25,6 +26,7 @@ export const tests = {
     ...hydrateTests,
     ...memoTests,
     ...mountUnmountTests,
+    ...onRenderTests,
 
     ...createStateTests,
     ...createPatchTests,
