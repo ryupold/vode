@@ -1,17 +1,17 @@
 {
-  "extends": "./tsconfig.json",
-  "compilerOptions": {
-    "outDir": "test/",
-    "declaration": false,
-    "declarationMap": false,
-    "sourceMap": false,
-    "declarationDir": null,
-    "composite": false,
-    "noEmit": true
-  },
-  "include": [
-    "index.ts",
-    "src/**/*",
-    "test/**/*"
-  ]
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "outDir": "test/",
+        "declaration": false,
+        "declarationMap": false,
+        "sourceMap": false,
+        "declarationDir": null,
+        "composite": false,
+        "noEmit": true
+    },
+    "include": [
+        "index.ts",
+        "src/**/*",
+        "test/**/*"
+    ]
 }

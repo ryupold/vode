@@ -24,5 +24,5 @@ export default {
         await expect(createPatch(42)).toEqual(42);
         await expect(createPatch("ignored")).toEqual("ignored");
         await expect(createPatch(false)).toEqual(false);
-    }
+    },
 };

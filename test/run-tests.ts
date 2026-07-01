@@ -6,7 +6,7 @@ const count = {
     total: 0,
     passed: 0,
     failed: <string[]>[],
-}
+};
 const line = "----------------------------------";
 
 async function runTest(test: [string, () => any]) {
@@ -27,9 +27,10 @@ async function runTest(test: [string, () => any]) {
         console.error(`#${count.total} ${test[0]}\n-> 🔴 failed ${time}`);
         if (err instanceof ExpectationError) {
             count.failed.push(`#${count.total} ${test[0]}\n-> 🔴 failed:\n${err.message}\n${line}`);
-        }
-        else {
-            count.failed.push(`#${count.total} ${test[0]}\n-> 🔴 failed:\n${err.message}\n${err.stack}\n${line}`);
+        } else {
+            count.failed.push(
+                `#${count.total} ${test[0]}\n-> 🔴 failed:\n${err.message}\n${err.stack}\n${line}`,
+            );
         }
     }
 }
@@ -52,9 +53,10 @@ const sw = performance.now();
 
     if (count.passed === count.total) {
         console.log("\n\nall tests passed\n");
-    }
-    else {
-        console.error(`${line.replaceAll("-", "=")}\nError summary:\n\n${count.failed.join(`\n${line}\n`)}`);
+    } else {
+        console.error(
+            `${line.replaceAll("-", "=")}\nError summary:\n\n${count.failed.join(`\n${line}\n`)}`,
+        );
 
         throw "\n\nsome tests failed (see output)\n";
     }

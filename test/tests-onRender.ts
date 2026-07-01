@@ -47,10 +47,10 @@ export default {
         );
 
         await eventually(() => expect(renderCalls).toEqual([0]));
-        
+
         patch({ count: 1 });
         await eventually(() => expect(renderCalls).toEqual([0, 1]));
-        
+
         patch({ count: 2 });
         await eventually(() => expect(renderCalls).toEqual([0, 1, 2]));
     },
@@ -82,10 +82,10 @@ export default {
         );
 
         await eventually(() => expect(renderCalls).toEqual(["aside"]));
-        
+
         patch({ showArticle: true });
         await eventually(() => expect(renderCalls).toEqual(["aside", "article"]));
-        
+
         patch({ showArticle: false });
         await eventually(() => expect(renderCalls).toEqual(["aside", "article", "aside"]));
     },

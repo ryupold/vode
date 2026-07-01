@@ -58,12 +58,10 @@ export default {
     },
 
     "child(): returns undefined for out-of-bounds": async () => {
-        await expect(child([DIV, { class: "x" }, [SPAN]], 5))
-            .toEqual(undefined);
+        await expect(child([DIV, { class: "x" }, [SPAN]], 5)).toEqual(undefined);
     },
 
     "child(): returns undefined for text vode": async () => {
-        await expect(child("hello" as any, 0))
-            .toEqual(undefined);
-    }
+        await expect(child("hello" as any, 0)).toEqual(undefined);
+    },
 };

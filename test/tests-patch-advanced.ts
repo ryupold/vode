@@ -193,7 +193,7 @@ export default {
         app(container, state, (s) => [DIV, String(s.x)]);
 
         setHidden(true);
-        
+
         try {
             state.patch({ x: 1 }, true);
 

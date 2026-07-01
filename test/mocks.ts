@@ -1,16 +1,16 @@
 const NodeConstants = {
     ELEMENT_NODE: 1,
-    ATTRIBUTE_NODE: 2,
+    // ATTRIBUTE_NODE: 2,
     TEXT_NODE: 3,
-    CDATA_SECTION_NODE: 4,
-    ENTITY_REFERENCE_NODE: 5,
-    ENTITY_NODE: 6,
-    PROCESSING_INSTRUCTION_NODE: 7,
+    // CDATA_SECTION_NODE: 4,
+    // ENTITY_REFERENCE_NODE: 5,
+    // ENTITY_NODE: 6,
+    // PROCESSING_INSTRUCTION_NODE: 7,
     COMMENT_NODE: 8,
-    DOCUMENT_NODE: 9,
-    DOCUMENT_TYPE_NODE: 10,
-    DOCUMENT_FRAGMENT_NODE: 11,
-    NOTATION_NODE: 12,
+    // DOCUMENT_NODE: 9,
+    // DOCUMENT_TYPE_NODE: 10,
+    // DOCUMENT_FRAGMENT_NODE: 11,
+    // NOTATION_NODE: 12,
 };
 
 class FakeNodeList implements NodeListOf<ChildNode> {
@@ -28,31 +28,51 @@ class FakeNodeList implements NodeListOf<ChildNode> {
                     return self.data[parseInt(key)];
                 }
                 return target[prop as any];
-            }
+            },
         });
     }
-
 
     item(index: number): ChildNode {
         return this.data[index] ?? null;
     }
-    forEach(callbackfn: (value: ChildNode, key: number, parent: NodeListOf<ChildNode>) => void, thisArg?: any): void {
+
+    forEach(
+        callbackfn: (value: ChildNode, key: number, parent: NodeListOf<ChildNode>) => void,
+        thisArg?: any,
+    ): void {
         for (let i = 0; i < this.length; i++) {
             callbackfn.bind(thisArg)(this.data[i], i, this);
         }
     }
+
     entries(): ArrayIterator<[number, ChildNode]> {
-        return new Array(this.length).fill(0).map((_, i) => [i, this[i]] as [number, ChildNode])[Symbol.iterator]();
+        return new Array(this.length)
+            .fill(0)
+            .map((_, i) => [i, this[i]] as [number, ChildNode])
+        [Symbol.iterator]();
     }
+
     keys(): ArrayIterator<number> {
-        return new Array(this.data.length).fill(0).map((_, i) => i)[Symbol.iterator]();
+        return new Array(this.data.length)
+            .fill(0)
+            .map((_, i) => i)
+        [Symbol.iterator]();
     }
+
     values(): ArrayIterator<ChildNode> {
-        return new Array(this.data.length).fill(0).map((_, i) => this[i])[Symbol.iterator]();
+        return new Array(this.data.length)
+            .fill(0)
+            .map((_, i) => this[i])
+        [Symbol.iterator]();
     }
+
     [Symbol.iterator](): ArrayIterator<ChildNode> {
-        return new Array(this.data.length).fill(0).map((_, i) => this[i])[Symbol.iterator]();
+        return new Array(this.data.length)
+            .fill(0)
+            .map((_, i) => this[i])
+        [Symbol.iterator]();
     }
+
     get length() {
         return this.data.length;
     }
@@ -76,17 +96,31 @@ export class FakeElement {
         this.tagName = tag?.toUpperCase() || "???";
     }
 
-    get firstChild() { return this.childNodes[0] ?? null; }
-    get lastChild() { return this.childNodes[this.childNodes.length - 1] ?? null; }
-    get nextSibling() { return null; }
+    get firstChild() {
+        return this.childNodes[0] ?? null;
+    }
+    get lastChild() {
+        return this.childNodes[this.childNodes.length - 1] ?? null;
+    }
+    get nextSibling() {
+        return null;
+    }
     get attributes() {
         return Object.entries(this.fakeAttributes).map(([name, value]) => ({ name, value })) as any;
     }
 
-    hasAttributes() { return Object.keys(this.fakeAttributes).length > 0; }
-    hasChildNodes() { return this.childNodes.length > 0; }
-    setAttribute(name: string, value: string) { this.fakeAttributes[name] = value; }
-    removeAttribute(name: string) { delete this.fakeAttributes[name]; }
+    hasAttributes() {
+        return Object.keys(this.fakeAttributes).length > 0;
+    }
+    hasChildNodes() {
+        return this.childNodes.length > 0;
+    }
+    setAttribute(name: string, value: string) {
+        this.fakeAttributes[name] = value;
+    }
+    removeAttribute(name: string) {
+        delete this.fakeAttributes[name];
+    }
 
     appendChild(child: FakeElement | FakeTextNode): FakeElement | FakeTextNode {
         (this.childNodes as FakeNodeList).data.push(child as any);
@@ -96,8 +130,7 @@ export class FakeElement {
     remove() {
         if (this.parentElement) {
             const i = (this.parentElement.childNodes as FakeNodeList).data.indexOf(this as any);
-            if (i >= 0)
-                (this.parentElement.childNodes as FakeNodeList).data.splice(i, 1);
+            if (i >= 0) (this.parentElement.childNodes as FakeNodeList).data.splice(i, 1);
         }
     }
     replaceWith(...nodes: (FakeElement | FakeTextNode)[]) {
@@ -105,7 +138,7 @@ export class FakeElement {
         if (parent) {
             const i = (<FakeNodeList>parent.childNodes).data.indexOf(this as any);
             if (i >= 0) {
-                (<FakeNodeList>parent.childNodes).data.splice(i, 1, ...nodes as any);
+                (<FakeNodeList>parent.childNodes).data.splice(i, 1, ...(nodes as any));
             }
             for (const n of nodes) {
                 n.parentElement = parent;
@@ -124,8 +157,8 @@ export class FakeElement {
                         if (ni >= 0) (<FakeNodeList>n.parentElement.childNodes).data.splice(ni, 1);
                     }
                 }
-                const filtered = nodes.filter(n => n !== this);
-                (<FakeNodeList>parent.childNodes).data.splice(i, 0, ...filtered as any);
+                const filtered = nodes.filter((n) => n !== this);
+                (<FakeNodeList>parent.childNodes).data.splice(i, 0, ...(filtered as any));
                 for (const n of filtered) {
                     n.parentElement = parent;
                 }
@@ -142,19 +175,22 @@ export class FakeTextNode {
     ownerDocument: any = null;
     parentElement: HTMLElement | null = null;
     constructor(public nodeValue: string) { }
-    get wholeText() { return this.nodeValue; }
+    get wholeText() {
+        return this.nodeValue;
+    }
     remove() {
         if (this.parentElement) {
             const i = (<FakeNodeList>this.parentElement.childNodes).data.indexOf(this as any);
-            if (i >= 0)
-                (<FakeNodeList>this.parentElement.childNodes).data.splice(i, 1);
+            if (i >= 0) (<FakeNodeList>this.parentElement.childNodes).data.splice(i, 1);
         }
     }
     replaceWith(...nodes: (FakeElement | FakeTextNode)[]) {
         const parent = this.parentElement;
         if (parent) {
             const i = (<FakeNodeList>parent.childNodes).data.indexOf(this as any);
-            if (i >= 0) { (<FakeNodeList>parent.childNodes).data.splice(i, 1, ...nodes as any); }
+            if (i >= 0) {
+                (<FakeNodeList>parent.childNodes).data.splice(i, 1, ...(nodes as any));
+            }
             for (const n of nodes) {
                 n.parentElement = parent;
             }
@@ -172,8 +208,8 @@ export class FakeTextNode {
                         if (ni >= 0) (<FakeNodeList>n.parentElement.childNodes).data.splice(ni, 1);
                     }
                 }
-                const filtered = nodes.filter(n => n !== this);
-                (<FakeNodeList>parent.childNodes).data.splice(i, 0, ...filtered as any);
+                const filtered = nodes.filter((n) => n !== this);
+                (<FakeNodeList>parent.childNodes).data.splice(i, 0, ...(filtered as any));
                 for (const n of filtered) {
                     n.parentElement = parent;
                 }
@@ -212,8 +248,7 @@ export function resetMocks() {
                     if ((globalThis.window as any).continueAfterRequestAnimationFrameError) {
                         (globalThis.window as any).requestAnimationFrameErrors ??= [];
                         (globalThis.window as any).requestAnimationFrameErrors.push(err);
-                    }
-                    else {
+                    } else {
                         throw err;
                     }
                 }
@@ -224,9 +259,21 @@ export function resetMocks() {
     }
 
     const fakeDocument: any = {
-        createElement: (tag: string) => { const el = new FakeElement(tag); el.ownerDocument = fakeDocument; return el; },
-        createTextNode: (text: string) => { const t = new FakeTextNode(text); t.ownerDocument = fakeDocument; return t; },
-        createElementNS: (ns: string, tag: string) => { const el = new FakeElement(tag); el.ownerDocument = fakeDocument; return el; },
+        createElement: (tag: string) => {
+            const el = new FakeElement(tag);
+            el.ownerDocument = fakeDocument;
+            return el;
+        },
+        createTextNode: (text: string) => {
+            const t = new FakeTextNode(text);
+            t.ownerDocument = fakeDocument;
+            return t;
+        },
+        createElementNS: (ns: string, tag: string) => {
+            const el = new FakeElement(tag);
+            el.ownerDocument = fakeDocument;
+            return el;
+        },
         startViewTransition: (callbackOptions: any) => {
             return {
                 finished: Promise.resolve(),
@@ -264,12 +311,9 @@ export function resetMocks() {
     };
     fakeDocument.defaultView = fakeWindow;
 
-    if ((<typeof fakeDocument>globalThis.document)?._fake)
-        globalThis.document = undefined as any;
-    if ((<typeof fakeWindow>globalThis.window)?._fake)
-        globalThis.window = undefined as any;
-
+    if ((<typeof fakeDocument>globalThis.document)?._fake) globalThis.document = undefined as any;
+    if ((<typeof fakeWindow>globalThis.window)?._fake) globalThis.window = undefined as any;
 
     globalThis.document ??= fakeDocument as Document;
-    globalThis.window ??= fakeWindow as (Window & typeof globalThis);
+    globalThis.window ??= fakeWindow as Window & typeof globalThis;
 }

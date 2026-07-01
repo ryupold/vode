@@ -4,14 +4,13 @@ import { createState, app, DIV } from "../index";
 export default {
     "createState(): throws when state is not an object": async () => {
         const err = expect(() => createState(null as any)).toFail();
-        await expect(err.message)
-            .toEqual("createState() must be called with a state object");
+        await expect(err.message).toEqual("createState() must be called with a state object");
     },
 
     "createState(): adds patch function to state": async () => {
         const state = createState({ x: 1 });
         await expect(typeof (state as any).patch).toEqual("function");
-        await expect((state)).toEqual({ x: 1, patch: (state as any).patch });
+        await expect(state).toEqual({ x: 1, patch: (state as any).patch });
     },
 
     "createState(): patch is non-enumerable": async () => {
@@ -28,16 +27,14 @@ export default {
         root.appendChild(container);
         app(container, state, () => [DIV]);
 
-        await expect(state.count)
-            .toEqual(2);
+        await expect(state.count).toEqual(2);
     },
 
     "createState(): already-patchable state is kept as-is": async () => {
-        const existingPatch = (action: any) => { };
+        const existingPatch = () => { };
         const state: any = { value: 5, patch: existingPatch };
         const result = createState(state);
 
-        await expect(result.patch === existingPatch)
-            .toEqual(true);
+        await expect(result.patch === existingPatch).toEqual(true);
     },
 };

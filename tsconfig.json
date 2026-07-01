@@ -1,32 +1,32 @@
 {
-  "compilerOptions": {
-    "target": "es2024",
-    "module": "preserve",
-    "moduleResolution": "bundler",
-    "rootDir": ".",
-    "outDir": "./dist",
-    "declaration": true,
-    "declarationDir": "./dist",
-    "declarationMap": true,
-    "sourceMap": true,
-    "strict": true,
-    "noUncheckedSideEffectImports": true,
-    "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true,
-    "forceConsistentCasingInFileNames": true,
-    "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true,
-    "isolatedModules": true,
-    "skipLibCheck": true,
-    "composite": true,
-    "tsBuildInfoFile": "./dist/.tsbuildinfo"
-  },
-  "include": [
-    "index.ts",
-    "src/**/*"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist"
-  ]
+    "compilerOptions": {
+        "target": "es2024",
+        "module": "preserve",
+        "moduleResolution": "bundler",
+        "rootDir": ".",
+        "outDir": "./dist",
+        "declaration": true,
+        "declarationDir": "./dist",
+        "declarationMap": true,
+        "sourceMap": true,
+        "strict": true,
+        "noUncheckedSideEffectImports": true,
+        "noImplicitReturns": true,
+        "noFallthroughCasesInSwitch": true,
+        "forceConsistentCasingInFileNames": true,
+        "esModuleInterop": true,
+        "allowSyntheticDefaultImports": true,
+        "isolatedModules": true,
+        "skipLibCheck": true,
+        "composite": true,
+        "tsBuildInfoFile": "./dist/.tsbuildinfo"
+    },
+    "include": [
+        "index.ts",
+        "src/**/*"
+    ],
+    "exclude": [
+        "node_modules",
+        "dist"
+    ]
 }

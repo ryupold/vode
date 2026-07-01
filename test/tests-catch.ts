@@ -11,99 +11,75 @@ function setup() {
 export default {
     "catch: function fallback renders instead of broken component": async () => {
         const container = setup();
-        const broken = () => { throw new Error("boom"); };
+        const broken = () => {
+            throw new Error("boom");
+        };
 
-        app(container, {}, () =>
-            [DIV,
-                [SECTION,
-                    { catch: (s: unknown, err: Error) => [P, `caught: ${err.message}`] },
-                    broken
-                ]
-            ]
-        );
+        app(container, {}, () => [
+            DIV,
+            [SECTION, { catch: (s: unknown, err: Error) => [P, `caught: ${err.message}`] }, broken],
+        ]);
 
-        await expect(container).toMatch(
-            [DIV,
-                [P, "caught: boom"]
-            ]
-        );
+        await expect(container).toMatch([DIV, [P, "caught: boom"]]);
     },
 
     "catch: static vode fallback renders instead of broken component": async () => {
         const container = setup();
-        const broken = () => { throw new Error("boom"); };
+        const broken = () => {
+            throw new Error("boom");
+        };
 
-        app(container, {}, () =>
-            [DIV,
-                [SECTION,
-                    { catch: [ARTICLE, "error occurred"] },
-                    broken
-                ]
-            ]
-        );
+        app(container, {}, () => [DIV, [SECTION, { catch: [ARTICLE, "error occurred"] }, broken]]);
 
-        await expect(container).toMatch(
-            [DIV,
-                [ARTICLE, "error occurred"]
-            ]
-        );
+        await expect(container).toMatch([DIV, [ARTICLE, "error occurred"]]);
     },
 
     "catch: nested error boundaries — inner catch handles inner error": async () => {
         const container = setup();
-        const broken = () => { throw new Error("inner boom"); };
+        const broken = () => {
+            throw new Error("inner boom");
+        };
 
-        app(container, {}, () =>
-            [DIV,
-                [SECTION,
-                    [P,
-                        {
-                            catch: [ARTICLE, "inner fallback"]
-                        },
-                        broken
-                    ]
-                ]
-            ]
-        );
+        app(container, {}, () => [
+            DIV,
+            [
+                SECTION,
+                [
+                    P,
+                    {
+                        catch: [ARTICLE, "inner fallback"],
+                    },
+                    broken,
+                ],
+            ],
+        ]);
 
-        await expect(container).toMatch(
-            [DIV,
-                [SECTION,
-                    [ARTICLE, "inner fallback"]
-                ]
-            ]
-        );
+        await expect(container).toMatch([DIV, [SECTION, [ARTICLE, "inner fallback"]]]);
     },
 
     "catch: nested error boundaries — outer catches when inner has no handler": async () => {
         const container = setup();
-        const broken = () => { throw new Error("boom"); };
+        const broken = () => {
+            throw new Error("boom");
+        };
 
-        app(container, {}, () =>
-            [DIV,
-                [SECTION,
-                    { catch: [P, "outer caught it"] },
-                    [ARTICLE, broken]
-                ]
-            ]
-        );
+        app(container, {}, () => [
+            DIV,
+            [SECTION, { catch: [P, "outer caught it"] }, [ARTICLE, broken]],
+        ]);
 
-        await expect(container).toMatch(
-            [DIV,
-                [P, "outer caught it"]
-            ]
-        );
+        await expect(container).toMatch([DIV, [P, "outer caught it"]]);
     },
 
     "catch: error propagates when no handler exists on entire tree": async () => {
         const container = setup();
-        const broken = () => { throw new Error("crash"); };
+        const broken = () => {
+            throw new Error("crash");
+        };
         let threw = false;
 
         try {
-            app(container, {}, () =>
-                [DIV, [P, broken]]
-            );
+            app(container, {}, () => [DIV, [P, broken]]);
         } catch {
             threw = true;
         }
@@ -114,77 +90,67 @@ export default {
     "catch: catch handler changed on A→A path": async () => {
         const container = setup();
         const state = createState({ catchValue: "v1", showBroken: false });
-        const broken = () => { throw new Error("boom"); };
+        const broken = () => {
+            throw new Error("boom");
+        };
 
-        const patch = app(container, state, (s) =>
-            [DIV,
-                [SECTION,
-                    { catch: [P, s.catchValue] },
-                    s.showBroken ? broken : "ok"
-                ]
-            ]
-        );
+        const patch = app(container, state, (s) => [
+            DIV,
+            [SECTION, { catch: [P, s.catchValue] }, s.showBroken ? broken : "ok"],
+        ]);
 
-        await expect(container).toMatch(
-            [DIV, [SECTION, "ok"]]
-        );
+        await expect(container).toMatch([DIV, [SECTION, "ok"]]);
 
         patch({ catchValue: "v2", showBroken: true });
 
-        await expect(container).toMatch(
-            [DIV, [P, "v2"]]
-        );
+        await expect(container).toMatch([DIV, [P, "v2"]]);
     },
 
     "catch: error in one sibling doesn't affect the other": async () => {
         const container = setup();
-        const broken = () => { throw new Error("boom"); };
+        const broken = () => {
+            throw new Error("boom");
+        };
 
-        app(container, {}, () =>
-            [DIV,
-                [SECTION,
-                    { catch: [P, "whoops"] },
-                    broken
-                ],
-                [ARTICLE, "i am fine"]
-            ]
-        );
+        app(container, {}, () => [
+            DIV,
+            [SECTION, { catch: [P, "whoops"] }, broken],
+            [ARTICLE, "i am fine"],
+        ]);
 
-        await expect(container).toMatch(
-            [DIV,
-                [P, "whoops"],
-                [ARTICLE, "i am fine"]
-            ]
-        );
+        await expect(container).toMatch([DIV, [P, "whoops"], [ARTICLE, "i am fine"]]);
     },
 
-    "catch: bubbles up to the root component if deeply nested vodes don't catch it earlier": async () => {
-        const root = document.createElement("div");
-        const container = document.createElement("div");
-        root.appendChild(container);
+    "catch: bubbles up to the root component if deeply nested vodes don't catch it earlier":
+        async () => {
+            const root = document.createElement("div");
+            const container = document.createElement("div");
+            root.appendChild(container);
 
-        app(container, {}, () =>
-            [DIV,
+            app(container, {}, () => [
+                DIV,
                 {
-                    catch: (s: unknown, err: Error) => [DIV, `caught: ${err.message}`]
+                    catch: (s: unknown, err: Error) => [DIV, `caught: ${err.message}`],
                 },
 
-                [MAIN,
-                    [SECTION,
-                        [ARTICLE, {
-                            onMount: () => {
-                                throw new Error("boom");
-                            }
-                        }],
+                [
+                    MAIN,
+                    [
+                        SECTION,
+                        [
+                            ARTICLE,
+                            {
+                                onMount: () => {
+                                    throw new Error("boom");
+                                },
+                            },
+                        ],
                     ],
-                ]
-            ]
-        );
+                ],
+            ]);
 
-        await expect(container).toMatch(
-            [DIV, "caught: boom"],
-        );
-    },
+            await expect(container).toMatch([DIV, "caught: boom"]);
+        },
 
     "catch: if catching in root vode with different Tag -> container will be replaced": async () => {
         const root = document.createElement("div");
@@ -193,33 +159,35 @@ export default {
 
         await expect(root.firstChild === container).toEqual(true);
 
-        app(container, {}, () =>
-            [DIV,
-                {
-                    catch: (s: unknown, err: Error) => [P, `caught: ${err.message}`]
-                },
+        app(container, {}, () => [
+            DIV,
+            {
+                catch: (s: unknown, err: Error) => [P, `caught: ${err.message}`],
+            },
 
-                [MAIN,
-                    [SECTION,
-                        [ARTICLE, {
+            [
+                MAIN,
+                [
+                    SECTION,
+                    [
+                        ARTICLE,
+                        {
                             onMount: () => {
                                 throw new Error("boom");
-                            }
-                        }],
+                            },
+                        },
                     ],
-                ]
-            ]
-        );
+                ],
+            ],
+        ]);
 
         await expect(root.firstChild === container).toEqual(false);
 
-        await expect(root.firstChild).toMatch(
-            [P, "caught: boom"],
-        );
+        await expect(root.firstChild).toMatch([P, "caught: boom"]);
     },
 
     "catch: directly evaluated DOM expressions cannot be caught": async () => {
-        if (!(globalThis.window as any)?._fake) return; // this test relies on the fake DOM's requestAnimationFrame error handling, so skip if not running in fake DOM 
+        if (!(globalThis.window as any)?._fake) return; // this test relies on the fake DOM's requestAnimationFrame error handling, so skip if not running in fake DOM
 
         (globalThis.window as any).continueAfterRequestAnimationFrameError = true;
         const root = document.createElement("div");
@@ -232,122 +200,158 @@ export default {
         }
 
         const patch = app(container, { error: false }, (s: any) => {
-            return [DIV,
-                [DIV,
+            return [
+                DIV,
+                [
+                    DIV,
                     {
-                        catch: (s: unknown, err: Error) => [P, `caught: ${err.message}`]
+                        catch: (s: unknown, err: Error) => [P, `caught: ${err.message}`],
                     },
-                    s.error ? ComponentWithError() : "no error"
-                ]
+                    s.error ? ComponentWithError() : "no error",
+                ],
             ];
         });
 
         patch({ error: true });
 
-        await eventually(() => (globalThis.window as any)?.requestAnimationFrameErrors?.[0])
-            .toEqual(error);
-    },
-
-    "catch: onUnmount called on already-rendered child before error UI shown (A→A path)": async () => {
-        const container = setup();
-        const state = createState({ showBroken: false });
-        let unmountCalled = false;
-        const broken = () => { throw new Error("boom"); };
-
-        const patch = app(container, state, (s) =>
-            [DIV,
-                [SECTION,
-                    { catch: [P, "error"] },
-                    [ARTICLE,
-                        { onUnmount: () => { unmountCalled = true; } }
-                    ],
-                    s.showBroken ? broken : "ok"
-                ]
-            ]
+        await eventually(() => (globalThis.window as any)?.requestAnimationFrameErrors?.[0]).toEqual(
+            error,
         );
-
-        await expect(container).toMatch([DIV, [SECTION, [ARTICLE], "ok"]]);
-        await expect(unmountCalled).toEqual(false);
-
-        patch({ showBroken: true });
-
-        await expect(container).toMatch([DIV, [P, "error"]]);
-        await expect(unmountCalled).toEqual(true);
     },
+
+    "catch: onUnmount called on already-rendered child before error UI shown (A→A path)":
+        async () => {
+            const container = setup();
+            const state = createState({ showBroken: false });
+            let unmountCalled = false;
+            const broken = () => {
+                throw new Error("boom");
+            };
+
+            const patch = app(container, state, (s) => [
+                DIV,
+                [
+                    SECTION,
+                    { catch: [P, "error"] },
+                    [
+                        ARTICLE,
+                        {
+                            onUnmount: () => {
+                                unmountCalled = true;
+                            },
+                        },
+                    ],
+                    s.showBroken ? broken : "ok",
+                ],
+            ]);
+
+            await expect(container).toMatch([DIV, [SECTION, [ARTICLE], "ok"]]);
+            await expect(unmountCalled).toEqual(false);
+
+            patch({ showBroken: true });
+
+            await expect(container).toMatch([DIV, [P, "error"]]);
+            await expect(unmountCalled).toEqual(true);
+        },
 
     "catch: onUnmount called on mounted child created before sibling throws (A→B path)": async () => {
         const container = setup();
         let mountCalled = false;
         let unmountCalled = false;
-        const broken = () => { throw new Error("boom"); };
+        const broken = () => {
+            throw new Error("boom");
+        };
 
-        app(container, {}, () =>
-            [DIV,
-                [SECTION,
-                    { catch: [P, "error"] },
-                    [ARTICLE,
-                        {
-                            onMount: () => { mountCalled = true; },
-                            onUnmount: () => { unmountCalled = true; },
-                        }
-                    ],
-                    broken
-                ]
-            ]
-        );
+        app(container, {}, () => [
+            DIV,
+            [
+                SECTION,
+                { catch: [P, "error"] },
+                [
+                    ARTICLE,
+                    {
+                        onMount: () => {
+                            mountCalled = true;
+                        },
+                        onUnmount: () => {
+                            unmountCalled = true;
+                        },
+                    },
+                ],
+                broken,
+            ],
+        ]);
 
         await expect(container).toMatch([DIV, [P, "error"]]);
         await expect(mountCalled).toEqual(true);
         await expect(unmountCalled).toEqual(true);
     },
 
-    "catch: onMount fires on error UI root when its tag matches the catch boundary element": async () => {
-        const container = setup();
-        let errorUiMountCalled = false;
-        const broken = () => { throw new Error("boom"); };
+    "catch: onMount fires on error UI root when its tag matches the catch boundary element":
+        async () => {
+            const container = setup();
+            let errorUiMountCalled = false;
+            const broken = () => {
+                throw new Error("boom");
+            };
 
-        app(container, {}, () =>
-            [DIV,
-                [SECTION,
+            app(container, {}, () => [
+                DIV,
+                [
+                    SECTION,
                     {
-                        catch: (s: unknown, err: Error) => [SECTION,
-                            { onMount: () => { errorUiMountCalled = true; } },
-                            "error"
-                        ] as any,
+                        catch: (s: unknown, err: Error) =>
+                            [
+                                SECTION,
+                                {
+                                    onMount: () => {
+                                        errorUiMountCalled = true;
+                                    },
+                                },
+                                "error",
+                            ] as any,
                     },
-                    broken
-                ]
-            ]
-        );
+                    broken,
+                ],
+            ]);
 
-        await expect(container).toMatch([DIV, [SECTION, "error"]]);
-        await expect(errorUiMountCalled).toEqual(true);
-    },
+            await expect(container).toMatch([DIV, [SECTION, "error"]]);
+            await expect(errorUiMountCalled).toEqual(true);
+        },
 
-    "catch: onMount fires on error UI child when its tag matches an element that was removed by the error": async () => {
-        const container = setup();
-        let errorUiMountCalled = false;
-        const broken = () => { throw new Error("boom"); };
+    "catch: onMount fires on error UI child when its tag matches an element that was removed by the error":
+        async () => {
+            const container = setup();
+            let errorUiMountCalled = false;
+            const broken = () => {
+                throw new Error("boom");
+            };
 
-        app(container, {}, () =>
-            [DIV,
-                [SECTION,
+            app(container, {}, () => [
+                DIV,
+                [
+                    SECTION,
                     {
-                        catch: (s: unknown, err: Error) => [SECTION,
-                            [ARTICLE,
-                                { onMount: () => { errorUiMountCalled = true; } }
-                            ]
-                        ]
+                        catch: (s: unknown, err: Error) => [
+                            SECTION,
+                            [
+                                ARTICLE,
+                                {
+                                    onMount: () => {
+                                        errorUiMountCalled = true;
+                                    },
+                                },
+                            ],
+                        ],
                     },
                     [ARTICLE],
-                    broken
-                ]
-            ]
-        );
+                    broken,
+                ],
+            ]);
 
-        await expect(container).toMatch([DIV, [SECTION, [ARTICLE]]]);
-        await expect(errorUiMountCalled).toEqual(true);
-    },
+            await expect(container).toMatch([DIV, [SECTION, [ARTICLE]]]);
+            await expect(errorUiMountCalled).toEqual(true);
+        },
 
     "catch: use old vodes catch if new vode needs evaluation before knowing": async () => {
         const root = document.createElement("div");
@@ -359,20 +363,18 @@ export default {
         }
 
         const patch = app(container, { error: false }, (s: any) => {
-            return [DIV,
-                () => [DIV,
+            return [
+                DIV,
+                () => [
+                    DIV,
                     { catch: (s: unknown, err: Error) => [P, `caught: ${err.message}`] },
-                    s.error ? ComponentWithError() : "no error"
-                ]
+                    s.error ? ComponentWithError() : "no error",
+                ],
             ];
         });
 
         patch({ error: true });
 
-        await expect(container).toMatch(
-            [DIV,
-                [P, "caught: boom"]
-            ]
-        );
+        await expect(container).toMatch([DIV, [P, "caught: boom"]]);
     },
 };

@@ -1,18 +1,26 @@
 export type Vode<S = PatchableState> = FullVode<S> | JustTagVode | NoPropsVode<S>;
-export type FullVode<S = PatchableState> = [tag: Tag, props: Props<S> | ChildVode<S>, ...children: ChildVode<S>[]];
-export type NoPropsVode<S = PatchableState> = [tag: Tag, ...children: ChildVode<S>[]] | (TextVode[]);
+export type FullVode<S = PatchableState> = [
+    tag: Tag,
+    props: Props<S> | ChildVode<S>,
+    ...children: ChildVode<S>[],
+];
+export type NoPropsVode<S = PatchableState> = [tag: Tag, ...children: ChildVode<S>[]] | TextVode[];
 export type JustTagVode = [tag: Tag];
 export type ChildVode<S = PatchableState> = Vode<S> | TextVode | NoVode | Component<S>;
 export type TextVode = string & {};
 export type NoVode = undefined | null | number | boolean | bigint | void;
-export type Tag = keyof (HTMLElementTagNameMap & SVGElementTagNameMap & MathMLElementTagNameMap) | (string & {});
+export type Tag =
+    keyof (HTMLElementTagNameMap & SVGElementTagNameMap & MathMLElementTagNameMap) | (string & {});
 export type Component<S = PatchableState> = (s: S) => ChildVode<S>;
 export type DomElement = HTMLElement | SVGSVGElement | MathMLElement;
 
-type AttachedVode<S = PatchableState> = AttachedElementVode<S> | Text & { [NODE]?: never };
-type AttachedElementVode<S> = Vode<S> & { [NODE]: ElementNode<S>, [UNMOUNT_COUNT]?: number };
-type ElementNode<S> = HTMLElement & SVGSVGElement & MathMLElement & Record<string, PropertyValue<S>>;
-type MemoNode<S> = ChildVode<S> & { [MEMO]?: unknown[] }
+type AttachedVode<S = PatchableState> = AttachedElementVode<S> | (Text & { [NODE]?: never });
+type AttachedElementVode<S> = Vode<S> & { [NODE]: ElementNode<S>;[UNMOUNT_COUNT]?: number };
+type ElementNode<S> = HTMLElement &
+    SVGSVGElement &
+    MathMLElement &
+    Record<string, PropertyValue<S>>;
+type MemoNode<S> = ChildVode<S> & { [MEMO]?: unknown[] };
 export type RenderedVode = Vode & { [NODE]: DomElement };
 
 /** can be used to access the internal vode meta data of a ContainerNode */
@@ -27,39 +35,42 @@ const MEMO = Symbol("memo");
 export type Patch<S> =
     | IgnoredPatch // ignored
     | RenderPatch<S> // updates state, causes render
-    | Promise<Patch<S>> | Effect<S>; // is executed, awaited, results in patches
+    | Promise<Patch<S>>
+    | Effect<S>; // is executed, awaited, results in patches
 
 export type IgnoredPatch = undefined | null | number | boolean | bigint | string | symbol | void;
 export type RenderPatch<S> = {} | DeepPartial<S>;
-export type DeepPartial<S> = { [P in keyof S]?: S[P] extends Array<infer I> ? Array<DeepPartial<I>> : DeepPartial<S[P]> };
+export type DeepPartial<S> = {
+    [P in keyof S]?: S[P] extends Array<infer I> ? Array<DeepPartial<I>> : DeepPartial<S[P]>;
+};
 
 export type Effect<S> =
-    | (() => Patch<S>)
-    | EventFunction<S>
-    | Generator<Patch<S>>
-    | AsyncGenerator<Patch<S>>;
+    (() => Patch<S>) | EventFunction<S> | Generator<Patch<S>> | AsyncGenerator<Patch<S>>;
 
-export type EventFunction<S = PatchableState, E extends Event = Event> = (state: S, evt: E) => Patch<S>;
+export type EventFunction<S = PatchableState, E extends Event = Event> = (
+    state: S,
+    evt: E,
+) => Patch<S>;
 export type EventProp<S = PatchableState, E extends Event = Event> = EventFunction<S, E> | Patch<S>;
 
 export interface Props<S = PatchableState> extends Partial<
-    Omit<HTMLElement,
-        keyof (DocumentFragment & ElementCSSInlineStyle & GlobalEventHandlers)> &
-    { [K in keyof EventsMap]: EventProp<S, EventsMap[K]> } // all on* events, evt typed per event
+    Omit<HTMLElement, keyof (DocumentFragment & ElementCSSInlineStyle & GlobalEventHandlers)> & {
+        [K in keyof EventsMap]: EventProp<S, EventsMap[K]>;
+    } // all on* events, evt typed per event
 > {
-    [_: string]: unknown,
-    xmlns?: string | null,
-    class?: ClassProp,
-    style?: StyleProp,
+    [_: string]: unknown;
+    xmlns?: string | null;
+    class?: ClassProp;
+    style?: StyleProp;
     /** called after the element was attached */
-    onMount?: MountFunction<S> | null | false,
+    onMount?: MountFunction<S> | null | false;
     /** called before the element is detached */
-    onUnmount?: MountFunction<S> | null | false,
+    onUnmount?: MountFunction<S> | null | false;
     /** used instead of original vode when an error occurs during rendering */
     catch?: ((s: S, error: Error) => ChildVode<S>) | ChildVode<S>;
     /** called on every render */
     onRender?: ((s: S, vode: RenderedVode) => void) | null | false;
-};
+}
 
 export type MountFunction<S> =
     | ((s: S, node: HTMLElement) => Patch<S>)
@@ -70,39 +81,44 @@ export type ClassProp =
     | string // "class1 class2"
     | string[] // ["class1", "class2"]
     | Record<string, boolean | undefined | null> // { class1: true, class2: false }
-    | "" | false | null | undefined; // no class
+    | ""
+    | false
+    | null
+    | undefined; // no class
 
 export type StyleProp =
     | string
     | (Record<number, never> & { [K in keyof CSSStyleDeclaration]?: CSSStyleDeclaration[K] | null })
-    | "" | false | null | undefined; // no style
+    | ""
+    | false
+    | null
+    | undefined; // no style
 
-type EventsMapBase =
-    & { [K in keyof HTMLElementEventMap as `on${K}`]: HTMLElementEventMap[K] }
-    & { [K in keyof SVGElementEventMap as `on${K}`]: SVGElementEventMap[K] }
-    & { [K in keyof MathMLElementEventMap as `on${K}`]: MathMLElementEventMap[K] };
+type EventsMapBase = { [K in keyof HTMLElementEventMap as `on${K}`]: HTMLElementEventMap[K] } & {
+    [K in keyof SVGElementEventMap as `on${K}`]: SVGElementEventMap[K];
+} & { [K in keyof MathMLElementEventMap as `on${K}`]: MathMLElementEventMap[K] };
 
 export interface EventsMap extends EventsMapBase { }
 
 export type PropertyValue<S> =
-    | string | boolean | null | undefined | void
-    | StyleProp | ClassProp
-    | Patch<S>;
+    string | boolean | null | undefined | void | StyleProp | ClassProp | Patch<S>;
 
 export type Dispatch<S> = (action: Patch<S>, animated?: boolean) => void | Promise<void>;
-export interface Patchable<S = object> { patch: Dispatch<S>; }
+export interface Patchable<S = object> {
+    patch: Dispatch<S>;
+}
 export type PatchableState<S = object> = S & Patchable<S> & { [STATS]: Stats };
 
 /** stats about the overall patches & render times */
 export type Stats = {
-    patchCount: number,
-    liveEffectCount: number,
-    syncRenderPatchCount: number,
-    asyncRenderPatchCount: number,
-    syncRenderCount: number,
-    asyncRenderCount: number,
-    lastSyncRenderTime: number,
-    lastAsyncRenderTime: number,
+    patchCount: number;
+    liveEffectCount: number;
+    syncRenderPatchCount: number;
+    asyncRenderPatchCount: number;
+    syncRenderCount: number;
+    asyncRenderCount: number;
+    lastSyncRenderTime: number;
+    lastAsyncRenderTime: number;
 };
 export type AsPatchable<S> = S extends { patch: any } ? S : PatchableState<S>;
 type PreparedState<S> = { patch: { initialPatches: Patch<S>[] } };
@@ -112,20 +128,21 @@ export type ContainerNode<S = PatchableState> = DomElement & {
      * it contains all necessary stuff for the vode app to function.
      * remove the container node to clear vode's resources */
     [VODE]: {
-        state: PatchableState<S>,
-        vode: AttachedVode<S>,
-        document: Document & { currentViewTransition?: ViewTransition | null },
-        renderSync: () => void,
-        renderAsync: () => Promise<unknown>,
-        syncRenderer: (cb: () => void) => void,
-        asyncRenderer: ((cb: () => void) => ViewTransition) | null,
-        qAsync: {} | undefined | null,  // next render-patches to be animated after another
-        isRendering: number,
-        isAnimating: boolean,
-        stats: Stats,
-    }
+        state: PatchableState<S>;
+        vode: AttachedVode<S>;
+        document: Document & { currentViewTransition?: ViewTransition | null };
+        renderSync: () => void;
+        renderAsync: () => Promise<unknown>;
+        syncRenderer: (cb: () => void) => void;
+        asyncRenderer: ((cb: () => void) => ViewTransition) | null;
+        qAsync: {} | undefined | null; // next render-patches to be animated after another
+        isRendering: number;
+        isAnimating: boolean;
+        stats: Stats;
+    };
 };
-const ELEMENT_NODE = 1, TEXT_NODE = 3;
+const ELEMENT_NODE = 1,
+    TEXT_NODE = 3;
 
 /** type-safe way to create a vode. useful for type inference and autocompletion.
  *
@@ -134,22 +151,24 @@ const ELEMENT_NODE = 1, TEXT_NODE = 3;
  * - tag, props and children: `vode("div", { class: "foo" }, ["span", "bar"])` => `["div", { class: "foo" }, ["span", "bar"]]` --*rendered*-> `<div class="foo"><span>bar</span></div>`
  * - identity: `vode(["div", ["span", "bar"]])` => `["div", ["span", "bar"]]` --*rendered*-> `<div><span>bar</span></div>`
  */
-export function vode<S = PatchableState>(tag: Tag | Vode<S>, props?: Props<S> | ChildVode<S>, ...children: ChildVode<S>[]): Vode<S> {
+export function vode<S = PatchableState>(
+    tag: Tag | Vode<S>,
+    props?: Props<S> | ChildVode<S>,
+    ...children: ChildVode<S>[]
+): Vode<S> {
     if (!tag) throw new Error("first argument to vode() must be a tag name or a vode");
 
-    if (Array.isArray(tag))
-        return tag;
+    if (Array.isArray(tag)) return tag;
     else if (props !== null && typeof props === "object")
         return [tag, props as Props<S>, ...children];
-    else if (props === undefined)
-        return [tag, ...children];
-    else
-        return [tag, props as ChildVode<S>, ...children];
+    else if (props === undefined) return [tag, ...children];
+    else return [tag, props as ChildVode<S>, ...children];
 }
 
 /** create a vode app inside a container element
  * @param container will use this container as root and places the result of the dom function and further renderings in it
- * @param state the state object that is used as singleton state bound to the vode app and is updated with `patch()`. its type is inferred, so the `dom` function and the returned `patch` are typed without annotations.
+ * @param state the state object that is used as singleton state bound to the vode app and is updated with `patch()`.
+ * its type is inferred, so the `dom` function and the returned `patch` are typed without annotations.
  * @param dom function is called every render and returns the vode-dom that is updated incrementally to the DOM based on the state.
  * @param initialPatches variadic list of patches that are applied after the first render
  * @returns a patch function that can be used to update the state
@@ -166,9 +185,14 @@ export function app<S extends PatchableState = PatchableState>(
     dom: (s: S) => Vode<S>,
     ...initialPatches: Patch<S>[]
 ): Dispatch<S> {
-    if (!container?.parentElement) throw new Error("first argument to app() must be a valid HTMLElement inside the <html></html> document");
-    if (!state || typeof state !== "object") throw new Error("second argument to app() must be a state object");
-    if (typeof dom !== "function") throw new Error("third argument to app() must be a function that returns a vode");
+    if (!container?.parentElement)
+        throw new Error(
+            "first argument to app() must be a valid HTMLElement inside the <html></html> document",
+        );
+    if (!state || typeof state !== "object")
+        throw new Error("second argument to app() must be a state object");
+    if (typeof dom !== "function")
+        throw new Error("third argument to app() must be a function that returns a vode");
 
     const patchableState = state as PatchableState<S>;
     const _vode = {} as ContainerNode<S>[typeof VODE];
@@ -181,17 +205,34 @@ export function app<S extends PatchableState = PatchableState>(
             cb(t);
             return t;
         };
-    _vode.asyncRenderer = typeof _vode.document.startViewTransition === "function"
-        ? _vode.document.startViewTransition.bind(_vode.document)
-        : null;
+    _vode.asyncRenderer =
+        typeof _vode.document.startViewTransition === "function"
+            ? _vode.document.startViewTransition.bind(_vode.document)
+            : null;
     _vode.isRendering = 0;
     _vode.qAsync = null;
 
-    _vode.stats = patchableState[STATS] ?? { lastSyncRenderTime: 0, lastAsyncRenderTime: 0, syncRenderCount: 0, asyncRenderCount: 0, liveEffectCount: 0, patchCount: 0, syncRenderPatchCount: 0, asyncRenderPatchCount: 0 };
+    _vode.stats = patchableState[STATS] ?? {
+        lastSyncRenderTime: 0,
+        lastAsyncRenderTime: 0,
+        syncRenderCount: 0,
+        asyncRenderCount: 0,
+        liveEffectCount: 0,
+        patchCount: 0,
+        syncRenderPatchCount: 0,
+        asyncRenderPatchCount: 0,
+    };
     patchableState[STATS] = _vode.stats;
 
-    if ("patch" in state && typeof state.patch === "function" && Array.isArray((state as PreparedState<S>).patch.initialPatches)) {
-        initialPatches = [...(state as unknown as PreparedState<S>).patch.initialPatches, ...initialPatches];
+    if (
+        "patch" in state &&
+        typeof state.patch === "function" &&
+        Array.isArray((state as PreparedState<S>).patch.initialPatches)
+    ) {
+        initialPatches = [
+            ...(state as unknown as PreparedState<S>).patch.initialPatches,
+            ...initialPatches,
+        ];
     }
 
     async function promisePatch(action: Promise<Patch<S>>, animated?: boolean) {
@@ -225,8 +266,10 @@ export function app<S extends PatchableState = PatchableState>(
     }
 
     Object.defineProperty(state, "patch", {
-        enumerable: false, configurable: true,
-        writable: false, value: (action: Patch<S>, animated?: boolean): void | Promise<void> => {
+        enumerable: false,
+        configurable: true,
+        writable: false,
+        value: (action: Patch<S>, animated?: boolean): void | Promise<void> => {
             while (typeof action === "function") {
                 action = (<(s: S) => unknown>action)(_vode.state);
             }
@@ -248,7 +291,9 @@ export function app<S extends PatchableState = PatchableState>(
                     // when an empty array is patched: skip the current animation, merge all queued async patches into state, and schedule a sync render
                     mergeState(_vode.state as Record<string, unknown>, _vode.qAsync, true);
                     _vode.qAsync = null;
-                    try { _vode.document.currentViewTransition?.skipTransition(); } catch { }
+                    try {
+                        _vode.document.currentViewTransition?.skipTransition();
+                    } catch { }
                     _vode.stats.syncRenderPatchCount++;
                     _vode.renderSync();
                 }
@@ -263,14 +308,23 @@ export function app<S extends PatchableState = PatchableState>(
                     _vode.renderSync();
                 }
             }
-        }
+        },
     });
 
     function renderDom(animated: boolean) {
         const sw = performance.now();
-        _vode.vode = render<S>(_vode.state, container.parentElement as DomElement, 0, 0, _vode.vode, dom)!;
+        _vode.vode = render<S>(
+            _vode.state,
+            container.parentElement as DomElement,
+            0,
+            0,
+            _vode.vode,
+            dom,
+        )!;
 
-        if ((<ContainerNode<S>>container).tagName.toLowerCase() !== (<Vode<S>>_vode.vode)[0].toLowerCase()) {
+        if (
+            (<ContainerNode<S>>container).tagName.toLowerCase() !== (<Vode<S>>_vode.vode)[0].toLowerCase()
+        ) {
             // the tag name was changed during render -> update reference to vode-app-root
             container = _vode.vode[NODE] as DomElement;
             (<ContainerNode<S>>container)[VODE] = _vode;
@@ -281,32 +335,39 @@ export function app<S extends PatchableState = PatchableState>(
             const changesSinceRender = _vode.isRendering !== _vode.stats.syncRenderPatchCount;
             _vode.stats.syncRenderCount++;
             _vode.isRendering = 0;
-            if (changesSinceRender)
-                _vode.renderSync();
+            if (changesSinceRender) _vode.renderSync();
         }
     }
     const sr = renderDom.bind(null, false);
     const ar = renderDom.bind(null, true);
 
     Object.defineProperty(_vode, "renderSync", {
-        enumerable: false, configurable: true,
-        writable: false, value: () => {
+        enumerable: false,
+        configurable: true,
+        writable: false,
+        value: () => {
             if (_vode.isRendering) return;
 
             _vode.isRendering = _vode.stats.syncRenderPatchCount;
             _vode.syncRenderer(sr);
-        }
+        },
     });
 
     Object.defineProperty(_vode, "renderAsync", {
-        enumerable: false, configurable: true,
-        writable: false, value: async () => {
+        enumerable: false,
+        configurable: true,
+        writable: false,
+        value: async () => {
             if (_vode.isAnimating || !_vode.qAsync) return;
             await _vode.document.currentViewTransition?.updateCallbackDone; // wait for previous VT to complete
             if (_vode.isAnimating || !_vode.qAsync) return;
 
             if (_vode.document.hidden) {
-                _vode.state = mergeState(_vode.state as Record<string, unknown>, _vode.qAsync, true) as PatchableState<S>;
+                _vode.state = mergeState(
+                    _vode.state as Record<string, unknown>,
+                    _vode.qAsync,
+                    true,
+                ) as PatchableState<S>;
                 _vode.qAsync = null;
                 _vode.stats.syncRenderPatchCount++;
                 _vode.renderSync();
@@ -316,7 +377,11 @@ export function app<S extends PatchableState = PatchableState>(
             _vode.isAnimating = true;
             const sw = performance.now();
             try {
-                _vode.state = mergeState(_vode.state as Record<string, unknown>, _vode.qAsync, true) as PatchableState<S>;
+                _vode.state = mergeState(
+                    _vode.state as Record<string, unknown>,
+                    _vode.qAsync,
+                    true,
+                ) as PatchableState<S>;
                 _vode.qAsync = null;
 
                 if (_vode.asyncRenderer) {
@@ -333,7 +398,7 @@ export function app<S extends PatchableState = PatchableState>(
                 _vode.isAnimating = false;
             }
             if (_vode.qAsync) _vode.renderAsync();
-        }
+        },
     });
 
     _vode.state = patchableState;
@@ -350,7 +415,7 @@ export function app<S extends PatchableState = PatchableState>(
         indexInParent,
         indexInParent,
         hydrate<S>(container, true) as AttachedVode<S>,
-        dom
+        dom,
     )!;
 
     // if during initial render the tag of the root vode was changed (catch or different Tag)
@@ -386,7 +451,7 @@ export function defuse(container: ContainerNode) {
             if (p) {
                 for (const key in p) {
                     if (key[0] === "o" && key[1] === "n") {
-                        (av[NODE])[key] = null;
+                        av[NODE][key] = null;
                     }
                 }
                 av[NODE].catch = null;
@@ -419,15 +484,22 @@ export function defuse(container: ContainerNode) {
 }
 
 /** return vode representation of given DOM node */
-export function hydrate<S = PatchableState>(element: DomElement | Text): Vode<S> | string | undefined;
-export function hydrate<S = PatchableState>(element: DomElement | Text, prepareForRender: boolean): AttachedVode<S> | undefined;
-export function hydrate<S = PatchableState>(element: DomElement | Text, prepareForRender?: boolean): Vode<S> | string | AttachedVode<S> | undefined {
+export function hydrate<S = PatchableState>(
+    element: DomElement | Text,
+): Vode<S> | string | undefined;
+export function hydrate<S = PatchableState>(
+    element: DomElement | Text,
+    prepareForRender: boolean,
+): AttachedVode<S> | undefined;
+export function hydrate<S = PatchableState>(
+    element: DomElement | Text,
+    prepareForRender?: boolean,
+): Vode<S> | string | AttachedVode<S> | undefined {
     if ((element as Text)?.nodeType === TEXT_NODE) {
         if ((element as Text).nodeValue?.trim() !== "")
-            return prepareForRender ? element as Text : (element as Text).nodeValue!;
+            return prepareForRender ? (element as Text) : (element as Text).nodeValue!;
         return undefined; //ignore (mostly html whitespace)
-    }
-    else if (element.nodeType === ELEMENT_NODE) {
+    } else if (element.nodeType === ELEMENT_NODE) {
         const tag: Tag = (<Element>element).tagName.toLowerCase();
         const root = [tag] as unknown as FullVode<S>;
 
@@ -443,7 +515,8 @@ export function hydrate<S = PatchableState>(element: DomElement | Text, prepareF
         if (element.hasChildNodes()) {
             const remove: ChildNode[] = [];
             for (let child of element.childNodes) {
-                const wet = child && hydrate<S>(child as DomElement | Text, !!prepareForRender)! as ChildVode<S>;
+                const wet =
+                    child && (hydrate<S>(child as DomElement | Text, !!prepareForRender)! as ChildVode<S>);
                 if (wet) root.push(wet);
                 else if (child && prepareForRender) remove.push(child);
             }
@@ -460,11 +533,17 @@ export function hydrate<S = PatchableState>(element: DomElement | Text, prepareF
 /** memoizes the resulting component or props by comparing element by element (===) with the
  * `compare` of the previous render. otherwise skips the render step (not calling `componentOrProps`)
  */
-export function memo<S = PatchableState>(compare: unknown[], component: Component<S>): Component<S> {
-    if (!compare || !Array.isArray(compare)) throw new Error("first argument to memo() must be an array of values to compare");
-    if (typeof component !== "function") throw new Error("second argument to memo() must be a function that returns a child vode");
+export function memo<S = PatchableState>(
+    compare: unknown[],
+    component: Component<S>,
+): Component<S> {
+    if (!compare || !Array.isArray(compare))
+        throw new Error("first argument to memo() must be an array of values to compare");
+    if (typeof component !== "function")
+        throw new Error("second argument to memo() must be a function that returns a child vode");
 
-    if ((<MemoNode<S>>component)[MEMO]) { // wrap to prevent double memoization
+    if ((<MemoNode<S>>component)[MEMO]) {
+        // wrap to prevent double memoization
         const comp = component;
         component = (s: S) => comp(s);
     }
@@ -474,55 +553,66 @@ export function memo<S = PatchableState>(compare: unknown[], component: Componen
     return component;
 }
 
-/** 
+/**
  * create a patchable state object for a vode-app.
  * calls to `patch()` prior to `app()` initialization will queue the patches and apply them before the initial patches.
- * calls to `patch()` after `app()` initialization will apply the patch immediately and trigger a render as usual. 
+ * calls to `patch()` after `app()` initialization will apply the patch immediately and trigger a render as usual.
  */
 export function createState<S = PatchableState>(state: S): PatchableState<S> {
-    if (!state || typeof state !== "object") throw new Error("createState() must be called with a state object");
+    if (!state || typeof state !== "object")
+        throw new Error("createState() must be called with a state object");
 
     if (!("patch" in state)) {
         Object.defineProperty(state, "patch", {
-            enumerable: false, configurable: true,
-            writable: false, value: (action: Patch<S>, animated?: boolean) => {
+            enumerable: false,
+            configurable: true,
+            writable: false,
+            value: (action: Patch<S>, animated?: boolean) => {
                 const futureState = state as unknown as PreparedState<S>;
                 if (!Array.isArray(futureState.patch.initialPatches)) {
                     futureState.patch.initialPatches = [];
                 }
                 futureState.patch.initialPatches.push(animated ? [action] : action);
-            }
+            },
         });
     }
 
     if (!(STATS in state)) {
-        (state as PatchableState<S>)[STATS] = { lastSyncRenderTime: 0, lastAsyncRenderTime: 0, syncRenderCount: 0, asyncRenderCount: 0, liveEffectCount: 0, patchCount: 0, syncRenderPatchCount: 0, asyncRenderPatchCount: 0 };
+        (state as PatchableState<S>)[STATS] = {
+            lastSyncRenderTime: 0,
+            lastAsyncRenderTime: 0,
+            syncRenderCount: 0,
+            asyncRenderCount: 0,
+            liveEffectCount: 0,
+            patchCount: 0,
+            syncRenderPatchCount: 0,
+            asyncRenderPatchCount: 0,
+        };
     }
 
     return state as PatchableState<S>;
 }
 
 /** type safe way to create a patch. useful for type inference and autocompletion. */
-export function createPatch<S = PatchableState>(p: DeepPartial<S> | Effect<S> | IgnoredPatch): typeof p { return p; }
+export function createPatch<S = PatchableState>(
+    p: DeepPartial<S> | Effect<S> | IgnoredPatch,
+): typeof p {
+    return p;
+}
 
 /** HTML tag of the vode or undefined if it has none or is a text node */
 export function tag(v: ChildVode): Tag | undefined {
-    const t = !!v && Array.isArray(v) && v[0] as Tag;
+    const t = !!v && Array.isArray(v) && (v[0] as Tag);
     if (typeof t === "string") return t;
     return undefined;
 }
 
 /** get properties object of a vode, if there is any */
-export function props<S = PatchableState>(vode: ChildVode<S> | AttachedVode<S>): Props<S> | undefined {
-    if (Array.isArray(vode)
-        && vode.length > 1
-        && vode[1]
-        && !Array.isArray(vode[1])
-    ) {
-        if (
-            typeof vode[1] === "object"
-            && (vode[1] as unknown as Node).nodeType !== TEXT_NODE
-        ) {
+export function props<S = PatchableState>(
+    vode: ChildVode<S> | AttachedVode<S>,
+): Props<S> | undefined {
+    if (Array.isArray(vode) && vode.length > 1 && vode[1] && !Array.isArray(vode[1])) {
+        if (typeof vode[1] === "object" && (vode[1] as unknown as Node).nodeType !== TEXT_NODE) {
             return vode[1];
         }
     }
@@ -531,7 +621,9 @@ export function props<S = PatchableState>(vode: ChildVode<S> | AttachedVode<S>):
 }
 
 /** get a slice of all children of a vode, if there are any */
-export function children<S = PatchableState>(vode: ChildVode<S> | AttachedVode<S>): ChildVode<S>[] | undefined {
+export function children<S = PatchableState>(
+    vode: ChildVode<S> | AttachedVode<S>,
+): ChildVode<S>[] | undefined {
     const start = childrenStart(vode);
     if (start > 0) {
         return (<Vode<S>>vode).slice(start) as Vode<S>[];
@@ -552,11 +644,28 @@ export function child<S = PatchableState>(vode: Vode<S>, index: number): ChildVo
 }
 
 /** index in vode at which child-vodes start */
-export function childrenStart<S = PatchableState>(vode: ChildVode<S> | AttachedVode<S>): 1 | 2 | -1 {
-    return props(vode) ? (<Vode>vode).length > 2 ? 2 : -1 : (Array.isArray(vode) && vode.length > 1 ? 1 : -1);
+export function childrenStart<S = PatchableState>(
+    vode: ChildVode<S> | AttachedVode<S>,
+): 1 | 2 | -1 {
+    if (Array.isArray(vode) && vode.length > 1) {
+        const first = vode[1];
+        if (
+            first &&
+            typeof first === "object" &&
+            !Array.isArray(first) &&
+            (first as unknown as Node).nodeType !== TEXT_NODE
+        )
+            return vode.length > 2 ? 2 : -1;
+        else return 1;
+    }
+    return -1;
 }
 
-function mergeState(target: Record<string, unknown>, source: Record<string, unknown> | unknown | null | undefined, allowDeletion: boolean) {
+function mergeState(
+    target: Record<string, unknown>,
+    source: Record<string, unknown> | unknown | null | undefined,
+    allowDeletion: boolean,
+) {
     if (typeof source !== "object") return target;
 
     for (const key in source) {
@@ -568,43 +677,49 @@ function mergeState(target: Record<string, unknown>, source: Record<string, unkn
             } else {
                 const targetValue = target[key];
                 if (targetValue) {
-                    if (Array.isArray(targetValue))
-                        target[key] = mergeState({}, value, allowDeletion);
+                    if (Array.isArray(targetValue)) target[key] = mergeState({}, value, allowDeletion);
                     else if (typeof targetValue === "object")
                         mergeState(target[key] as Record<string, unknown>, value, allowDeletion);
-                    else
-                        target[key] = mergeState({}, value, allowDeletion);
+                    else target[key] = mergeState({}, value, allowDeletion);
                 } else {
                     target[key] = mergeState({}, value, allowDeletion);
                 }
             }
-        }
-        else if (value === undefined && allowDeletion) {
+        } else if (value === undefined && allowDeletion) {
             delete target[key];
-        }
-        else {
+        } else {
             target[key] = value;
         }
     }
     return target;
 }
 
-function render<S extends PatchableState>(state: S, parent: DomElement, childIndex: number, indexInParent: number, oldVode: AttachedVode<S> | undefined, newVode: ChildVode<S>, xmlns?: string | null): AttachedVode<S> | undefined {
+function render<S extends PatchableState>(
+    state: S,
+    parent: DomElement,
+    childIndex: number,
+    indexInParent: number,
+    oldVode: AttachedVode<S> | undefined,
+    newVode: ChildVode<S>,
+    xmlns?: string | null,
+): AttachedVode<S> | undefined {
     try {
         // unwrap component if it is memoized
         newVode = remember(state, newVode as MemoNode<S>, oldVode as MemoNode<S>) as ChildVode<S>;
 
-        const isNoVode = !newVode || typeof newVode === "number" || typeof newVode === "boolean" || typeof newVode === "bigint";
+        const isNoVode =
+            !newVode ||
+            typeof newVode === "number" ||
+            typeof newVode === "boolean" ||
+            typeof newVode === "bigint";
         if (newVode === oldVode || (!oldVode && isNoVode)) {
             return oldVode;
         }
 
         const oldIsText = (oldVode as Text)?.nodeType === TEXT_NODE;
-        const oldNode = oldIsText
-            ? oldVode as Text
-            : oldVode?.[NODE];
+        const oldNode = oldIsText ? (oldVode as Text) : oldVode?.[NODE];
 
-        // falsy|text|element(A) -> undefined 
+        // falsy|text|element(A) -> undefined
         if (isNoVode) {
             if (oldNode) {
                 unmountTree(state, oldVode as ChildVode<S>);
@@ -615,16 +730,25 @@ function render<S extends PatchableState>(state: S, parent: DomElement, childInd
 
         const isText = !isNoVode && isTextVode(newVode);
         const isNode = !isNoVode && isNaturalVode(newVode);
-        const alreadyAttached = !!newVode && typeof newVode !== "string" && !!((<AttachedVode<S>>newVode)?.[NODE] || (<Text><AttachedVode<S>>newVode)?.nodeType === TEXT_NODE);
+        const alreadyAttached =
+            !!newVode &&
+            typeof newVode !== "string" &&
+            !!(
+                (<AttachedVode<S>>newVode)?.[NODE] ||
+                (<Text>(<AttachedVode<S>>newVode))?.nodeType === TEXT_NODE
+            );
 
         if (!isText && !isNode && !alreadyAttached && !oldVode) {
-            throw new Error(`invalid ChildVode at index ${childIndex}: typeof ${typeof newVode}${typeof newVode === "object" ? "\ncould be that you are adding Props at the wrong position?" : ""}`);
-        }
-        else if (alreadyAttached && isText) {
-            newVode = (<Text><AttachedVode<S>>newVode).wholeText;
-        }
-        else if (alreadyAttached && isNode) {
-            newVode = [...<Vode<S>>newVode];
+            throw new Error(
+                `invalid ChildVode at index ${childIndex}: typeof ${typeof newVode}${typeof newVode === "object"
+                    ? "\ncould be that you are adding Props at the wrong position?"
+                    : ""
+                }`,
+            );
+        } else if (alreadyAttached && isText) {
+            newVode = (<Text>(<AttachedVode<S>>newVode)).wholeText;
+        } else if (alreadyAttached && isNode) {
+            newVode = [...(<Vode<S>>newVode)];
         }
 
         // text -> text
@@ -657,10 +781,8 @@ function render<S extends PatchableState>(state: S, parent: DomElement, childInd
             return text as Text;
         }
 
-        // falsy|text|element(A) -> element(B) 
-        if (
-            (isNode && (!oldNode || oldIsText || (<Vode<S>>oldVode)[0] !== (<Vode<S>>newVode)[0]))
-        ) {
+        // falsy|text|element(A) -> element(B)
+        if (isNode && (!oldNode || oldIsText || (<Vode<S>>oldVode)[0] !== (<Vode<S>>newVode)[0])) {
             const newvode = <Vode<S>>newVode;
             if (1 in newvode) {
                 newvode[1] = remember(state, newvode[1] as MemoNode<S>, undefined) as Vode<S>;
@@ -671,9 +793,9 @@ function render<S extends PatchableState>(state: S, parent: DomElement, childInd
             if (properties?.xmlns !== undefined) xmlns = properties.xmlns;
 
             const newNode = <ElementNode<S>>(
-                xmlns
+                (xmlns
                     ? parent.ownerDocument.createElementNS(xmlns, (<Vode<S>>newVode)[0])
-                    : parent.ownerDocument.createElement((<Vode<S>>newVode)[0])
+                    : parent.ownerDocument.createElement((<Vode<S>>newVode)[0]))
             );
             (<AttachedVode<S>>newVode)[NODE] = newNode;
 
@@ -715,9 +837,12 @@ function render<S extends PatchableState>(state: S, parent: DomElement, childInd
                 }
             }
 
-            (<AttachedElementVode<S>>newVode)[UNMOUNT_COUNT] = (properties?.onUnmount ? 1 : 0) + sumChildUnmountCounts(<AttachedElementVode<S>>newVode);
+            (<AttachedElementVode<S>>newVode)[UNMOUNT_COUNT] =
+                (properties?.onUnmount ? 1 : 0) + sumChildUnmountCounts(<AttachedElementVode<S>>newVode);
             if (typeof properties?.onMount === "function") {
-                state.patch(properties.onMount(state, newNode as HTMLElement & SVGSVGElement & MathMLElement));
+                state.patch(
+                    properties.onMount(state, newNode as HTMLElement & SVGSVGElement & MathMLElement),
+                );
             }
             if (typeof properties?.onRender === "function") {
                 properties.onRender(state, newVode as RenderedVode);
@@ -725,7 +850,7 @@ function render<S extends PatchableState>(state: S, parent: DomElement, childInd
             return <AttachedVode<S>>newVode;
         }
 
-        //element(A) -> element(A) 
+        //element(A) -> element(A)
         if (!oldIsText && isNode && (<Vode<S>>oldVode)[0] === (<Vode<S>>newVode)[0]) {
             const node = oldNode as ElementNode<S>;
             (<AttachedElementVode<S>>newVode)[NODE] = node;
@@ -733,8 +858,7 @@ function render<S extends PatchableState>(state: S, parent: DomElement, childInd
             const properties = props(newVode);
             const oldProps = props(oldVode);
 
-            if (properties?.xmlns !== undefined)
-                xmlns = properties.xmlns;
+            if (properties?.xmlns !== undefined) xmlns = properties.xmlns;
 
             patchProperties(state, node, oldProps, properties, xmlns);
 
@@ -749,7 +873,8 @@ function render<S extends PatchableState>(state: S, parent: DomElement, childInd
                 let indexP = 0;
                 for (let i = 0; i < (<Vode<S>>newVode).length - newStart; i++) {
                     const child = (<Vode<S>>newVode)[i + newStart] as ChildVode<S>;
-                    const oldChild = oldStart > 0 ? (<Vode<S>>oldVode)[i + oldStart] as AttachedVode<S> : undefined;
+                    const oldChild =
+                        oldStart > 0 ? ((<Vode<S>>oldVode)[i + oldStart] as AttachedVode<S>) : undefined;
 
                     const attached = render(state, oldNode as DomElement, i, indexP, oldChild, child, xmlns);
                     (<AttachedElementVode<S>>newVode)[i + newStart] = attached as Vode<S>;
@@ -760,11 +885,20 @@ function render<S extends PatchableState>(state: S, parent: DomElement, childInd
             if (oldStart > 0) {
                 const newKidsCount = newStart > 0 ? (<Vode<S>>newVode).length - newStart : 0;
                 for (let i = (<Vode<S>>oldVode).length - 1 - oldStart; i >= newKidsCount; i--) {
-                    render(state, oldNode as DomElement, i, i, (<AttachedElementVode<S>>oldVode)[i + oldStart] as AttachedVode<S>, undefined, xmlns);
+                    render(
+                        state,
+                        oldNode as DomElement,
+                        i,
+                        i,
+                        (<AttachedElementVode<S>>oldVode)[i + oldStart] as AttachedVode<S>,
+                        undefined,
+                        xmlns,
+                    );
                 }
             }
 
-            (<AttachedElementVode<S>>newVode)[UNMOUNT_COUNT] = (properties?.onUnmount ? 1 : 0) + sumChildUnmountCounts(<AttachedElementVode<S>>newVode);
+            (<AttachedElementVode<S>>newVode)[UNMOUNT_COUNT] =
+                (properties?.onUnmount ? 1 : 0) + sumChildUnmountCounts(<AttachedElementVode<S>>newVode);
             if (typeof properties?.onRender === "function") {
                 properties.onRender(state, newVode as RenderedVode);
             }
@@ -774,19 +908,19 @@ function render<S extends PatchableState>(state: S, parent: DomElement, childInd
         const oldProps = props(oldVode);
         const newProps = props(newVode);
 
-        const catchVode = typeof newVode === "function"
-            ? oldProps?.catch
-            : newProps?.catch;
+        const catchVode = typeof newVode === "function" ? oldProps?.catch : newProps?.catch;
         if (catchVode) {
             const catchNode = (<AttachedVode<S>>newVode)?.[NODE] || oldVode?.[NODE];
             if (!catchNode) throw error;
 
-            const handledVode = typeof catchVode === "function"
-                ? (<(s: S, error: Error) => ChildVode<S>>catchVode)(state, error)
-                : catchVode;
+            const handledVode =
+                typeof catchVode === "function"
+                    ? (<(s: S, error: Error) => ChildVode<S>>catchVode)(state, error)
+                    : catchVode;
 
             if (Array.isArray(newVode) && (<AttachedElementVode<S>>newVode)[NODE]) {
-                const partialCount = (newProps?.onUnmount ? 1 : 0) + sumChildUnmountCounts(<AttachedElementVode<S>>newVode);
+                const partialCount =
+                    (newProps?.onUnmount ? 1 : 0) + sumChildUnmountCounts(<AttachedElementVode<S>>newVode);
                 if (partialCount > 0) {
                     (<AttachedElementVode<S>>newVode)[UNMOUNT_COUNT] = partialCount;
                     unmountTree(state, <AttachedElementVode<S>>newVode);
@@ -795,16 +929,23 @@ function render<S extends PatchableState>(state: S, parent: DomElement, childInd
 
             while (catchNode.firstChild) (catchNode.firstChild as ChildNode).remove();
 
-            const errorUi = render(state, parent, childIndex, indexInParent,
+            const errorUi = render(
+                state,
+                parent,
+                childIndex,
+                indexInParent,
                 hydrate(catchNode, true) as AttachedVode<S>,
                 handledVode,
-                xmlns);
+                xmlns,
+            );
 
             // reused catchNode's DOM node. fire onMount if it has one
             if ((<AttachedElementVode<S>>errorUi)?.[NODE] === catchNode) {
                 const errorUiProps = props(errorUi as AttachedVode<S>);
                 if (typeof errorUiProps?.onMount === "function") {
-                    state.patch(errorUiProps.onMount(state, catchNode as HTMLElement & SVGSVGElement & MathMLElement));
+                    state.patch(
+                        errorUiProps.onMount(state, catchNode as HTMLElement & SVGSVGElement & MathMLElement),
+                    );
                 }
             }
 
@@ -817,7 +958,10 @@ function render<S extends PatchableState>(state: S, parent: DomElement, childInd
     return undefined;
 }
 
-function unmountTree<S extends PatchableState>(state: S, v: AttachedElementVode<S> | ChildVode<S> | undefined): void {
+function unmountTree<S extends PatchableState>(
+    state: S,
+    v: AttachedElementVode<S> | ChildVode<S> | undefined,
+): void {
     if (!v || !Array.isArray(v)) return;
     if (((v as AttachedElementVode<S>)?.[UNMOUNT_COUNT] ?? 0) === 0) return;
 
@@ -841,7 +985,7 @@ function sumChildUnmountCounts<S>(v: AttachedElementVode<S>): number {
     for (let i = kidsStart; i < v.length; i++) {
         const k = v[i] as AttachedVode<S>;
         if (Array.isArray(k)) {
-            n += ((k as AttachedElementVode<S>)[UNMOUNT_COUNT] ?? 0);
+            n += (k as AttachedElementVode<S>)[UNMOUNT_COUNT] ?? 0;
         }
     }
     return n;
@@ -852,23 +996,27 @@ function isNaturalVode<S>(x: ChildVode<S>): x is Vode<S> {
 }
 
 function isTextVode<S>(x: ChildVode<S>): x is TextVode {
-    return typeof x === "string" || (<Text><unknown>x)?.nodeType === TEXT_NODE;
+    return typeof x === "string" || (<Text>(<unknown>x))?.nodeType === TEXT_NODE;
 }
 
-function remember<S>(state: S, present: MemoNode<S>, past?: MemoNode<S>): ChildVode<S> | AttachedVode<S> {
+function remember<S>(
+    state: S,
+    present: MemoNode<S>,
+    past?: MemoNode<S>,
+): ChildVode<S> | AttachedVode<S> {
     while (typeof present === "function" && !present[MEMO]) {
         present = present(state) as MemoNode<S>;
     }
 
-    if (typeof present !== "function")
-        return present;
+    if (typeof present !== "function") return present;
 
     const presentMemo = present?.[MEMO];
     const pastMemo = past?.[MEMO];
 
     if (
-        Array.isArray(presentMemo) && Array.isArray(pastMemo)
-        && presentMemo.length === pastMemo.length
+        Array.isArray(presentMemo) &&
+        Array.isArray(pastMemo) &&
+        presentMemo.length === pastMemo.length
     ) {
         let same = true;
         for (let i = 0; i < presentMemo.length; i++) {
@@ -894,9 +1042,11 @@ function remember<S>(state: S, present: MemoNode<S>, past?: MemoNode<S>): ChildV
 }
 
 function patchProperties<S extends PatchableState>(
-    s: S, node: ElementNode<S>,
-    oldProps: Props<S> | null | undefined, newProps: Props<S> | null | undefined,
-    xmlns: string | null | undefined
+    s: S,
+    node: ElementNode<S>,
+    oldProps: Props<S> | null | undefined,
+    newProps: Props<S> | null | undefined,
+    xmlns: string | null | undefined,
 ) {
     if (!newProps && !oldProps) return;
 
@@ -910,9 +1060,15 @@ function patchProperties<S extends PatchableState>(
 
             if (oldValue !== newValue) {
                 if (newProps)
-                    newProps[key as keyof Props<S>] = patchProperty(s, node, key, oldValue, newValue, xmlMode);
-                else
-                    patchProperty(s, node, key, oldValue, undefined, xmlMode);
+                    newProps[key as keyof Props<S>] = patchProperty(
+                        s,
+                        node,
+                        key,
+                        oldValue,
+                        newValue,
+                        xmlMode,
+                    );
+                else patchProperty(s, node, key, oldValue, undefined, xmlMode);
             }
         }
     }
@@ -936,10 +1092,12 @@ function patchProperties<S extends PatchableState>(
 }
 
 function patchProperty<S extends PatchableState>(
-    s: S, node: ElementNode<S>,
+    s: S,
+    node: ElementNode<S>,
     key: string | keyof ElementEventMap,
-    oldValue: PropertyValue<S>, newValue: PropertyValue<S>,
-    xmlMode: boolean
+    oldValue: PropertyValue<S>,
+    newValue: PropertyValue<S>,
+    xmlMode: boolean,
 ) {
     if (key === "style") {
         if (!newValue) {
@@ -950,10 +1108,10 @@ function patchProperty<S extends PatchableState>(
             for (let k in oldValue) {
                 const nv = newValue[k as keyof PropertyValue<S>];
                 if (nv === undefined || nv === null) {
-                    node.style[k as keyof PropertyValue<S>] = <string><unknown>null;
+                    node.style[k as keyof PropertyValue<S>] = <string>(<unknown>null);
                 }
             }
-            for (let k in (newValue as Record<keyof CSSStyleDeclaration, CSSStyleDeclaration>)) {
+            for (let k in newValue as Record<keyof CSSStyleDeclaration, CSSStyleDeclaration>) {
                 const ov = oldValue[k as keyof PropertyValue<S>];
                 const nv = newValue[k as keyof PropertyValue<S>];
                 if (ov !== nv) {
@@ -962,7 +1120,7 @@ function patchProperty<S extends PatchableState>(
             }
         } else {
             if (oldValue) node.style.cssText = "";
-            for (let k in (newValue as Props<S>)) {
+            for (let k in newValue as Props<S>) {
                 node.style[k as keyof PropertyValue<S>] = newValue[k as keyof PropertyValue<S>];
             }
         }
@@ -990,20 +1148,18 @@ function patchProperty<S extends PatchableState>(
         if (!xmlMode) node[key] = newValue;
         if (newValue === undefined || newValue === null || newValue === false)
             node.removeAttribute(key);
-        else
-            node.setAttribute(key, <string>newValue);
+        else node.setAttribute(key, <string>newValue);
     }
 
     return newValue;
 }
 
 function classString(classProp: ClassProp): string {
-    if (typeof classProp === "string")
-        return classProp;
-    else if (Array.isArray(classProp))
-        return classProp.map(classString).join(" ");
+    if (typeof classProp === "string") return classProp;
+    else if (Array.isArray(classProp)) return classProp.map(classString).join(" ");
     else if (classProp && typeof classProp === "object")
-        return Object.keys(classProp).filter(k => classProp[k]).join(" ");
-    else
-        return "";
+        return Object.keys(classProp)
+            .filter((k) => classProp[k])
+            .join(" ");
+    else return "";
 }
