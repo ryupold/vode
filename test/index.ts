@@ -13,11 +13,12 @@ import mergeStyleTests from "./tests-mergeStyle";
 import mergePropsTests from "./tests-mergeProps";
 import stateContextTests from "./tests-state-context";
 import mountUnmountTests from "./tests-mount-unmount";
-import onRenderTests from "./tests-onRender";
+import reconciledTests from "./tests-reconciled";
 import exampleTests from "./tests-examples";
 import catchTests from "./tests-catch";
 import patchAdvancedTests from "./tests-patch-advanced";
 import patchMergeTests from "./tests-patch-merge";
+import keyedTests from "./tests-keyed";
 
 export const tests = {
     ...vodeTests,
@@ -26,7 +27,7 @@ export const tests = {
     ...hydrateTests,
     ...memoTests,
     ...mountUnmountTests,
-    ...onRenderTests,
+    ...reconciledTests,
 
     ...createStateTests,
     ...createPatchTests,
@@ -44,4 +45,5 @@ export const tests = {
     ...catchTests,
     ...patchAdvancedTests,
     ...patchMergeTests,
+    ...keyedTests,
 };

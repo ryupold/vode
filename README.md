@@ -471,6 +471,53 @@ app(container, state, (s) => [DIV,
 
 Passing an empty dependency array means the component is only rendered once and then ignored.
 
+### keyed lists
+
+vode normaly reconciles children *by position*: on every render the DOM node at index `i` is patched to match the new child at index `i`. For lists this is usually fine, but when entries are reordered, inserted or removed in the middle, and the vode+elements identity matter because you need to reference the DOM nodes to preserve state (e.g. scroll position, input values, running animations & transitions), the `keyed()` helper function can be used to match children by a stable `key` instead of their position.
+
+```typescript
+import { keyed } from '@ryupold/vode';
+
+const state = createState({
+    todos: [
+        { id: "1", text: "write docs" },
+        { id: "2", text: "peer review" },
+        { id: "3", text: "publish" },
+    ]
+});
+
+app(container, state, (s) => [DIV,
+    keyed([UL, { class: "todos" },
+        ...s.todos.map((t) => [LI, { key: t.id }, t.text]),
+    ]),
+]);
+```
+
+During rendering, children that kept their key are *reused and patched in place* (keeping their exact DOM node), new keys are created, removed keys are unmounted (`onUnmount` fires), and reordered nodes are physically moved with the minimum number of DOM operations.
+
+consequences:
+- keys must be unique strings within one `keyed()` call
+- the child carrying the `key` must be a plain `[tag, { key, ... }, ...]` vode, no string or component.
+- falsy children from conditional rendering (`false`, `null`, `undefined`) are skipped, so `cond && [LI, { key: "x" }, "..."]` works
+
+#### keyed + memo
+
+`keyed()` and `memo()` complement each other: `keyed` preserves the *DOM identity* of a row across reorders, `memo` skips *re-rendering* unchanged content. Because `keyed` aligns the previous render's children by key, a `memo` inside a row is always compared against the same logical row, no matter where it moved in the list:
+
+```typescript
+app(container, state, (s) => [DIV,
+    keyed([UL,
+        ...s.todos.map((t) => [LI, { key: t.id },
+            // re-renders only when this todo's text actually changed,
+            // even after the list was reordered
+            memo([t.text], () => [SPAN, { class: "todo" }, t.text]),
+        ]),
+    ]),
+```
+]);
+
+Note that due to the way `keyed` works, memo cannot be directly nested inside a `keyed` call but must be wrapped inside at least one vode.
+
 ### error handling
 
 You can catch errors during rendering by providing a `catch` property in the vode props.

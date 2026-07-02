@@ -9,7 +9,7 @@ export type FullVode<S = PatchableState> = [
 export type NoPropsVode<S = PatchableState> = [
 	tag: Tag,
 	...children: ChildVode<S>[]
-] | (TextVode[]);
+] | TextVode[];
 export type JustTagVode = [
 	tag: Tag
 ];
@@ -19,14 +19,24 @@ export type NoVode = undefined | null | number | boolean | bigint | void;
 export type Tag = keyof (HTMLElementTagNameMap & SVGElementTagNameMap & MathMLElementTagNameMap) | (string & {});
 export type Component<S = PatchableState> = (s: S) => ChildVode<S>;
 export type DomElement = HTMLElement | SVGSVGElement | MathMLElement;
-export type AttachedVode<S = PatchableState> = AttachedElementVode<S> | Text & {
-	node?: never;
-};
+export type AttachedVode<S = PatchableState> = AttachedElementVode<S> | (Text & {
+	[NODE]?: never;
+});
 export type AttachedElementVode<S> = Vode<S> & {
-	node: ElementNode<S>;
-	_unmountCount?: number;
+	[NODE]: ElementNode<S>;
+	[UNMOUNT_COUNT]?: number;
 };
 export type ElementNode<S> = HTMLElement & SVGSVGElement & MathMLElement & Record<string, PropertyValue<S>>;
+export type RenderedVode = Vode & {
+	[NODE]: DomElement;
+};
+/** can be used to access the internal vode meta data of a ContainerNode */
+export declare const VODE: unique symbol;
+/** can be used to access the ElementNode of an AttachedVode */
+export declare const NODE: unique symbol;
+/** can be used to access the stats on the state object */
+export declare const STATS: unique symbol;
+declare const UNMOUNT_COUNT: unique symbol;
 export type Patch<S> = IgnoredPatch | RenderPatch<S> | Promise<Patch<S>> | Effect<S>;
 export type IgnoredPatch = undefined | null | number | boolean | bigint | string | symbol | void;
 export type RenderPatch<S> = {} | DeepPartial<S>;
@@ -43,12 +53,18 @@ export interface Props<S = PatchableState> extends Partial<Omit<HTMLElement, key
 	xmlns?: string | null;
 	class?: ClassProp;
 	style?: StyleProp;
-	/** called after the element was attached */
+	/** called after the element was attached (and finished its rendering) */
 	onMount?: MountFunction<S> | null | false;
-	/** called before the element is detached */
+	/** called right before the element is detached */
 	onUnmount?: MountFunction<S> | null | false;
 	/** used instead of original vode when an error occurs during rendering */
 	catch?: ((s: S, error: Error) => ChildVode<S>) | ChildVode<S>;
+	/** called every render after assignment of the DOM node.
+	 * receiving the new vode and the previously (attached) one.
+	 * 2 cases:
+	 * - `newVode` is attached, `oldVode` is undefined: initial node assigment
+	 * - `newVode` is attached, `oldVode` is defined: updated/checked */
+	reconciled?: ((s: S, newVode: RenderedVode, oldVode: RenderedVode | undefined) => void) | null | false;
 }
 export type MountFunction<S> = ((s: S, node: HTMLElement) => Patch<S>) | ((s: S, node: SVGSVGElement) => Patch<S>) | ((s: S, node: MathMLElement) => Patch<S>);
 export type ClassProp = string | string[] | Record<string, boolean | undefined | null> | "" | false | null | undefined;
@@ -65,19 +81,32 @@ export type EventsMapBase = {
 export interface EventsMap extends EventsMapBase {
 }
 export type PropertyValue<S> = string | boolean | null | undefined | void | StyleProp | ClassProp | Patch<S>;
-export type Dispatch<S> = (action: Patch<S>, animate?: boolean) => void | Promise<void>;
+export type Dispatch<S> = (action: Patch<S>, animated?: boolean) => void | Promise<void>;
 export interface Patchable<S = object> {
 	patch: Dispatch<S>;
 }
-export type PatchableState<S = object> = S & Patchable<S>;
+export type PatchableState<S = object> = S & Patchable<S> & {
+	[STATS]: Stats;
+};
+/** stats about the overall patches & render times */
+export type Stats = {
+	patchCount: number;
+	liveEffectCount: number;
+	syncRenderPatchCount: number;
+	asyncRenderPatchCount: number;
+	syncRenderCount: number;
+	asyncRenderCount: number;
+	lastSyncRenderTime: number;
+	lastAsyncRenderTime: number;
+};
 export type AsPatchable<S> = S extends {
 	patch: any;
 } ? S : PatchableState<S>;
 export type ContainerNode<S = PatchableState> = DomElement & {
-	/** the `_vode` property is added to the container in `app()`.
+	/** the `VODE` (symbol) property is added to the container in `app()`.
 	 * it contains all necessary stuff for the vode app to function.
 	 * remove the container node to clear vode's resources */
-	_vode: {
+	[VODE]: {
 		state: PatchableState<S>;
 		vode: AttachedVode<S>;
 		document: Document & {
@@ -90,17 +119,7 @@ export type ContainerNode<S = PatchableState> = DomElement & {
 		qAsync: {} | undefined | null;
 		isRendering: number;
 		isAnimating: boolean;
-		/** stats about the overall patches & last render time */
-		stats: {
-			patchCount: number;
-			liveEffectCount: number;
-			syncRenderPatchCount: number;
-			asyncRenderPatchCount: number;
-			syncRenderCount: number;
-			asyncRenderCount: number;
-			lastSyncRenderTime: number;
-			lastAsyncRenderTime: number;
-		};
+		stats: Stats;
 	};
 };
 /** type-safe way to create a vode. useful for type inference and autocompletion.
@@ -113,7 +132,8 @@ export type ContainerNode<S = PatchableState> = DomElement & {
 export declare function vode<S = PatchableState>(tag: Tag | Vode<S>, props?: Props<S> | ChildVode<S>, ...children: ChildVode<S>[]): Vode<S>;
 /** create a vode app inside a container element
  * @param container will use this container as root and places the result of the dom function and further renderings in it
- * @param state the state object that is used as singleton state bound to the vode app and is updated with `patch()`. its type is inferred, so the `dom` function and the returned `patch` are typed without annotations.
+ * @param state the state object that is used as singleton state bound to the vode app and is updated with `patch()`.
+ * its type is inferred, so the `dom` function and the returned `patch` are typed without annotations.
  * @param dom function is called every render and returns the vode-dom that is updated incrementally to the DOM based on the state.
  * @param initialPatches variadic list of patches that are applied after the first render
  * @returns a patch function that can be used to update the state
@@ -151,6 +171,129 @@ export declare function childCount<S = PatchableState>(vode: Vode<S>): number;
 export declare function child<S = PatchableState>(vode: Vode<S>, index: number): ChildVode<S> | undefined;
 /** index in vode at which child-vodes start */
 export declare function childrenStart<S = PatchableState>(vode: ChildVode<S> | AttachedVode<S>): 1 | 2 | -1;
+export type KeyedProps<S = PatchableState> = Props<S> & {
+	key: string;
+};
+export type KeyedVode<S = PatchableState> = [
+	tag: Tag,
+	props?: Props<S> | KeyedChild<S> | WideKeyedChild<S> | NoVode,
+	...children: (KeyedChild<S> | WideKeyedChild<S> | NoVode)[]
+];
+export type KeyedChild<S = PatchableState> = [
+	tag: Tag,
+	props: KeyedProps<S>,
+	...children: ChildVode<S>[]
+];
+/** necessary for children passed by using spread operator */
+export type WideKeyedChild<S = PatchableState> = (Tag | KeyedProps<S> | WideChild<S>)[];
+export type WideChild<S> = ChildVode<S> | (Tag | Props<S> | WideChild<S>)[];
+/**
+ * **Keyed reconciliation** for vode. Reuse, reorder, insert and remove list items
+ * by a stable `key` instead of by position. Use this when you have a usecase where
+ * the order of items can change dynamically, but you need to maintain the DOM reference
+ * to the vode at the same position.
+ *
+ * ```ts
+ * const state = {
+ *   items: [
+ *     { id: "1", label: "item 1" },
+ *     { id: "2", label: "item 2" },
+ *     { id: "3", label: "item 3" },
+ *   ],
+ * }
+ *
+ * app(container, state, (s) => [DIV,
+ *   keyed([UL, { class: "todos" },
+ *     ...s.items.map(it => [LI, { key: it.id }, it.label]),
+ *   ]),
+ * ]);
+ * ```
+ *
+ * All direct children of the vode passed to `keyed()` must carry a unique string `key` in their props.
+ * **key**s must be unique strings within a call and should be a *stable identity* of the
+ * item.
+ */
+export declare function keyed<S extends PatchableState = PatchableState>(container: KeyedVode<S>): Vode<S>;
+/** merge `ClassProp`s regardless of structure */
+export declare function mergeClass(...classes: ClassProp[]): ClassProp;
+/** merge `Props` from left to right
+ * utilizing `mergeStyle` for style properties and `mergeClass` for class properties.
+ * @returns {Props<S>} merged Prop object or undefined if no props were provided
+ */
+export declare function mergeProps<S extends PatchableState = PatchableState>(...props: (Props<S> | null | undefined)[]): Props<S> | null | undefined;
+/** merge `StyleProp`s regardless of type
+ * @returns {string} merged StyleProp */
+export declare function mergeStyle(...props: StyleProp[]): StyleProp;
+/**
+ * State context for type-safe access and manipulation of nested state paths
+ * while still being able to access the parent state.
+ */
+export interface StateContext<S extends Patchable<S>, SubState> extends SubContext<SubState> {
+}
+/**
+ * State context for type-safe access and manipulation of nested sub-state values without knowledge of the parent state.
+ */
+export interface SubContext<SubState> {
+	/**
+	 * Reads the current value of the sub-state if it exists.
+	 *
+	 * @returns The current value, or undefined if the path doesn't exist
+	 */
+	get(): SubState;
+	/**
+	 * Updates the nested sub-state value WITHOUT triggering a render.
+	 * This performs a silent mutation of the parent state object.
+	 *
+	 * @param {SubState} value - The new value to assign
+	 */
+	put(value: SubState): void;
+	/**
+	 * Updates the nested sub-state value AND triggers a render.
+	 * This is the recommended way to update nested state in most cases.
+	 *
+	 * @param value - The new value or partial update to apply
+	 * @param animated - when true the patch runs through a view transition (if available)
+	 */
+	patch(value: SubState | Partial<SubState> | DeepPartial<SubState>, animated?: boolean): void;
+}
+export type ProxyStateContext<S extends PatchableState, SubState> = StateContext<S, SubState> & {
+	[K in keyof SubState]-?: SubState[K] extends object | null ? ProxyStateContext<S, SubState[K]> : StateContext<S, SubState[K]>;
+};
+export type ProxySubContext<SubState> = SubContext<SubState> & {
+	[K in keyof SubState]-?: SubState[K] extends object | null ? ProxySubContext<SubState[K]> : SubContext<SubState[K]>;
+};
+export type ProxyState<SubState> = SubState & {
+	[K in keyof SubState]-?: NonNullable<SubState[K]> extends object | null ? ProxyState<NonNullable<SubState[K]>> : SubState[K];
+};
+/**
+ * Creates a `ProxyStateContext` for type-safe access and manipulation of nested state.
+ *
+ * There are two ways to reach a subcontext:
+ *
+ * **1. Property chaining**: traverse the proxy directly via property access:
+ * ```typescript
+ * const ctx = context(state).user.profile.settings;
+ * ```
+ *
+ * **2. Path producer function**: pass a callback that navigates
+ * the state tree; needed if your intermediate path contains 'get', 'put' or 'patch' properties that would conflict with the context API:
+ * ```typescript
+ * const ctx = context(state, s => s.user.profile.settings);
+ * ```
+ *
+ * Both forms return a `ProxyStateContext` that supports the same operations:
+ * ```typescript
+ * ctx.get();                               // read current value
+ * ctx.patch({ theme: 'light' });           // update and trigger render
+ * ctx.put({ lang: 'de', theme: 'light' }); // update without render (silent mutation)
+ * ```
+ *
+ * @param state - The root `PatchableState` to create a context on
+ * @param producePath - Optional path producer; receives a proxy of the state and should return the desired sub-node
+ * @returns A `ProxyStateContext` rooted at the given path, with further property-chain access available
+ */
+export declare function context<S extends PatchableState, SS = S>(state: S): ProxyStateContext<S, SS>;
+export declare function context<S extends PatchableState, SS>(state: S, producePath: (ctx: ProxyState<S>) => ProxyState<SS>): ProxyStateContext<S, SS>;
 export declare const A: Tag;
 export declare const ABBR: Tag;
 export declare const ADDRESS: Tag;
@@ -352,85 +495,5 @@ export declare const MTR: Tag;
 export declare const MUNDER: Tag;
 export declare const MUNDEROVER: Tag;
 export declare const SEMANTICS: Tag;
-/** merge `ClassProp`s regardless of structure */
-export declare function mergeClass(...classes: ClassProp[]): ClassProp;
-/** merge `StyleProp`s regardless of type
- * @returns {string} merged StyleProp */
-export declare function mergeStyle(...props: StyleProp[]): StyleProp;
-/** merge `Props` from left to right
- * utilizing `mergeStyle` for style properties and `mergeClass` for class properties.
- * @returns {Props<S>} merged Prop object or undefined if no props were provided
- */
-export declare function mergeProps<S extends PatchableState = PatchableState>(...props: (Props<S> | null | undefined)[]): Props<S> | null | undefined;
-/**
- * State context for type-safe access and manipulation of nested state paths
- * while still being able to access the parent state.
- */
-export interface StateContext<S extends Patchable<S>, SubState> extends SubContext<SubState> {
-}
-/**
- * State context for type-safe access and manipulation of nested sub-state values without knowledge of the parent state.
- */
-export interface SubContext<SubState> {
-	/**
-	 * Reads the current value of the sub-state if it exists.
-	 *
-	 * @returns The current value, or undefined if the path doesn't exist
-	 */
-	get(): SubState;
-	/**
-	 * Updates the nested sub-state value WITHOUT triggering a render.
-	 * This performs a silent mutation of the parent state object.
-	 *
-	 * @param {SubState} value - The new value to assign
-	 */
-	put(value: SubState): void;
-	/**
-	 * Updates the nested sub-state value AND triggers a render.
-	 * This is the recommended way to update nested state in most cases.
-	 *
-	 * @param value - The new value or partial update to apply
-	 * @param animated - when true the patch runs through a view transition (if available)
-	 */
-	patch(value: SubState | Partial<SubState> | DeepPartial<SubState>, animated?: boolean): void;
-}
-export type ProxyStateContext<S extends PatchableState, SubState> = StateContext<S, SubState> & {
-	[K in keyof SubState]-?: SubState[K] extends object | null ? ProxyStateContext<S, SubState[K]> : StateContext<S, SubState[K]>;
-};
-export type ProxySubContext<SubState> = SubContext<SubState> & {
-	[K in keyof SubState]-?: SubState[K] extends object | null ? ProxySubContext<SubState[K]> : SubContext<SubState[K]>;
-};
-export type ProxyState<SubState> = SubState & {
-	[K in keyof SubState]-?: NonNullable<SubState[K]> extends object | null ? ProxyState<NonNullable<SubState[K]>> : SubState[K];
-};
-/**
- * Creates a `ProxyStateContext` for type-safe access and manipulation of nested state.
- *
- * There are two ways to reach a subcontext:
- *
- * **1. Property chaining**: traverse the proxy directly via property access:
- * ```typescript
- * const ctx = context(state).user.profile.settings;
- * ```
- *
- * **2. Path producer function**: pass a callback that navigates
- * the state tree; needed if your intermediate path contains 'get', 'put' or 'patch' properties that would conflict with the context API:
- * ```typescript
- * const ctx = context(state, s => s.user.profile.settings);
- * ```
- *
- * Both forms return a `ProxyStateContext` that supports the same operations:
- * ```typescript
- * ctx.get();                               // read current value
- * ctx.patch({ theme: 'light' });           // update and trigger render
- * ctx.put({ lang: 'de', theme: 'light' }); // update without render (silent mutation)
- * ```
- *
- * @param state - The root `PatchableState` to create a context on
- * @param producePath - Optional path producer; receives a proxy of the state and should return the desired sub-node
- * @returns A `ProxyStateContext` rooted at the given path, with further property-chain access available
- */
-export declare function context<S extends PatchableState, SS = S>(state: S): ProxyStateContext<S, SS>;
-export declare function context<S extends PatchableState, SS>(state: S, producePath: (ctx: ProxyState<S>) => ProxyState<SS>): ProxyStateContext<S, SS>;
 
 export {};

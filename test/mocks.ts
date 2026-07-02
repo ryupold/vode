@@ -123,6 +123,11 @@ export class FakeElement {
     }
 
     appendChild(child: FakeElement | FakeTextNode): FakeElement | FakeTextNode {
+        // like the real DOM, appendChild moves: detach from the current parent first
+        if (child.parentElement) {
+            const i = (child.parentElement.childNodes as FakeNodeList).data.indexOf(child as any);
+            if (i >= 0) (child.parentElement.childNodes as FakeNodeList).data.splice(i, 1);
+        }
         (this.childNodes as FakeNodeList).data.push(child as any);
         (child as any).parentElement = this;
         return child;
@@ -148,20 +153,21 @@ export class FakeElement {
     before(...nodes: (FakeElement | FakeTextNode)[]) {
         const parent = this.parentElement;
         if (parent) {
+            if ((<FakeNodeList>parent.childNodes).data.indexOf(this as any) < 0) return;
+            for (const n of nodes) {
+                if (n === this) continue;
+                if (n.parentElement) {
+                    const ni = (<FakeNodeList>n.parentElement.childNodes).data.indexOf(n as any);
+                    if (ni >= 0) (<FakeNodeList>n.parentElement.childNodes).data.splice(ni, 1);
+                }
+            }
+            const filtered = nodes.filter((n) => n !== this);
+            // like the real DOM, insert relative to `this` *after* detaching the moved
+            // nodes (detaching an earlier sibling shifts this node's index)
             const i = (<FakeNodeList>parent.childNodes).data.indexOf(this as any);
-            if (i >= 0) {
-                for (const n of nodes) {
-                    if (n === this) continue;
-                    if (n.parentElement) {
-                        const ni = (<FakeNodeList>n.parentElement.childNodes).data.indexOf(n as any);
-                        if (ni >= 0) (<FakeNodeList>n.parentElement.childNodes).data.splice(ni, 1);
-                    }
-                }
-                const filtered = nodes.filter((n) => n !== this);
-                (<FakeNodeList>parent.childNodes).data.splice(i, 0, ...(filtered as any));
-                for (const n of filtered) {
-                    n.parentElement = parent;
-                }
+            (<FakeNodeList>parent.childNodes).data.splice(i, 0, ...(filtered as any));
+            for (const n of filtered) {
+                n.parentElement = parent;
             }
         }
     }
@@ -199,20 +205,21 @@ export class FakeTextNode {
     before(...nodes: (FakeElement | FakeTextNode)[]) {
         const parent = this.parentElement;
         if (parent) {
+            if ((<FakeNodeList>parent.childNodes).data.indexOf(this as any) < 0) return;
+            for (const n of nodes) {
+                if (n === this) continue;
+                if (n.parentElement) {
+                    const ni = (<FakeNodeList>n.parentElement.childNodes).data.indexOf(n as any);
+                    if (ni >= 0) (<FakeNodeList>n.parentElement.childNodes).data.splice(ni, 1);
+                }
+            }
+            const filtered = nodes.filter((n) => n !== this);
+            // like the real DOM, insert relative to `this` *after* detaching the moved
+            // nodes (detaching an earlier sibling shifts this node's index)
             const i = (<FakeNodeList>parent.childNodes).data.indexOf(this as any);
-            if (i >= 0) {
-                for (const n of nodes) {
-                    if (n === this) continue;
-                    if (n.parentElement) {
-                        const ni = (<FakeNodeList>n.parentElement.childNodes).data.indexOf(n as any);
-                        if (ni >= 0) (<FakeNodeList>n.parentElement.childNodes).data.splice(ni, 1);
-                    }
-                }
-                const filtered = nodes.filter((n) => n !== this);
-                (<FakeNodeList>parent.childNodes).data.splice(i, 0, ...(filtered as any));
-                for (const n of filtered) {
-                    n.parentElement = parent;
-                }
+            (<FakeNodeList>parent.childNodes).data.splice(i, 0, ...(filtered as any));
+            for (const n of filtered) {
+                n.parentElement = parent;
             }
         }
     }

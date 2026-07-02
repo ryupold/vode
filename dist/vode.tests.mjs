@@ -1,21 +1,29 @@
 // src/vode.ts
+var VODE = /* @__PURE__ */ Symbol("vode");
+var NODE = /* @__PURE__ */ Symbol("node");
+var STATS = /* @__PURE__ */ Symbol("stats");
+var UNMOUNT_COUNT = /* @__PURE__ */ Symbol("ucount");
+var MEMO = /* @__PURE__ */ Symbol("memo");
 var ELEMENT_NODE = 1;
 var TEXT_NODE = 3;
 function vode(tag2, props2, ...children2) {
   if (!tag2) throw new Error("first argument to vode() must be a tag name or a vode");
-  if (Array.isArray(tag2))
-    return tag2;
+  if (Array.isArray(tag2)) return tag2;
   else if (props2 !== null && typeof props2 === "object")
     return [tag2, props2, ...children2];
-  else if (props2 === void 0)
-    return [tag2, ...children2];
-  else
-    return [tag2, props2, ...children2];
+  else if (props2 === void 0) return [tag2, ...children2];
+  else return [tag2, props2, ...children2];
 }
 function app(container, state, dom, ...initialPatches) {
-  if (!container?.parentElement) throw new Error("first argument to app() must be a valid HTMLElement inside the <html></html> document");
-  if (!state || typeof state !== "object") throw new Error("second argument to app() must be a state object");
-  if (typeof dom !== "function") throw new Error("third argument to app() must be a function that returns a vode");
+  if (!container?.parentElement)
+    throw new Error(
+      "first argument to app() must be a valid HTMLElement inside the <html></html> document"
+    );
+  if (!state || typeof state !== "object")
+    throw new Error("second argument to app() must be a state object");
+  if (typeof dom !== "function")
+    throw new Error("third argument to app() must be a function that returns a vode");
+  const patchableState = state;
   const _vode = {};
   _vode.document = container.ownerDocument;
   const win = _vode.document.defaultView;
@@ -27,21 +35,33 @@ function app(container, state, dom, ...initialPatches) {
   _vode.asyncRenderer = typeof _vode.document.startViewTransition === "function" ? _vode.document.startViewTransition.bind(_vode.document) : null;
   _vode.isRendering = 0;
   _vode.qAsync = null;
-  _vode.stats = { lastSyncRenderTime: 0, lastAsyncRenderTime: 0, syncRenderCount: 0, asyncRenderCount: 0, liveEffectCount: 0, patchCount: 0, syncRenderPatchCount: 0, asyncRenderPatchCount: 0 };
-  const patchableState = state;
+  _vode.stats = patchableState[STATS] ?? {
+    lastSyncRenderTime: 0,
+    lastAsyncRenderTime: 0,
+    syncRenderCount: 0,
+    asyncRenderCount: 0,
+    liveEffectCount: 0,
+    patchCount: 0,
+    syncRenderPatchCount: 0,
+    asyncRenderPatchCount: 0
+  };
+  patchableState[STATS] = _vode.stats;
   if ("patch" in state && typeof state.patch === "function" && Array.isArray(state.patch.initialPatches)) {
-    initialPatches = [...state.patch.initialPatches, ...initialPatches];
+    initialPatches = [
+      ...state.patch.initialPatches,
+      ...initialPatches
+    ];
   }
-  async function promisePatch(action, isAnimated) {
+  async function promisePatch(action, animated) {
     _vode.stats.liveEffectCount++;
     try {
       const resolvedPatch = await action;
-      await patchableState.patch(resolvedPatch, isAnimated);
+      await patchableState.patch(resolvedPatch, animated);
     } finally {
       _vode.stats.liveEffectCount--;
     }
   }
-  async function generatorPatch(action, isAnimated) {
+  async function generatorPatch(action, animated) {
     const generator = action;
     _vode.stats.liveEffectCount++;
     try {
@@ -49,13 +69,13 @@ function app(container, state, dom, ...initialPatches) {
       while (v.done === false) {
         _vode.stats.liveEffectCount++;
         try {
-          await patchableState.patch(v.value, isAnimated);
+          await patchableState.patch(v.value, animated);
           v = await generator.next();
         } finally {
           _vode.stats.liveEffectCount--;
         }
       }
-      await patchableState.patch(v.value, isAnimated);
+      await patchableState.patch(v.value, animated);
     } finally {
       _vode.stats.liveEffectCount--;
     }
@@ -64,16 +84,16 @@ function app(container, state, dom, ...initialPatches) {
     enumerable: false,
     configurable: true,
     writable: false,
-    value: (action, isAnimated) => {
+    value: (action, animated) => {
       while (typeof action === "function") {
         action = action(_vode.state);
       }
       if (!action || typeof action !== "object") return;
       _vode.stats.patchCount++;
-      if (action?.next) {
-        return generatorPatch(action, isAnimated);
-      } else if (action.then) {
-        return promisePatch(action, isAnimated);
+      if (typeof action.next === "function") {
+        return generatorPatch(action, animated);
+      } else if (typeof action.then === "function") {
+        return promisePatch(action, animated);
       } else if (Array.isArray(action)) {
         if (action.length > 0) {
           for (const p of action) {
@@ -90,7 +110,7 @@ function app(container, state, dom, ...initialPatches) {
           _vode.renderSync();
         }
       } else {
-        if (isAnimated && !!_vode.asyncRenderer) {
+        if (animated && !!_vode.asyncRenderer) {
           _vode.stats.asyncRenderPatchCount++;
           _vode.qAsync = mergeState(_vode.qAsync || {}, action, false);
           _vode.renderAsync();
@@ -102,20 +122,26 @@ function app(container, state, dom, ...initialPatches) {
       }
     }
   });
-  function renderDom(isAnimated) {
+  function renderDom(animated) {
     const sw = performance.now();
-    _vode.vode = render(_vode.state, container.parentElement, 0, 0, _vode.vode, dom);
+    _vode.vode = render(
+      _vode.state,
+      container.parentElement,
+      0,
+      0,
+      _vode.vode,
+      dom
+    );
     if (container.tagName.toLowerCase() !== _vode.vode[0].toLowerCase()) {
-      container = _vode.vode.node;
-      container["_vode"] = _vode;
+      container = _vode.vode[NODE];
+      container[VODE] = _vode;
     }
-    if (!isAnimated) {
+    if (!animated) {
       _vode.stats.lastSyncRenderTime = performance.now() - sw;
       const changesSinceRender = _vode.isRendering !== _vode.stats.syncRenderPatchCount;
       _vode.stats.syncRenderCount++;
       _vode.isRendering = 0;
-      if (changesSinceRender)
-        _vode.renderSync();
+      if (changesSinceRender) _vode.renderSync();
     }
   }
   const sr = renderDom.bind(null, false);
@@ -139,7 +165,11 @@ function app(container, state, dom, ...initialPatches) {
       await _vode.document.currentViewTransition?.updateCallbackDone;
       if (_vode.isAnimating || !_vode.qAsync) return;
       if (_vode.document.hidden) {
-        _vode.state = mergeState(_vode.state, _vode.qAsync, true);
+        _vode.state = mergeState(
+          _vode.state,
+          _vode.qAsync,
+          true
+        );
         _vode.qAsync = null;
         _vode.stats.syncRenderPatchCount++;
         _vode.renderSync();
@@ -148,7 +178,11 @@ function app(container, state, dom, ...initialPatches) {
       _vode.isAnimating = true;
       const sw = performance.now();
       try {
-        _vode.state = mergeState(_vode.state, _vode.qAsync, true);
+        _vode.state = mergeState(
+          _vode.state,
+          _vode.qAsync,
+          true
+        );
         _vode.qAsync = null;
         if (_vode.asyncRenderer) {
           _vode.document.currentViewTransition = _vode.asyncRenderer(ar);
@@ -167,7 +201,7 @@ function app(container, state, dom, ...initialPatches) {
   });
   _vode.state = patchableState;
   const root = container;
-  root["_vode"] = _vode;
+  root[VODE] = _vode;
   const indexInParent = Array.from(container.parentElement.children).indexOf(container);
   const patchCountBefore = _vode.stats.syncRenderPatchCount;
   _vode.isRendering = _vode.stats.syncRenderPatchCount;
@@ -180,8 +214,8 @@ function app(container, state, dom, ...initialPatches) {
     dom
   );
   if (container.tagName.toLowerCase() !== _vode.vode[0].toLowerCase()) {
-    container = _vode.vode.node;
-    container["_vode"] = _vode;
+    container = _vode.vode[NODE];
+    container[VODE] = _vode;
   }
   const continueRendering = _vode.stats.syncRenderPatchCount !== patchCountBefore;
   _vode.isRendering = 0;
@@ -190,23 +224,23 @@ function app(container, state, dom, ...initialPatches) {
   for (const effect of initialPatches) {
     patchableState.patch(effect);
   }
-  return (action) => patchableState.patch(action);
+  return (action, animated) => patchableState.patch(action, animated);
 }
 function defuse(container) {
-  if (container?.["_vode"]) {
+  if (container?.[VODE]) {
     let clearEvents2 = function(av) {
-      if (!av?.node) return;
+      if (!av?.[NODE]) return;
       const p = props(av);
       if (p) {
         for (const key in p) {
           if (key[0] === "o" && key[1] === "n") {
-            av.node[key] = null;
+            av[NODE][key] = null;
           }
         }
-        av.node.catch = null;
+        av[NODE].catch = null;
       }
-      if (av.node["_vode"]) {
-        defuse(av.node);
+      if (av[NODE][VODE]) {
+        defuse(av[NODE]);
       } else {
         const kids = children(av);
         if (kids) {
@@ -217,8 +251,9 @@ function defuse(container) {
       }
     };
     var clearEvents = clearEvents2;
-    const v = container["_vode"];
-    delete container["_vode"];
+    const v = container[VODE];
+    delete container[VODE];
+    delete v.state[STATS];
     Object.defineProperty(v.state, "patch", { value: void 0 });
     Object.defineProperty(v, "renderSync", { value: () => {
     } });
@@ -239,11 +274,11 @@ function hydrate(element, prepareForRender) {
   } else if (element.nodeType === ELEMENT_NODE) {
     const tag2 = element.tagName.toLowerCase();
     const root = [tag2];
-    if (prepareForRender) root.node = element;
+    if (prepareForRender) root[NODE] = element;
     if (element?.hasAttributes()) {
       const props2 = {};
-      const attr = element.attributes;
-      for (let a of attr) {
+      const attr2 = element.attributes;
+      for (let a of attr2) {
         props2[a.name] = a.value;
       }
       root.push(props2);
@@ -265,30 +300,45 @@ function hydrate(element, prepareForRender) {
   }
 }
 function memo(compare, component) {
-  if (!compare || !Array.isArray(compare)) throw new Error("first argument to memo() must be an array of values to compare");
-  if (typeof component !== "function") throw new Error("second argument to memo() must be a function that returns a child vode");
-  if (component.__memo) {
+  if (!compare || !Array.isArray(compare))
+    throw new Error("first argument to memo() must be an array of values to compare");
+  if (typeof component !== "function")
+    throw new Error("second argument to memo() must be a function that returns a child vode");
+  if (component[MEMO]) {
     const comp = component;
     component = (s) => comp(s);
   }
-  component.__memo = compare;
+  component[MEMO] = compare;
   return component;
 }
 function createState(state) {
-  if (!state || typeof state !== "object") throw new Error("createState() must be called with a state object");
+  if (!state || typeof state !== "object")
+    throw new Error("createState() must be called with a state object");
   if (!("patch" in state)) {
     Object.defineProperty(state, "patch", {
       enumerable: false,
       configurable: true,
       writable: false,
-      value: (action) => {
+      value: (action, animated) => {
         const futureState = state;
         if (!Array.isArray(futureState.patch.initialPatches)) {
           futureState.patch.initialPatches = [];
         }
-        futureState.patch.initialPatches.push(action);
+        futureState.patch.initialPatches.push(animated ? [action] : action);
       }
     });
+  }
+  if (!(STATS in state)) {
+    state[STATS] = {
+      lastSyncRenderTime: 0,
+      lastAsyncRenderTime: 0,
+      syncRenderCount: 0,
+      asyncRenderCount: 0,
+      liveEffectCount: 0,
+      patchCount: 0,
+      syncRenderPatchCount: 0,
+      asyncRenderPatchCount: 0
+    };
   }
   return state;
 }
@@ -326,7 +376,13 @@ function child(vode2, index) {
   else return void 0;
 }
 function childrenStart(vode2) {
-  return props(vode2) ? vode2.length > 2 ? 2 : -1 : Array.isArray(vode2) && vode2.length > 1 ? 1 : -1;
+  if (Array.isArray(vode2) && vode2.length > 1) {
+    const first = vode2[1];
+    if (first && typeof first === "object" && !Array.isArray(first) && first.nodeType !== TEXT_NODE)
+      return vode2.length > 2 ? 2 : -1;
+    else return 1;
+  }
+  return -1;
 }
 function mergeState(target, source, allowDeletion) {
   if (typeof source !== "object") return target;
@@ -339,12 +395,10 @@ function mergeState(target, source, allowDeletion) {
       } else {
         const targetValue = target[key];
         if (targetValue) {
-          if (Array.isArray(targetValue))
-            target[key] = mergeState({}, value, allowDeletion);
+          if (Array.isArray(targetValue)) target[key] = mergeState({}, value, allowDeletion);
           else if (typeof targetValue === "object")
             mergeState(target[key], value, allowDeletion);
-          else
-            target[key] = mergeState({}, value, allowDeletion);
+          else target[key] = mergeState({}, value, allowDeletion);
         } else {
           target[key] = mergeState({}, value, allowDeletion);
         }
@@ -360,12 +414,12 @@ function mergeState(target, source, allowDeletion) {
 function render(state, parent, childIndex, indexInParent, oldVode, newVode, xmlns) {
   try {
     newVode = remember(state, newVode, oldVode);
-    const isNoVode = !newVode || typeof newVode === "number" || typeof newVode === "boolean" || typeof newVode === "bigint";
+    const isNoVode = !newVode || typeof newVode !== "object" && typeof newVode !== "string";
     if (newVode === oldVode || !oldVode && isNoVode) {
       return oldVode;
     }
     const oldIsText = oldVode?.nodeType === TEXT_NODE;
-    const oldNode = oldIsText ? oldVode : oldVode?.node;
+    const oldNode = oldIsText ? oldVode : oldVode?.[NODE];
     if (isNoVode) {
       if (oldNode) {
         unmountTree(state, oldVode);
@@ -375,9 +429,11 @@ function render(state, parent, childIndex, indexInParent, oldVode, newVode, xmln
     }
     const isText = !isNoVode && isTextVode(newVode);
     const isNode = !isNoVode && isNaturalVode(newVode);
-    const alreadyAttached = !!newVode && typeof newVode !== "string" && !!(newVode?.node || newVode?.nodeType === TEXT_NODE);
+    const alreadyAttached = !!newVode && typeof newVode !== "string" && !!(newVode?.[NODE] || newVode?.nodeType === TEXT_NODE);
     if (!isText && !isNode && !alreadyAttached && !oldVode) {
-      throw new Error(`invalid ChildVode at index ${childIndex}: typeof ${typeof newVode}${typeof newVode === "object" ? "\ncould be that you are adding Props at the wrong position?" : ""}`);
+      throw new Error(
+        `invalid ChildVode at index ${childIndex}: typeof ${typeof newVode}${typeof newVode === "object" ? "\ncould be that you are adding Props at the wrong position?" : ""}`
+      );
     } else if (alreadyAttached && isText) {
       newVode = newVode.wholeText;
     } else if (alreadyAttached && isNode) {
@@ -412,17 +468,24 @@ function render(state, parent, childIndex, indexInParent, oldVode, newVode, xmln
     }
     if (isNode && (!oldNode || oldIsText || oldVode[0] !== newVode[0])) {
       const newvode = newVode;
-      if (1 in newvode) {
+      if (newvode.length > 1) {
         newvode[1] = remember(state, newvode[1], void 0);
       }
       const properties = props(newVode);
       if (properties?.xmlns !== void 0) xmlns = properties.xmlns;
       const newNode = xmlns ? parent.ownerDocument.createElementNS(xmlns, newVode[0]) : parent.ownerDocument.createElement(newVode[0]);
-      newVode.node = newNode;
+      newVode[NODE] = newNode;
+      if (typeof properties?.reconciled === "function") {
+        properties.reconciled(state, newVode, Array.isArray(oldVode) ? oldVode : void 0);
+      }
       patchProperties(state, newNode, void 0, properties, xmlns ?? null);
       if (!!properties && "catch" in properties) {
-        newVode.node["catch"] = null;
-        newVode.node.removeAttribute("catch");
+        newVode[NODE]["catch"] = null;
+        newVode[NODE].removeAttribute("catch");
+      }
+      if (!!properties && "reconciled" in properties) {
+        newVode[NODE]["reconciled"] = null;
+        newVode[NODE].removeAttribute("reconciled");
       }
       if (oldNode) {
         unmountTree(state, oldVode);
@@ -451,23 +514,31 @@ function render(state, parent, childIndex, indexInParent, oldVode, newVode, xmln
           if (attached) indexP++;
         }
       }
-      newVode._unmountCount = (properties?.onUnmount ? 1 : 0) + sumChildUnmountCounts(newVode);
+      newVode[UNMOUNT_COUNT] = (properties?.onUnmount ? 1 : 0) + sumChildUnmountCounts(newVode);
       if (typeof properties?.onMount === "function") {
-        state.patch(properties.onMount(state, newNode));
+        state.patch(
+          properties.onMount(state, newNode)
+        );
       }
       return newVode;
     }
     if (!oldIsText && isNode && oldVode[0] === newVode[0]) {
       const node = oldNode;
-      newVode.node = node;
+      newVode[NODE] = node;
       const properties = props(newVode);
+      if (typeof properties?.reconciled === "function") {
+        properties.reconciled(state, newVode, oldVode);
+      }
       const oldProps = props(oldVode);
-      if (properties?.xmlns !== void 0)
-        xmlns = properties.xmlns;
+      if (properties?.xmlns !== void 0) xmlns = properties.xmlns;
       patchProperties(state, node, oldProps, properties, xmlns);
       if (!!properties?.catch && oldProps?.catch !== properties.catch) {
         node["catch"] = null;
         node.removeAttribute("catch");
+      }
+      if (!!properties?.reconciled && oldProps?.reconciled !== properties.reconciled) {
+        node["reconciled"] = null;
+        node.removeAttribute("reconciled");
       }
       const newStart = childrenStart(newVode);
       const oldStart = childrenStart(oldVode);
@@ -484,10 +555,18 @@ function render(state, parent, childIndex, indexInParent, oldVode, newVode, xmln
       if (oldStart > 0) {
         const newKidsCount = newStart > 0 ? newVode.length - newStart : 0;
         for (let i = oldVode.length - 1 - oldStart; i >= newKidsCount; i--) {
-          render(state, oldNode, i, i, oldVode[i + oldStart], void 0, xmlns);
+          render(
+            state,
+            oldNode,
+            i,
+            i,
+            oldVode[i + oldStart],
+            void 0,
+            xmlns
+          );
         }
       }
-      newVode._unmountCount = (properties?.onUnmount ? 1 : 0) + sumChildUnmountCounts(newVode);
+      newVode[UNMOUNT_COUNT] = (properties?.onUnmount ? 1 : 0) + sumChildUnmountCounts(newVode);
       return newVode;
     }
   } catch (error) {
@@ -495,13 +574,13 @@ function render(state, parent, childIndex, indexInParent, oldVode, newVode, xmln
     const newProps = props(newVode);
     const catchVode = typeof newVode === "function" ? oldProps?.catch : newProps?.catch;
     if (catchVode) {
-      const catchNode = newVode?.node || oldVode?.node;
+      const catchNode = newVode?.[NODE] || oldVode?.[NODE];
       if (!catchNode) throw error;
       const handledVode = typeof catchVode === "function" ? catchVode(state, error) : catchVode;
-      if (Array.isArray(newVode) && newVode.node) {
+      if (Array.isArray(newVode) && newVode[NODE]) {
         const partialCount = (newProps?.onUnmount ? 1 : 0) + sumChildUnmountCounts(newVode);
         if (partialCount > 0) {
-          newVode._unmountCount = partialCount;
+          newVode[UNMOUNT_COUNT] = partialCount;
           unmountTree(state, newVode);
         }
       }
@@ -515,10 +594,12 @@ function render(state, parent, childIndex, indexInParent, oldVode, newVode, xmln
         handledVode,
         xmlns
       );
-      if (errorUi?.node === catchNode) {
+      if (errorUi?.[NODE] === catchNode) {
         const errorUiProps = props(errorUi);
         if (typeof errorUiProps?.onMount === "function") {
-          state.patch(errorUiProps.onMount(state, catchNode));
+          state.patch(
+            errorUiProps.onMount(state, catchNode)
+          );
         }
       }
       return errorUi;
@@ -530,7 +611,7 @@ function render(state, parent, childIndex, indexInParent, oldVode, newVode, xmln
 }
 function unmountTree(state, v) {
   if (!v || !Array.isArray(v)) return;
-  if ((v?._unmountCount ?? 0) === 0) return;
+  if ((v?.[UNMOUNT_COUNT] ?? 0) === 0) return;
   const kidsStart = childrenStart(v);
   if (kidsStart > 0) {
     for (let i = v.length - 1; i >= kidsStart; i--) {
@@ -539,7 +620,7 @@ function unmountTree(state, v) {
   }
   const p = props(v);
   if (typeof p?.onUnmount === "function") {
-    state.patch(p.onUnmount(state, v.node));
+    state.patch(p.onUnmount(state, v[NODE]));
   }
 }
 function sumChildUnmountCounts(v) {
@@ -549,7 +630,7 @@ function sumChildUnmountCounts(v) {
   for (let i = kidsStart; i < v.length; i++) {
     const k = v[i];
     if (Array.isArray(k)) {
-      n += k._unmountCount ?? 0;
+      n += k[UNMOUNT_COUNT] ?? 0;
     }
   }
   return n;
@@ -561,13 +642,12 @@ function isTextVode(x) {
   return typeof x === "string" || x?.nodeType === TEXT_NODE;
 }
 function remember(state, present, past) {
-  while (typeof present === "function" && !present.__memo) {
+  while (typeof present === "function" && !present[MEMO]) {
     present = present(state);
   }
-  if (typeof present !== "function")
-    return present;
-  const presentMemo = present?.__memo;
-  const pastMemo = past?.__memo;
+  if (typeof present !== "function") return present;
+  const presentMemo = present?.[MEMO];
+  const pastMemo = past?.[MEMO];
   if (Array.isArray(presentMemo) && Array.isArray(pastMemo) && presentMemo.length === pastMemo.length) {
     let same = true;
     for (let i = 0; i < presentMemo.length; i++) {
@@ -582,7 +662,7 @@ function remember(state, present, past) {
     present = present(state);
   }
   if (present && typeof present === "object") {
-    present.__memo = presentMemo;
+    present[MEMO] = presentMemo;
   }
   return present;
 }
@@ -595,9 +675,15 @@ function patchProperties(s, node, oldProps, newProps, xmlns) {
       const newValue = newProps?.[key];
       if (oldValue !== newValue) {
         if (newProps)
-          newProps[key] = patchProperty(s, node, key, oldValue, newValue, xmlMode);
-        else
-          patchProperty(s, node, key, oldValue, void 0, xmlMode);
+          newProps[key] = patchProperty(
+            s,
+            node,
+            key,
+            oldValue,
+            newValue,
+            xmlMode
+          );
+        else patchProperty(s, node, key, oldValue, void 0, xmlMode);
       }
     }
   }
@@ -664,46 +750,147 @@ function patchProperty(s, node, key, oldValue, newValue, xmlMode) {
     if (!xmlMode) node[key] = newValue;
     if (newValue === void 0 || newValue === null || newValue === false)
       node.removeAttribute(key);
-    else
-      node.setAttribute(key, newValue);
+    else node.setAttribute(key, newValue);
   }
   return newValue;
 }
 function classString(classProp) {
-  if (typeof classProp === "string")
-    return classProp;
-  else if (Array.isArray(classProp))
-    return classProp.map(classString).join(" ");
+  if (typeof classProp === "string") return classProp;
+  else if (Array.isArray(classProp)) return classProp.map(classString).join(" ");
   else if (classProp && typeof classProp === "object")
     return Object.keys(classProp).filter((k) => classProp[k]).join(" ");
-  else
-    return "";
+  else return "";
 }
 
-// src/vode-tags.ts
-var A = "a";
-var ARTICLE = "article";
-var ASIDE = "aside";
-var BR = "br";
-var BUTTON = "button";
-var DIV = "div";
-var FORM = "form";
-var H1 = "h1";
-var H2 = "h2";
-var HEADER = "header";
-var IMG = "img";
-var INPUT = "input";
-var LABEL = "label";
-var LI = "li";
-var MAIN = "main";
-var NAV = "nav";
-var P = "p";
-var SECTION = "section";
-var SPAN = "span";
-var STRONG = "strong";
-var UL = "ul";
-var CIRCLE = "circle";
-var SVG = "svg";
+// src/keyed.ts
+var TEXT_NODE2 = 3;
+function keyed(container) {
+  const kidsStart = childrenStart(container);
+  if (kidsStart < 0) return container;
+  const kids = container.slice(kidsStart).filter(
+    (c) => !!c
+  );
+  const seen = /* @__PURE__ */ new Set();
+  for (let i = 0; i < kids.length; i++) {
+    const key = props(kids[i])?.key;
+    if (typeof key !== "string")
+      throw new Error(`keyed(): no string key defined on child at index ${i}`);
+    if (seen.has(key)) throw new Error(`keyed(): duplicate key "${key}"`);
+    seen.add(key);
+  }
+  const userProps = kidsStart === 2 ? container[1] : void 0;
+  const userReconcile = userProps?.reconciled;
+  const containerProps = {
+    ...userProps,
+    reconciled: typeof userReconcile === "function" ? (s, newVode, oldVode) => {
+      reconcile(s, newVode, oldVode);
+      userReconcile(s, newVode, oldVode);
+    } : reconcile
+  };
+  return [container[0], containerProps, ...kids];
+}
+function reconcile(_s, newVode, oldVode) {
+  if (!newVode || !oldVode) return;
+  const oldStart = childrenStart(oldVode);
+  if (oldStart < 0) return;
+  const newStart = childrenStart(newVode);
+  const oldSlots = oldVode.slice(oldStart);
+  const slotByKey = /* @__PURE__ */ new Map();
+  for (const slot of oldSlots) {
+    const k = keyOf(slot);
+    if (k !== void 0 && !slotByKey.has(k)) slotByKey.set(k, slot);
+  }
+  const newKeys = newStart > 0 ? newVode.slice(newStart).map(keyOf) : [];
+  const newKeySet = new Set(newKeys);
+  const removed = [];
+  for (const slot of oldSlots) {
+    const k = keyOf(slot);
+    if (k === void 0 || slotByKey.get(k) !== slot || !newKeySet.has(k)) removed.push(slot);
+  }
+  const node = oldVode[NODE];
+  const desired = [];
+  for (const k of newKeys) {
+    if (k === void 0) continue;
+    const dn = nodeOf(slotByKey.get(k));
+    if (dn) desired.push(dn);
+  }
+  for (const slot of removed) {
+    const dn = nodeOf(slot);
+    if (dn) desired.push(dn);
+  }
+  reorder(node, desired);
+  const slots = oldVode;
+  slots.length = oldStart;
+  for (const k of newKeys) {
+    slots.push(k !== void 0 ? slotByKey.get(k) : void 0);
+  }
+  for (const slot of removed) {
+    slots.push(slot);
+  }
+}
+function keyOf(v) {
+  const k = props(v)?.key;
+  return typeof k === "string" ? k : void 0;
+}
+function nodeOf(slot) {
+  if (!slot) return void 0;
+  if (slot.nodeType === TEXT_NODE2) return slot;
+  return slot[NODE];
+}
+function reorder(parent, desired) {
+  const n = desired.length;
+  if (n < 2) return;
+  const pos = /* @__PURE__ */ new Map();
+  for (let i = 0; i < n; i++) pos.set(desired[i], i);
+  const seq = [];
+  const kids = parent.childNodes;
+  for (let i = 0; i < kids.length; i++) {
+    const p = pos.get(kids[i]);
+    if (p !== void 0) seq.push(p);
+  }
+  if (seq.length === n) {
+    let sorted = true;
+    for (let i = 1; i < n; i++) {
+      if (seq[i] < seq[i - 1]) {
+        sorted = false;
+        break;
+      }
+    }
+    if (sorted) return;
+  }
+  const stays = lis(seq);
+  let anchor;
+  for (let i = n - 1; i >= 0; i--) {
+    const node = desired[i];
+    if (!stays.has(i)) {
+      if (anchor && anchor.before) anchor.before(node);
+      else if (parent.appendChild) parent.appendChild(node);
+    }
+    anchor = node;
+  }
+}
+function lis(seq) {
+  const tails = [];
+  const prev = new Array(seq.length).fill(-1);
+  for (let i = 0; i < seq.length; i++) {
+    const v = seq[i];
+    let lo = 0, hi = tails.length;
+    while (lo < hi) {
+      const mid = lo + hi >> 1;
+      if (seq[tails[mid]] < v) lo = mid + 1;
+      else hi = mid;
+    }
+    if (lo > 0) prev[i] = tails[lo - 1];
+    tails[lo] = i;
+  }
+  const stays = /* @__PURE__ */ new Set();
+  let k = tails.length > 0 ? tails[tails.length - 1] : -1;
+  while (k >= 0) {
+    stays.add(seq[k]);
+    k = prev[k];
+  }
+  return stays;
+}
 
 // src/merge-class.ts
 function mergeClass(...classes) {
@@ -922,7 +1109,7 @@ var ProxyStateContextImpl = class _ProxyStateContextImpl {
   state;
   keys;
 };
-var KEYS_SYMBOL = /* @__PURE__ */ Symbol("vode.keys");
+var KEYS_SYMBOL = /* @__PURE__ */ Symbol("keys");
 function proxyState(state, keys) {
   return new Proxy(state, {
     get: (target, prop, receiver) => {
@@ -938,20 +1125,45 @@ function proxyState(state, keys) {
   });
 }
 
+// src/tags.ts
+var A = "a";
+var ARTICLE = "article";
+var ASIDE = "aside";
+var BR = "br";
+var BUTTON = "button";
+var DIV = "div";
+var FORM = "form";
+var H1 = "h1";
+var H2 = "h2";
+var HEADER = "header";
+var IMG = "img";
+var INPUT = "input";
+var LABEL = "label";
+var LI = "li";
+var MAIN = "main";
+var NAV = "nav";
+var P = "p";
+var SECTION = "section";
+var SPAN = "span";
+var STRONG = "strong";
+var UL = "ul";
+var CIRCLE = "circle";
+var SVG = "svg";
+
 // test/mocks.ts
 var NodeConstants = {
   ELEMENT_NODE: 1,
-  ATTRIBUTE_NODE: 2,
+  // ATTRIBUTE_NODE: 2,
   TEXT_NODE: 3,
-  CDATA_SECTION_NODE: 4,
-  ENTITY_REFERENCE_NODE: 5,
-  ENTITY_NODE: 6,
-  PROCESSING_INSTRUCTION_NODE: 7,
-  COMMENT_NODE: 8,
-  DOCUMENT_NODE: 9,
-  DOCUMENT_TYPE_NODE: 10,
-  DOCUMENT_FRAGMENT_NODE: 11,
-  NOTATION_NODE: 12
+  // CDATA_SECTION_NODE: 4,
+  // ENTITY_REFERENCE_NODE: 5,
+  // ENTITY_NODE: 6,
+  // PROCESSING_INSTRUCTION_NODE: 7,
+  COMMENT_NODE: 8
+  // DOCUMENT_NODE: 9,
+  // DOCUMENT_TYPE_NODE: 10,
+  // DOCUMENT_FRAGMENT_NODE: 11,
+  // NOTATION_NODE: 12,
 };
 var FakeNodeList = class {
   data = [];
@@ -1032,6 +1244,10 @@ var FakeElement = class {
     delete this.fakeAttributes[name];
   }
   appendChild(child2) {
+    if (child2.parentElement) {
+      const i = child2.parentElement.childNodes.data.indexOf(child2);
+      if (i >= 0) child2.parentElement.childNodes.data.splice(i, 1);
+    }
     this.childNodes.data.push(child2);
     child2.parentElement = this;
     return child2;
@@ -1039,8 +1255,7 @@ var FakeElement = class {
   remove() {
     if (this.parentElement) {
       const i = this.parentElement.childNodes.data.indexOf(this);
-      if (i >= 0)
-        this.parentElement.childNodes.data.splice(i, 1);
+      if (i >= 0) this.parentElement.childNodes.data.splice(i, 1);
     }
   }
   replaceWith(...nodes) {
@@ -1058,20 +1273,19 @@ var FakeElement = class {
   before(...nodes) {
     const parent = this.parentElement;
     if (parent) {
+      if (parent.childNodes.data.indexOf(this) < 0) return;
+      for (const n of nodes) {
+        if (n === this) continue;
+        if (n.parentElement) {
+          const ni = n.parentElement.childNodes.data.indexOf(n);
+          if (ni >= 0) n.parentElement.childNodes.data.splice(ni, 1);
+        }
+      }
+      const filtered = nodes.filter((n) => n !== this);
       const i = parent.childNodes.data.indexOf(this);
-      if (i >= 0) {
-        for (const n of nodes) {
-          if (n === this) continue;
-          if (n.parentElement) {
-            const ni = n.parentElement.childNodes.data.indexOf(n);
-            if (ni >= 0) n.parentElement.childNodes.data.splice(ni, 1);
-          }
-        }
-        const filtered = nodes.filter((n) => n !== this);
-        parent.childNodes.data.splice(i, 0, ...filtered);
-        for (const n of filtered) {
-          n.parentElement = parent;
-        }
+      parent.childNodes.data.splice(i, 0, ...filtered);
+      for (const n of filtered) {
+        n.parentElement = parent;
       }
     }
   }
@@ -1093,8 +1307,7 @@ var FakeTextNode = class {
   remove() {
     if (this.parentElement) {
       const i = this.parentElement.childNodes.data.indexOf(this);
-      if (i >= 0)
-        this.parentElement.childNodes.data.splice(i, 1);
+      if (i >= 0) this.parentElement.childNodes.data.splice(i, 1);
     }
   }
   replaceWith(...nodes) {
@@ -1112,20 +1325,19 @@ var FakeTextNode = class {
   before(...nodes) {
     const parent = this.parentElement;
     if (parent) {
+      if (parent.childNodes.data.indexOf(this) < 0) return;
+      for (const n of nodes) {
+        if (n === this) continue;
+        if (n.parentElement) {
+          const ni = n.parentElement.childNodes.data.indexOf(n);
+          if (ni >= 0) n.parentElement.childNodes.data.splice(ni, 1);
+        }
+      }
+      const filtered = nodes.filter((n) => n !== this);
       const i = parent.childNodes.data.indexOf(this);
-      if (i >= 0) {
-        for (const n of nodes) {
-          if (n === this) continue;
-          if (n.parentElement) {
-            const ni = n.parentElement.childNodes.data.indexOf(n);
-            if (ni >= 0) n.parentElement.childNodes.data.splice(ni, 1);
-          }
-        }
-        const filtered = nodes.filter((n) => n !== this);
-        parent.childNodes.data.splice(i, 0, ...filtered);
-        for (const n of filtered) {
-          n.parentElement = parent;
-        }
+      parent.childNodes.data.splice(i, 0, ...filtered);
+      for (const n of filtered) {
+        n.parentElement = parent;
       }
     }
   }
@@ -1138,6 +1350,11 @@ function isRealElement(node) {
 }
 function isRealTextNode(node) {
   return isBrowser && node instanceof Text;
+}
+function attr(node, name) {
+  if (!node) return void 0;
+  if (node.fakeAttributes) return node.fakeAttributes[name];
+  return node.getAttribute?.(name) ?? void 0;
 }
 var delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 function setHidden(value) {
@@ -1158,10 +1375,7 @@ function retry(fn, waitTime) {
       if (typeof prom?.then === "function") {
         prom.then(resolve).catch((err) => {
           if (timeLeft >= 0) {
-            setTimeout(
-              () => retryInternal(timeLeft - (performance.now() - start)),
-              1
-            );
+            setTimeout(() => retryInternal(timeLeft - (performance.now() - start)), 1);
           } else {
             reject(err);
           }
@@ -1189,12 +1403,17 @@ var Expectation = class {
   what;
   toBeNotHidden() {
     if (document.hidden) {
-      throw new ExpectationError(this, `expect the document to be not hidden. if you run this in a real browser this means the window must be in focus in order for the tests to work.`);
+      throw new ExpectationError(
+        this,
+        `expect the document to be not hidden. if you run this in a real browser this means the window must be in focus in order for the tests to work.`
+      );
     }
   }
   toBeA(type, failMessage) {
     if (typeof this.what !== type) {
-      throw new ExpectationError(this, `expected 
+      throw new ExpectationError(
+        this,
+        `expected 
 
 typeof ${this.what}
 
@@ -1202,12 +1421,15 @@ to be
 
 ${type}${failMessage ? `
 
-${failMessage}` : ""}`);
+${failMessage}` : ""}`
+      );
     }
   }
   toBeGreaterThan(other, failMessage) {
     if (!(this.what > other)) {
-      throw new ExpectationError(this, `expected 
+      throw new ExpectationError(
+        this,
+        `expected 
 
 ${this.what}
 
@@ -1215,12 +1437,15 @@ to be >
 
 ${other}${failMessage ? `
 
-${failMessage}` : ""}`);
+${failMessage}` : ""}`
+      );
     }
   }
   toBeGreaterOrEqualThan(other, failMessage) {
     if (!(this.what >= other)) {
-      throw new ExpectationError(this, `expected 
+      throw new ExpectationError(
+        this,
+        `expected 
 
 ${this.what}
 
@@ -1228,12 +1453,15 @@ to be >=
 
 ${other}${failMessage ? `
 
-${failMessage}` : ""}`);
+${failMessage}` : ""}`
+      );
     }
   }
   toBeSmallerThan(other, failMessage) {
     if (!(this.what < other)) {
-      throw new ExpectationError(this, `expected 
+      throw new ExpectationError(
+        this,
+        `expected 
 
 ${this.what}
 
@@ -1241,12 +1469,15 @@ to be <
 
 ${other}${failMessage ? `
 
-${failMessage}` : ""}`);
+${failMessage}` : ""}`
+      );
     }
   }
   toBeSmallerOrEqual(other, failMessage) {
     if (!(this.what <= other)) {
-      throw new ExpectationError(this, `expected 
+      throw new ExpectationError(
+        this,
+        `expected 
 
 ${this.what}
 
@@ -1254,7 +1485,8 @@ to be <=
 
 ${other}${failMessage ? `
 
-${failMessage}` : ""}`);
+${failMessage}` : ""}`
+      );
     }
   }
   equalsOrThrow(other, failMessage) {
@@ -1291,7 +1523,9 @@ ${failMessage}` : "";
     if (typeof this.what === "object" && typeof other === "object" && this.what !== null && other !== null) {
       const unequal = deepCompare(this.what, other, []);
       if (unequal) {
-        throw new ExpectationError(this, `expected 
+        throw new ExpectationError(
+          this,
+          `expected 
 
 ${JSON.stringify(this.what, null, 2)}
 
@@ -1299,17 +1533,21 @@ ${JSON.stringify(this.what, null, 2)}
 
 ${JSON.stringify(other, null, 2)}
 
-They differ in: ${unequal.join(".")}${failSuffix}`);
+They differ in: ${unequal.join(".")}${failSuffix}`
+        );
       }
     } else {
       if (this.what !== other) {
-        throw new ExpectationError(this, `expected (${typeof this.what})
+        throw new ExpectationError(
+          this,
+          `expected (${typeof this.what})
 
 ${this.what}
 
 to equal (${typeof other})
 
-${other}${failSuffix}`);
+${other}${failSuffix}`
+        );
       }
     }
   }
@@ -1321,9 +1559,12 @@ ${other}${failSuffix}`);
 
 ${failMessage}` : "";
     if (typeof this.what !== "function") {
-      throw new ExpectationError(this, `expected a function
+      throw new ExpectationError(
+        this,
+        `expected a function
 
-but it is a ${typeof this.what}${failSuffix}`);
+but it is a ${typeof this.what}${failSuffix}`
+      );
     }
     return this.what();
   }
@@ -1332,9 +1573,12 @@ but it is a ${typeof this.what}${failSuffix}`);
 
 ${failMessage}` : "";
     if (typeof this.what !== "function") {
-      throw new ExpectationError(this, `expected a function
+      throw new ExpectationError(
+        this,
+        `expected a function
 
-but it is a ${typeof this.what}${failSuffix}`);
+but it is a ${typeof this.what}${failSuffix}`
+      );
     }
     let r;
     try {
@@ -1342,20 +1586,26 @@ but it is a ${typeof this.what}${failSuffix}`);
     } catch (err) {
       return err;
     }
-    throw new ExpectationError(this, `expected function to fail
+    throw new ExpectationError(
+      this,
+      `expected function to fail
 
 but it succeeded with a result of type ${typeof r}
 
-${r}${failSuffix}`);
+${r}${failSuffix}`
+    );
   }
   toSucceedAsync(failMessage, waitTime = 1e3) {
     const failSuffix = failMessage ? `
 
 ${failMessage}` : "";
     if (typeof this.what !== "function") {
-      throw new ExpectationError(this, `expected a function
+      throw new ExpectationError(
+        this,
+        `expected a function
 
-but it is a ${typeof this.what}${failSuffix}`);
+but it is a ${typeof this.what}${failSuffix}`
+      );
     }
     return retry(() => this.what(), waitTime);
   }
@@ -1364,242 +1614,303 @@ but it is a ${typeof this.what}${failSuffix}`);
 
 ${failMessage}` : "";
     if (typeof this.what !== "function") {
-      throw new ExpectationError(this, `expected a function
+      throw new ExpectationError(
+        this,
+        `expected a function
 
-but it is a ${typeof this.what}${failSuffix}`);
+but it is a ${typeof this.what}${failSuffix}`
+      );
     }
     let r;
     try {
-      if (typeof this.what === "function")
-        r = await this.what();
-      else
-        r = await this.what;
+      if (typeof this.what === "function") r = await this.what();
+      else r = await this.what;
     } catch (err) {
       return err;
     }
-    throw new ExpectationError(this, `expected function to fail
+    throw new ExpectationError(
+      this,
+      `expected function to fail
 
 but it succeeded with a result of type ${typeof r}
 
-${r}${failSuffix}`);
+${r}${failSuffix}`
+    );
   }
   async toMatch(v, state, failMessage, waitTimeMs = 1e3) {
-    return await retry(
-      async () => {
-        const failSuffix = failMessage ? `
+    return await retry(async () => {
+      const failSuffix = failMessage ? `
 
 ${failMessage}` : "";
-        if (this.what instanceof FakeElement || this.what instanceof FakeTextNode || isRealElement(this.what) || isRealTextNode(this.what) || typeof this.what === "string" || Array.isArray(this.what) || typeof this.what === "function") {
-          let deepCompare2 = function(e, cv, path) {
-            while (typeof cv === "function") {
-              if (!state) {
-                throw new ExpectationError(that, `expected at
+      if (this.what instanceof FakeElement || this.what instanceof FakeTextNode || isRealElement(this.what) || isRealTextNode(this.what) || typeof this.what === "string" || Array.isArray(this.what) || typeof this.what === "function") {
+        let deepCompare2 = function(e, cv, path) {
+          while (typeof cv === "function") {
+            if (!state) {
+              throw new ExpectationError(
+                that,
+                `expected at
 ${path.join(" > ")}
 
 a Component
 
-but got no state passed in [toMatch]${failSuffix}`);
-              }
-              cv = cv(state);
+but got no state passed in [toMatch]${failSuffix}`
+              );
             }
-            while (typeof e === "function") {
-              if (!state) {
-                throw new ExpectationError(that, `expected at
+            cv = cv(state);
+          }
+          while (typeof e === "function") {
+            if (!state) {
+              throw new ExpectationError(
+                that,
+                `expected at
 ${path.join(" > ")}
 
 a Component
 
-but got no state passed in [toMatch]${failSuffix}`);
-              }
-              e = e(state);
+but got no state passed in [toMatch]${failSuffix}`
+              );
             }
-            if (typeof cv === "string" && (e instanceof FakeTextNode || isRealTextNode(e))) {
-              const text = e instanceof FakeTextNode ? e.wholeText : e.wholeText;
-              if (cv !== text) {
-                throw new ExpectationError(that, `expected at
+            e = e(state);
+          }
+          if (typeof cv === "string" && (e instanceof FakeTextNode || isRealTextNode(e))) {
+            const text = e instanceof FakeTextNode ? e.wholeText : e.wholeText;
+            if (cv !== text) {
+              throw new ExpectationError(
+                that,
+                `expected at
 ${path.join(" > ")}
 
 a text node with
 ${cv}
 
 but text was
-${text}${failSuffix}`);
-              }
-            } else if (typeof cv === "string" && typeof e === "string") {
-              if (cv !== e) {
-                throw new ExpectationError(that, `expected at
+${text}${failSuffix}`
+              );
+            }
+          } else if (typeof cv === "string" && typeof e === "string") {
+            if (cv !== e) {
+              throw new ExpectationError(
+                that,
+                `expected at
 ${path.join(" > ")}
 
 a text node with
 ${cv}
 
 but text was
-${e}${failSuffix}`);
-              }
-            } else if (Array.isArray(cv) && (e instanceof FakeElement || isRealElement(e))) {
-              const tagName = e instanceof FakeElement ? e.tagName : e.tagName;
-              if (tag(cv)?.toUpperCase() !== tagName.toUpperCase()) {
-                throw new ExpectationError(that, `expected at
+${e}${failSuffix}`
+              );
+            }
+          } else if (Array.isArray(cv) && (e instanceof FakeElement || isRealElement(e))) {
+            const tagName = e instanceof FakeElement ? e.tagName : e.tagName;
+            if (tag(cv)?.toUpperCase() !== tagName.toUpperCase()) {
+              throw new ExpectationError(
+                that,
+                `expected at
 ${path.join(" > ")}
 
 an element <${tag(cv)?.toUpperCase()}>
 
-but got <${tagName.toUpperCase()}>${failSuffix}`);
-              }
-              const properties = props(cv);
-              if (properties) {
-                for (const [k, val] of Object.entries(properties)) {
-                  let attributeValue;
-                  if (e instanceof FakeElement) {
-                    attributeValue = e.fakeAttributes[k] ?? null;
-                  } else {
-                    attributeValue = e.getAttribute(k);
-                  }
-                  if (attributeValue === null) {
-                    throw new ExpectationError(that, `expected at
+but got <${tagName.toUpperCase()}>${failSuffix}`
+              );
+            }
+            const properties = props(cv);
+            if (properties) {
+              for (const [k, val] of Object.entries(properties)) {
+                let attributeValue;
+                if (e instanceof FakeElement) {
+                  attributeValue = e.fakeAttributes[k] ?? null;
+                } else {
+                  attributeValue = e.getAttribute(k);
+                }
+                if (attributeValue === null) {
+                  throw new ExpectationError(
+                    that,
+                    `expected at
 ${path.join(" > ")}
 
 an element <${tag(cv)?.toUpperCase()}>
 
 with attribute [${k}="${val}"]
 
-but it was not found${failSuffix}`);
-                  }
-                  if (attributeValue !== val) {
-                    throw new ExpectationError(that, `expected at
+but it was not found${failSuffix}`
+                  );
+                }
+                if (attributeValue !== val) {
+                  throw new ExpectationError(
+                    that,
+                    `expected at
 ${path.join(" > ")}
 
 an element <${tag(cv)?.toUpperCase()}>
 
 with attribute [${k}="${val}"]
 
-but it was [${k}="${attributeValue}"]${failSuffix}`);
-                  }
+but it was [${k}="${attributeValue}"]${failSuffix}`
+                  );
                 }
               }
-              const kids = children(cv) || [];
-              const childNodes = e instanceof FakeElement ? e.children : e.childNodes;
-              const allKidsAreText = kids.every((k) => typeof k === "string");
-              if (allKidsAreText && isBrowser && kids.length > 1) {
-                const expectedText = kids.join("");
-                const actualText = e.textContent || "";
-                if (expectedText !== actualText) {
-                  throw new ExpectationError(that, `expected at
+            }
+            const kids = children(cv) || [];
+            const childNodes = e instanceof FakeElement ? e.children : e.childNodes;
+            const allKidsAreText = kids.every((k) => typeof k === "string");
+            if (allKidsAreText && isBrowser && kids.length > 1) {
+              const expectedText = kids.join("");
+              const actualText = e.textContent || "";
+              if (expectedText !== actualText) {
+                throw new ExpectationError(
+                  that,
+                  `expected at
 ${path.join(" > ")}
 
 text content "${expectedText}"
 
-but got "${actualText}"${failSuffix}`);
-                }
-              } else {
-                for (let i = 0; i < kids.length; i++) {
-                  const childNode = e instanceof FakeElement ? childNodes.item(i) : childNodes.item(i);
-                  deepCompare2(childNode, kids[i], [...path, `[${i}]${tag(kids[i])?.toUpperCase() || "#text"}`]);
-                }
-                const childCount2 = e instanceof FakeElement ? e.children.length : e.childNodes.length;
-                if (kids.length !== childCount2) {
-                  throw new ExpectationError(that, `expected at
-${path.join(" > ")}
-
-${kids.length} children
-
-but <${tagName.toUpperCase()}> has ${childCount2} children${failSuffix}`);
-                }
+but got "${actualText}"${failSuffix}`
+                );
               }
-            } else if (Array.isArray(cv) && Array.isArray(e)) {
-              if (tag(cv)?.toUpperCase() !== tag(e)?.toUpperCase()) {
-                throw new ExpectationError(that, `expected at
-${path.join(" > ")}
-
-a vode [${tag(cv)?.toUpperCase()}]
-
-but got [${tag(e)?.toUpperCase()}]${failSuffix}`);
-              }
-              const properties = props(cv);
-              const otherProperties = props(e) || {};
-              if (properties) {
-                for (const [k, val] of Object.entries(properties)) {
-                  const attributeValue = otherProperties[k];
-                  if (!attributeValue) {
-                    throw new ExpectationError(that, `expected at
-${path.join(" > ")}
-
-a vode [${tag(cv)?.toUpperCase()}]
-
-with attribute [${k}="${val}"]
-
-but it was not found${failSuffix}`);
-                  }
-                  if (attributeValue !== val) {
-                    throw new ExpectationError(that, `expected at
-${path.join(" > ")}
-
-a vode [${tag(cv)?.toUpperCase()}]
-
-with attribute [${k}="${val}"]
-
-but its value was [${k}="${attributeValue}"]${failSuffix}`);
-                  }
-                }
-              }
-              const kids = children(cv) || [];
-              const otherKids = children(e) || [];
+            } else {
               for (let i = 0; i < kids.length; i++) {
-                deepCompare2(otherKids[i], kids[i], [...path, `[${i}]${tag(kids[i])?.toUpperCase() || "#text"}`]);
+                const childNode = e instanceof FakeElement ? childNodes.item(i) : childNodes.item(i);
+                deepCompare2(childNode, kids[i], [
+                  ...path,
+                  `[${i}]${tag(kids[i])?.toUpperCase() || "#text"}`
+                ]);
               }
-              if (kids.length !== otherKids.length) {
-                throw new ExpectationError(that, `expected at
+              const childCount2 = e instanceof FakeElement ? e.children.length : e.childNodes.length;
+              if (kids.length !== childCount2) {
+                throw new ExpectationError(
+                  that,
+                  `expected at
 ${path.join(" > ")}
 
 ${kids.length} children
 
-but [${tag(e)?.toUpperCase()}] has ${otherKids.length} children${failSuffix}`);
+but <${tagName.toUpperCase()}> has ${childCount2} children${failSuffix}`
+                );
               }
-            } else if (typeof cv === "string" && (e instanceof FakeElement || isRealElement(e))) {
-              const tagName = e instanceof FakeElement ? e.tagName : e.tagName;
-              throw new ExpectationError(that, `expected at
-${path.join(" > ")}
-
-a text node
-
-but got <${tagName.toUpperCase()}>${failSuffix}`);
-            } else if (typeof cv === "string" && Array.isArray(e)) {
-              throw new ExpectationError(that, `expected at
-${path.join(" > ")}
-
-a text node
-
-but got [${tag(e)?.toUpperCase()}]${failSuffix}`);
-            } else if (Array.isArray(cv) && (e instanceof FakeTextNode || isRealTextNode(e))) {
-              const text = e instanceof FakeTextNode ? e.wholeText : e.wholeText;
-              throw new ExpectationError(that, `expected at
-${path.join(" > ")}
-
-an element <${tag(cv)?.toUpperCase()}>
-
-but got #text (${text})${failSuffix}`);
-            } else if (Array.isArray(cv) && typeof e === "string") {
-              throw new ExpectationError(that, `expected at
-${path.join(" > ")}
-
-an element <${tag(cv)?.toUpperCase()}>
-
-but got #text (${e})${failSuffix}`);
             }
-            return null;
-          };
-          var deepCompare = deepCompare2;
-          const that = this;
-          deepCompare2(this.what, v, [`${tag(v)?.toUpperCase() || "#text"}`]);
-        } else {
-          throw new ExpectationError(this, `expected an element or text node
+          } else if (Array.isArray(cv) && Array.isArray(e)) {
+            if (tag(cv)?.toUpperCase() !== tag(e)?.toUpperCase()) {
+              throw new ExpectationError(
+                that,
+                `expected at
+${path.join(" > ")}
+
+a vode [${tag(cv)?.toUpperCase()}]
+
+but got [${tag(e)?.toUpperCase()}]${failSuffix}`
+              );
+            }
+            const properties = props(cv);
+            const otherProperties = props(e) || {};
+            if (properties) {
+              for (const [k, val] of Object.entries(properties)) {
+                const attributeValue = otherProperties[k];
+                if (!attributeValue) {
+                  throw new ExpectationError(
+                    that,
+                    `expected at
+${path.join(" > ")}
+
+a vode [${tag(cv)?.toUpperCase()}]
+
+with attribute [${k}="${val}"]
+
+but it was not found${failSuffix}`
+                  );
+                }
+                if (attributeValue !== val) {
+                  throw new ExpectationError(
+                    that,
+                    `expected at
+${path.join(" > ")}
+
+a vode [${tag(cv)?.toUpperCase()}]
+
+with attribute [${k}="${val}"]
+
+but its value was [${k}="${attributeValue}"]${failSuffix}`
+                  );
+                }
+              }
+            }
+            const kids = children(cv) || [];
+            const otherKids = children(e) || [];
+            for (let i = 0; i < kids.length; i++) {
+              deepCompare2(otherKids[i], kids[i], [
+                ...path,
+                `[${i}]${tag(kids[i])?.toUpperCase() || "#text"}`
+              ]);
+            }
+            if (kids.length !== otherKids.length) {
+              throw new ExpectationError(
+                that,
+                `expected at
+${path.join(" > ")}
+
+${kids.length} children
+
+but [${tag(e)?.toUpperCase()}] has ${otherKids.length} children${failSuffix}`
+              );
+            }
+          } else if (typeof cv === "string" && (e instanceof FakeElement || isRealElement(e))) {
+            const tagName = e instanceof FakeElement ? e.tagName : e.tagName;
+            throw new ExpectationError(
+              that,
+              `expected at
+${path.join(" > ")}
+
+a text node
+
+but got <${tagName.toUpperCase()}>${failSuffix}`
+            );
+          } else if (typeof cv === "string" && Array.isArray(e)) {
+            throw new ExpectationError(
+              that,
+              `expected at
+${path.join(" > ")}
+
+a text node
+
+but got [${tag(e)?.toUpperCase()}]${failSuffix}`
+            );
+          } else if (Array.isArray(cv) && (e instanceof FakeTextNode || isRealTextNode(e))) {
+            const text = e instanceof FakeTextNode ? e.wholeText : e.wholeText;
+            throw new ExpectationError(
+              that,
+              `expected at
+${path.join(" > ")}
+
+an element <${tag(cv)?.toUpperCase()}>
+
+but got #text (${text})${failSuffix}`
+            );
+          } else if (Array.isArray(cv) && typeof e === "string") {
+            throw new ExpectationError(
+              that,
+              `expected at
+${path.join(" > ")}
+
+an element <${tag(cv)?.toUpperCase()}>
+
+but got #text (${e})${failSuffix}`
+            );
+          }
+          return null;
+        };
+        var deepCompare = deepCompare2;
+        const that = this;
+        deepCompare2(this.what, v, [`${tag(v)?.toUpperCase() || "#text"}`]);
+      } else {
+        throw new ExpectationError(
+          this,
+          `expected an element or text node
 
 but it is a ${typeof this.what}
-${this.what}${failSuffix}`);
-        }
-      },
-      waitTimeMs
-    );
+${this.what}${failSuffix}`
+        );
+      }
+    }, waitTimeMs);
   }
 };
 var ExpectationError = class extends Error {
@@ -1668,34 +1979,18 @@ var tests_app_default = {
     const container = document.createElement("div");
     root.appendChild(container);
     const patch = expect(
-      () => app(
-        container,
-        {},
-        () => [
-          DIV,
-          [
-            ARTICLE,
-            [P, "foo", [SPAN, "bar"]]
-          ]
-        ]
-      )
+      () => app(container, {}, () => [DIV, [ARTICLE, [P, "foo", [SPAN, "bar"]]]])
     ).toSucceed();
     expect(patch).toBeA("function");
-    await expect(container).toMatch(
-      [
-        DIV,
-        [
-          ARTICLE,
-          [P, "foo", [SPAN, "bar"]]
-        ]
-      ]
-    );
+    await expect(container).toMatch([DIV, [ARTICLE, [P, "foo", [SPAN, "bar"]]]]);
   },
   //=== FAILURE CASES ===
   "app(): fails when the container has no parent": async () => {
     const container = document.createElement("div");
     const err = expect(() => app(container, {}, () => [DIV])).toFail();
-    await expect(err.message).toEqual("first argument to app() must be a valid HTMLElement inside the <html></html> document");
+    await expect(err.message).toEqual(
+      "first argument to app() must be a valid HTMLElement inside the <html></html> document"
+    );
   },
   "app(): fails when the state is not an object": async () => {
     const root = document.createElement("div");
@@ -1709,7 +2004,9 @@ var tests_app_default = {
     const container = document.createElement("div");
     root.appendChild(container);
     const err = expect(() => app(container, {}, [DIV])).toFail();
-    await expect(err.message).toEqual("third argument to app() must be a function that returns a vode");
+    await expect(err.message).toEqual(
+      "third argument to app() must be a function that returns a vode"
+    );
   },
   //=== INITIAL PATCHES ===
   "app(): executes initial patches after first render": async () => {
@@ -1779,10 +2076,16 @@ var tests_app_default = {
       {},
       () => [
         DIV,
-        [SPAN, { onMount: () => {
-          mountCalled = true;
-          return {};
-        } }, "text"]
+        [
+          SPAN,
+          {
+            onMount: () => {
+              mountCalled = true;
+              return {};
+            }
+          },
+          "text"
+        ]
       ]
     );
     await expect(mountCalled).toEqual(true);
@@ -1792,31 +2095,15 @@ var tests_app_default = {
     const root = document.createElement("div");
     const container = document.createElement("div");
     root.appendChild(container);
-    app(
-      container,
-      {},
-      () => [
-        DIV,
-        ((s) => [SPAN, "component rendered"])
-      ]
-    );
-    await expect(container).toMatch(
-      [DIV, [SPAN, "component rendered"]]
-    );
+    app(container, {}, () => [DIV, ((s) => [SPAN, "component rendered"])]);
+    await expect(container).toMatch([DIV, [SPAN, "component rendered"]]);
   },
   "app(): component accesses state and renders dynamic content": async () => {
     const root = document.createElement("div");
     const container = document.createElement("div");
     root.appendChild(container);
     const state = { label: "dynamic" };
-    app(
-      container,
-      state,
-      (s) => [
-        DIV,
-        ((st) => [SPAN, st.label])
-      ]
-    );
+    app(container, state, (s) => [DIV, ((st) => [SPAN, st.label])]);
     await expect(container).toMatch([DIV, [SPAN, "dynamic"]]);
   },
   //=== DEEP STATE ===
@@ -1850,18 +2137,11 @@ var tests_app_default = {
     const root = document.createElement("div");
     const container = document.createElement("div");
     root.appendChild(container);
-    app(container, {}, () => [
-      DIV,
-      false,
-      null,
-      void 0,
-      0,
-      42,
-      true,
-      0n,
-      42n,
-      [SPAN, "kept"]
-    ]);
+    app(
+      container,
+      {},
+      () => [DIV, false, null, void 0, 0, 42, true, 0n, 42n, [SPAN, "kept"]]
+    );
     await expect(container).toMatch([DIV, [SPAN, "kept"]]);
   },
   "app(): isolated state of multiple independent vode app instances": async () => {
@@ -1872,68 +2152,31 @@ var tests_app_default = {
     const patchFoo = app(containerFoo, stateFoo, (s) => [
       DIV,
       [P, `App 1 count: ${s.count}`],
-      [BUTTON, {
-        onclick: () => {
-          patchBar({ count: stateBar.count + 1 });
-          return { count: s.count + 1 };
-        }
-      }, "Sync +1"]
+      [
+        BUTTON,
+        {
+          onclick: () => {
+            patchBar({ count: stateBar.count + 1 });
+            return { count: s.count + 1 };
+          }
+        },
+        "Sync +1"
+      ]
     ]);
     const containerBar = document.createElement("div");
     root.appendChild(containerBar);
     const stateBar = createState({ count: 0 });
-    const patchBar = app(containerBar, stateBar, (s) => [
-      DIV,
-      [P, `App 2 count: ${s.count}`]
-    ]);
-    await expect(containerFoo).toMatch(
-      [
-        DIV,
-        [P, "App 1 count: 0"],
-        [BUTTON, "Sync +1"]
-      ]
-    );
-    await expect(containerBar).toMatch(
-      [
-        DIV,
-        [P, "App 2 count: 0"]
-      ]
-    );
+    const patchBar = app(containerBar, stateBar, (s) => [DIV, [P, `App 2 count: ${s.count}`]]);
+    await expect(containerFoo).toMatch([DIV, [P, "App 1 count: 0"], [BUTTON, "Sync +1"]]);
+    await expect(containerBar).toMatch([DIV, [P, "App 2 count: 0"]]);
     patchFoo({ count: 5 });
-    await expect(containerFoo).toMatch(
-      [
-        DIV,
-        [P, "App 1 count: 5"],
-        [BUTTON, "Sync +1"]
-      ]
-    );
-    await expect(containerBar).toMatch(
-      [
-        DIV,
-        [P, "App 2 count: 0"]
-      ]
-    );
+    await expect(containerFoo).toMatch([DIV, [P, "App 1 count: 5"], [BUTTON, "Sync +1"]]);
+    await expect(containerBar).toMatch([DIV, [P, "App 2 count: 0"]]);
     patchBar({ count: 3 });
-    await expect(containerFoo).toMatch(
-      [
-        DIV,
-        [P, "App 1 count: 5"],
-        [BUTTON, "Sync +1"]
-      ]
-    );
-    await expect(containerBar).toMatch(
-      [
-        DIV,
-        [P, "App 2 count: 3"]
-      ]
-    );
+    await expect(containerFoo).toMatch([DIV, [P, "App 1 count: 5"], [BUTTON, "Sync +1"]]);
+    await expect(containerBar).toMatch([DIV, [P, "App 2 count: 3"]]);
     patchBar({ count: 10 });
-    await expect(containerBar).toMatch(
-      [
-        DIV,
-        [P, "App 2 count: 10"]
-      ]
-    );
+    await expect(containerBar).toMatch([DIV, [P, "App 2 count: 10"]]);
   },
   "app(): root tag changes between renders": async () => {
     const root = document.createElement("div");
@@ -1954,34 +2197,22 @@ var tests_app_default = {
     const container = document.createElement("div");
     root.appendChild(container);
     const state = { count: 0 };
-    app(
-      container,
-      state,
-      (s) => [DIV, { onclick: { count: 42 } }, "click me"]
-    );
-    const el = container._vode.vode.node;
+    app(container, state, (s) => [DIV, { onclick: { count: 42 } }, "click me"]);
+    const el = container[VODE].vode[NODE];
     expect(el.onclick).toBeA("function");
   },
   "app(): class as array renders correctly": async () => {
     const root = document.createElement("div");
     const container = document.createElement("div");
     root.appendChild(container);
-    app(
-      container,
-      {},
-      () => [DIV, { class: ["foo", "bar", "baz"] }, "text"]
-    );
+    app(container, {}, () => [DIV, { class: ["foo", "bar", "baz"] }, "text"]);
     await expect(container).toMatch([DIV, { class: "foo bar baz" }, "text"]);
   },
   "app(): class as number becomes empty string": async () => {
     const root = document.createElement("div");
     const container = document.createElement("div");
     root.appendChild(container);
-    app(
-      container,
-      {},
-      () => [DIV, { class: 123 }, "text"]
-    );
+    app(container, {}, () => [DIV, { class: 123 }, "text"]);
     await expect(container).toMatch([DIV, { class: "" }, "text"]);
   },
   "app(): style object to string transition": async () => {
@@ -1989,11 +2220,11 @@ var tests_app_default = {
     const container = document.createElement("div");
     root.appendChild(container);
     const state = { useObject: true };
-    app(
-      container,
-      state,
-      (s) => [DIV, { style: s.useObject ? { color: "red" } : "color: blue" }, "text"]
-    );
+    app(container, state, (s) => [
+      DIV,
+      { style: s.useObject ? { color: "red" } : "color: blue" },
+      "text"
+    ]);
     await expect(container).toMatch([DIV, "text"]);
     state.patch({ useObject: false });
     await expect(container).toMatch([DIV, "text"]);
@@ -2003,12 +2234,12 @@ var tests_app_default = {
     const container = document.createElement("div");
     root.appendChild(container);
     const state = { useObject: false };
-    app(
-      container,
-      state,
-      (s) => [DIV, { style: s.useObject ? { fontWeight: "bold" } : "color: red" }, "text"]
-    );
-    const el = container._vode.vode.node;
+    app(container, state, (s) => [
+      DIV,
+      { style: s.useObject ? { fontWeight: "bold" } : "color: red" },
+      "text"
+    ]);
+    const el = container[VODE].vode[NODE];
     await eventually(() => /^color: red;?$/.test(el.style.cssText)).toEqual(true);
     state.patch({ useObject: true });
     await eventually(() => /^color: red;?$/.test(el.style.cssText)).toEqual(false);
@@ -2032,15 +2263,19 @@ var tests_app_default = {
       state,
       () => [
         DIV,
-        [SPAN, {
-          onMount: (_s, node) => {
-            calls.push(["mount", node]);
-            return { mounted: true };
+        [
+          SPAN,
+          {
+            onMount: (_s, node) => {
+              calls.push(["mount", node]);
+              return { mounted: true };
+            },
+            onUnmount: (_s, node) => {
+              calls.push(["unmount", node]);
+            }
           },
-          onUnmount: (_s, node) => {
-            calls.push(["unmount", node]);
-          }
-        }, "text"]
+          "text"
+        ]
       ]
     );
     await expect(calls.length).toEqual(0);
@@ -2067,9 +2302,9 @@ var tests_defuse_default = {
     const container = document.createElement("div");
     root.appendChild(container);
     app(container, {}, () => [DIV]);
-    await expect(typeof container._vode).toEqual("object");
+    await expect(typeof container[VODE]).toEqual("object");
     defuse(container);
-    await expect(container._vode).toEqual(void 0);
+    await expect(container[VODE]).toEqual(void 0);
   },
   "defuse(): removes patch function from state": async () => {
     const root = document.createElement("div");
@@ -2087,14 +2322,14 @@ var tests_defuse_default = {
     root.appendChild(container);
     app(container, {}, () => [DIV]);
     defuse(container);
-    await expect(container._vode).toEqual(void 0);
+    await expect(container[VODE]).toEqual(void 0);
   },
   "defuse(): clears event listeners from rendered elements": async () => {
     const root = document.createElement("div");
     const container = document.createElement("div");
     root.appendChild(container);
     app(container, {}, () => [DIV, { onclick: () => ({}) }]);
-    const node = container._vode.vode.node;
+    const node = container[VODE].vode[NODE];
     await expect(typeof node.onclick).toEqual("function");
     defuse(container);
     await expect(node.onclick).toEqual(null);
@@ -2114,15 +2349,11 @@ var tests_defuse_default = {
     const root = document.createElement("div");
     const container = document.createElement("div");
     root.appendChild(container);
-    app(container, {}, () => [
-      DIV,
-      { onclick: () => ({}) },
-      [DIV, { onclick: () => ({}) }]
-    ]);
-    const v = container._vode.vode;
-    const child1 = v.node;
+    app(container, {}, () => [DIV, { onclick: () => ({}) }, [DIV, { onclick: () => ({}) }]]);
+    const v = container[VODE].vode;
+    const child1 = v[NODE];
     const child1onclick = child1.onclick;
-    const child2 = v[2].node;
+    const child2 = v[2][NODE];
     await expect(typeof child1onclick).toEqual("function");
     await expect(typeof child2.onclick).toEqual("function");
     defuse(container);
@@ -2186,8 +2417,8 @@ var tests_hydrate_default = {
     const result = hydrate(el, true);
     await expect(Array.isArray(result)).toEqual(true);
     await expect(result[0]).toEqual("div");
-    await expect(result.node instanceof FakeElement).toEqual(true);
-    await expect(result.node.tagName).toEqual("DIV");
+    await expect(result[NODE] instanceof FakeElement).toEqual(true);
+    await expect(result[NODE].tagName).toEqual("DIV");
   },
   "hydrate(): prepareForRender removes whitespace text nodes": async () => {
     const el = new FakeElement("div");
@@ -2378,7 +2609,7 @@ var tests_createState_default = {
     await expect(state.count).toEqual(2);
   },
   "createState(): already-patchable state is kept as-is": async () => {
-    const existingPatch = (action) => {
+    const existingPatch = () => {
     };
     const state = { value: 5, patch: existingPatch };
     const result = createState(state);
@@ -2575,6 +2806,22 @@ function hasStyle(result, prop, value) {
   const normalized = normalizeStyle(result);
   return normalized.includes(`${prop}:${value}`) || normalized.includes(`${prop}: ${value}`);
 }
+function fakeSSR(fn) {
+  const doc = globalThis.document;
+  try {
+    globalThis.document = void 0;
+  } catch {
+    return void 0;
+  }
+  if (globalThis.document !== void 0) {
+    return void 0;
+  }
+  try {
+    return fn();
+  } finally {
+    globalThis.document = doc;
+  }
+}
 var tests_mergeStyle_default = {
   "mergeStyle(): no args returns empty string": async () => {
     await expect(mergeStyle()).toEqual("");
@@ -2607,6 +2854,37 @@ var tests_mergeStyle_default = {
       { background: "blue" }
     );
     await expect(hasStyle(result, "font-size", "14px")).toEqual(true);
+  },
+  //=== SSR fallback (no DOM) ===
+  "mergeStyle(): [ssr] merges object declarations into the css string": async () => {
+    const result = fakeSSR(() => mergeStyle({ color: "red" }, "font-size: 14px"));
+    if (result === void 0) return;
+    await expect(hasStyle(result, "color", "red")).toEqual(true, "object 'color' survives the SSR merge");
+    await expect(hasStyle(result, "font-size", "14px")).toEqual(true);
+  },
+  "mergeStyle(): [ssr] converts camelCase keys to kebab-case": async () => {
+    const result = fakeSSR(() => mergeStyle({ fontSize: "14px" }, { backgroundColor: "blue" }));
+    if (result === void 0) return;
+    await expect(hasStyle(result, "font-size", "14px")).toEqual(true);
+    await expect(hasStyle(result, "background-color", "blue")).toEqual(true);
+  },
+  "mergeStyle(): [ssr] later declarations override earlier ones": async () => {
+    const result = fakeSSR(() => mergeStyle("color: red", { color: "blue" }));
+    if (result === void 0) return;
+    await expect(hasStyle(result, "color", "blue")).toEqual(true);
+    await expect(hasStyle(result, "color", "red")).toEqual(false, "earlier 'color' was overridden");
+  },
+  "mergeStyle(): [ssr] empty value removes a declaration": async () => {
+    const result = fakeSSR(() => mergeStyle("color: red; font-size: 14px", { color: "" }));
+    if (result === void 0) return;
+    await expect(hasStyle(result, "color", "red")).toEqual(false, "'color' removed by empty value");
+    await expect(hasStyle(result, "font-size", "14px")).toEqual(true);
+  },
+  "mergeStyle(): [ssr] preserves custom properties verbatim": async () => {
+    const result = fakeSSR(() => mergeStyle("--brand: rebeccapurple", { color: "red" }));
+    if (result === void 0) return;
+    await expect(hasStyle(result, "--brand", "rebeccapurple")).toEqual(true, "custom property is not kebab-mangled");
+    await expect(hasStyle(result, "color", "red")).toEqual(true);
   }
 };
 
@@ -3513,13 +3791,13 @@ var tests_mount_unmount_default = {
       ]
     );
     await expect(unmounts).toEqual([]);
-    let before = container._vode.stats.syncRenderCount;
+    let before = container[VODE].stats.syncRenderCount;
     patch({ toggle: true });
-    await eventually(() => container._vode.stats.syncRenderCount).toBeGreaterThan(before);
+    await eventually(() => container[VODE].stats.syncRenderCount).toBeGreaterThan(before);
     await expect(unmounts).toEqual([]);
-    before = container._vode.stats.syncRenderCount;
+    before = container[VODE].stats.syncRenderCount;
     patch({ remove: true });
-    await eventually(() => container._vode.stats.syncRenderCount).toBeGreaterThan(before);
+    await eventually(() => container[VODE].stats.syncRenderCount).toBeGreaterThan(before);
     await expect(unmounts).toEqual(["unmount p", "unmount section"]);
   },
   "onUnmount(): A->A path - onUnmount removed during update does not fire": async () => {
@@ -3569,9 +3847,9 @@ var tests_mount_unmount_default = {
       ]
     );
     await expect(unmounts).toEqual([]);
-    const before = container._vode.stats.syncRenderCount;
+    const before = container[VODE].stats.syncRenderCount;
     patch({ version: "b" });
-    await eventually(() => container._vode.stats.syncRenderCount).toBeGreaterThan(before);
+    await eventually(() => container[VODE].stats.syncRenderCount).toBeGreaterThan(before);
     await expect(unmounts).toEqual([]);
     patch({ remove: true });
     await expect(unmounts).toEqual(["unmount b"]);
@@ -3731,9 +4009,9 @@ var tests_mount_unmount_default = {
       ]
     );
     await expect(unmounts).toEqual([]);
-    const before = container._vode.stats.syncRenderCount;
+    const before = container[VODE].stats.syncRenderCount;
     patch({ showElement: true });
-    await eventually(() => container._vode.stats.syncRenderCount).toBeGreaterThan(before);
+    await eventually(() => container[VODE].stats.syncRenderCount).toBeGreaterThan(before);
     await expect(unmounts).toEqual([]);
     patch({ remove: true });
     await expect(unmounts).toEqual(["unmount article"]);
@@ -4087,9 +4365,9 @@ var tests_mount_unmount_default = {
       ]
     );
     await expect(unmounts).toEqual([]);
-    const before = container._vode.stats.syncRenderCount;
+    const before = container[VODE].stats.syncRenderCount;
     patch({ addUnmount: true });
-    await eventually(() => container._vode.stats.syncRenderCount).toEqual(before + 1);
+    await eventually(() => container[VODE].stats.syncRenderCount).toEqual(before + 1);
     await expect(unmounts).toEqual([]);
     patch({ show: false });
     await expect(unmounts).toEqual(["unmount article"]);
@@ -4377,7 +4655,7 @@ var tests_mount_unmount_default = {
     patch({ showInput: false });
     await eventually(() => state.inputReady).toEqual(false, "expected: inputReady == false");
     patch({ showTimer: false });
-    await eventually(() => container._vode.stats.syncRenderCount).toBeGreaterOrEqualThan(4);
+    await eventually(() => container[VODE].stats.syncRenderCount).toBeGreaterOrEqualThan(4);
     await expect(logs).toEqual([
       "Input mounted",
       "Timer started",
@@ -4460,8 +4738,124 @@ var tests_mount_unmount_default = {
   }
 };
 
-// test/tests-examples.ts
+// test/tests-reconciled.ts
 function setup2() {
+  const root = document.createElement("div");
+  const container = document.createElement("div");
+  root.appendChild(container);
+  return container;
+}
+var tests_reconciled_default = {
+  "reconciled: fires on create with an attached newVode and no oldVode": async () => {
+    const container = setup2();
+    const calls = [];
+    app(container, createState({}), () => [
+      DIV,
+      [ARTICLE, {
+        reconciled: (_s, newVode, oldVode) => {
+          calls.push({ newVode, oldVode });
+        }
+      }, [P, "text"]]
+    ]);
+    await eventually(() => calls.length).toEqual(1);
+    await expect(calls[0].oldVode).toEqual(void 0, "create case must pass no oldVode");
+    await expect(calls[0].newVode[0]).toEqual(ARTICLE);
+    await expect(calls[0].newVode[NODE] === container.childNodes[0]).toEqual(true, "newVode must carry the attached DOM node");
+  },
+  "reconciled: fires on every update, receiving the previous vode": async () => {
+    const container = setup2();
+    const calls = [];
+    const state = createState({ count: 0 });
+    app(container, state, (s) => [
+      DIV,
+      [ARTICLE, {
+        reconciled: (_s, newVode, oldVode) => {
+          calls.push({ newVode, oldVode });
+        }
+      }, [P, `Count: ${s.count}`]]
+    ]);
+    await eventually(() => calls.length).toEqual(1);
+    state.patch({ count: 1 });
+    await eventually(() => calls.length).toEqual(2);
+    await expect(calls[1].oldVode === calls[0].newVode).toEqual(true, "oldVode must be the newVode of the previous render");
+    await expect(calls[1].newVode[NODE] === calls[0].newVode[NODE]).toEqual(true, "the DOM node must be reused across updates");
+    state.patch({ count: 2 });
+    await eventually(() => calls.length).toEqual(3);
+    await expect(calls[2].oldVode === calls[1].newVode).toEqual(true);
+  },
+  "reconciled: not called when the element is removed": async () => {
+    const container = setup2();
+    let calls = 0;
+    const state = createState({ show: true });
+    app(container, state, (s) => [
+      DIV,
+      s.show && [ARTICLE, { reconciled: () => {
+        calls++;
+      } }, [P, "text"]]
+    ]);
+    await eventually(() => calls).toEqual(1);
+    state.patch({ show: false });
+    await eventually(() => container.childNodes.length).toEqual(0);
+    await expect(calls).toEqual(1);
+  },
+  "reconciled: not called when the element is replaced by a text node": async () => {
+    const container = setup2();
+    let calls = 0;
+    const state = createState({ asText: false });
+    app(container, state, (s) => [
+      DIV,
+      s.asText ? "plain text" : [ARTICLE, { reconciled: () => {
+        calls++;
+      } }, [P, "text"]]
+    ]);
+    await eventually(() => calls).toEqual(1);
+    state.patch({ asText: true });
+    await expect(container).toMatch([DIV, "plain text"]);
+    await expect(calls).toEqual(1);
+  },
+  "reconciled: a replacement with another tag": async () => {
+    const container = setup2();
+    const articleCalls = [];
+    const asideCalls = [];
+    const state = createState({ useAside: false });
+    app(container, state, (s) => [
+      DIV,
+      s.useAside ? [ASIDE, {
+        reconciled: (_s, _n, oldVode) => {
+          asideCalls.push(oldVode);
+        }
+      }, [P, "aside"]] : [ARTICLE, {
+        reconciled: (_s, _n, oldVode) => {
+          articleCalls.push(oldVode);
+        }
+      }, [P, "article"]]
+    ]);
+    await eventually(() => articleCalls.length).toEqual(1);
+    state.patch({ useAside: true });
+    await eventually(() => asideCalls.length).toEqual(1);
+    await expect(asideCalls[0]).toMatch([ARTICLE, [P, "article"]]);
+    await expect(articleCalls.length).toEqual(1);
+  },
+  "reconciled: is stripped from the DOM node": async () => {
+    const container = setup2();
+    const state = createState({ count: 0 });
+    app(container, state, (s) => [
+      DIV,
+      [ARTICLE, { reconciled: () => {
+      } }, `Count: ${s.count}`]
+    ]);
+    const node = container.childNodes[0];
+    await eventually(() => attr(node, "reconciled")).toEqual(void 0);
+    await expect(node["reconciled"] ?? null).toEqual(null, "the hook must not stay on the node as a property");
+    state.patch({ count: 1 });
+    await eventually(() => node.childNodes[0]?.nodeValue).toEqual("Count: 1");
+    await expect(attr(node, "reconciled")).toEqual(void 0);
+    await expect(node["reconciled"] ?? null).toEqual(null);
+  }
+};
+
+// test/tests-examples.ts
+function setup3() {
   const root = document.createElement("div");
   const container = document.createElement("div");
   root.appendChild(container);
@@ -4469,7 +4863,7 @@ function setup2() {
 }
 var tests_examples_default = {
   "Example 1: Counter - increment/reset buttons, basic state patching": async () => {
-    const container = setup2();
+    const container = setup3();
     const state = createState({ count: 0 });
     app(container, state, (s) => [
       DIV,
@@ -4506,7 +4900,7 @@ var tests_examples_default = {
     );
   },
   "Example 2: Todo List with State Context - nested state via context(), list rendering": async () => {
-    const container = setup2();
+    const container = setup3();
     const state = createState({
       todos: {
         items: [
@@ -4606,7 +5000,7 @@ var tests_examples_default = {
     await expect(state.todos.items.length).toEqual(3);
   },
   "Example 3: Data Fetching - loading/error/success state machine with ternary branches": async () => {
-    const container = setup2();
+    const container = setup3();
     const state = createState({
       fetch: {
         status: "loading",
@@ -4655,7 +5049,7 @@ var tests_examples_default = {
     );
   },
   "Example 4: Tabbed Panel - tab switching via conditional rendering": async () => {
-    const container = setup2();
+    const container = setup3();
     const state = createState({
       ui: {
         activeTab: "home"
@@ -4745,7 +5139,7 @@ var tests_examples_default = {
     );
   },
   "Example 5: Form Validation - live input validation with conditional error display": async () => {
-    const container = setup2();
+    const container = setup3();
     const state = createState({
       form: {
         email: "",
@@ -4855,7 +5249,7 @@ var tests_examples_default = {
     );
   },
   "Example 6: Component Composition - nested components with dynamic props": async () => {
-    const container = setup2();
+    const container = setup3();
     const state = createState({
       theme: "light",
       user: {
@@ -4957,7 +5351,7 @@ var tests_examples_default = {
     );
   },
   "Example 7: Multi-Context - multiple independent state contexts": async () => {
-    const container = setup2();
+    const container = setup3();
     const state = createState({
       panelA: {
         count: 0,
@@ -5058,7 +5452,7 @@ var tests_examples_default = {
     await expect(ctxB.label.get()).toEqual("Panel B");
   },
   "Example 8: SVG Dynamic - SVG circle with dynamic radius/color": async () => {
-    const container = setup2();
+    const container = setup3();
     const state = createState({
       svg: {
         radius: 20,
@@ -5148,7 +5542,7 @@ var tests_examples_default = {
     );
   },
   "Example 9: Dynamic Attributes - conditional elements + attribute changes": async () => {
-    const container = setup2();
+    const container = setup3();
     const state = createState({
       config: {
         showImage: false,
@@ -5251,7 +5645,7 @@ var tests_examples_default = {
     await expect(state.config.boxColor).toEqual("blue");
   },
   "Example 10: Nested Vode-App - inner app with isolated state via memo + onMount": async () => {
-    const container = setup2();
+    const container = setup3();
     const outerState = createState({ title: "Outer", visible: true });
     const innerState = createState({ counter: 0 });
     function IsolatedVodeApp(tag2, state, View) {
@@ -5348,7 +5742,7 @@ var tests_examples_default = {
     );
   },
   "Example 11: Error Boundary - isolated component crash with catch recovery": async () => {
-    const container = setup2();
+    const container = setup3();
     const state = createState({
       users: [
         { id: 1, name: "Alice" },
@@ -5400,7 +5794,7 @@ var tests_examples_default = {
     );
   },
   "Example 12: State Machine - sequential phase transitions via function patches": async () => {
-    const container = setup2();
+    const container = setup3();
     const state = createState({ phase: "idle", count: 0 });
     app(
       container,
@@ -5439,7 +5833,7 @@ var tests_examples_default = {
 };
 
 // test/tests-catch.ts
-function setup3() {
+function setup4() {
   const root = document.createElement("div");
   const container = document.createElement("div");
   root.appendChild(container);
@@ -5447,237 +5841,147 @@ function setup3() {
 }
 var tests_catch_default = {
   "catch: function fallback renders instead of broken component": async () => {
-    const container = setup3();
+    const container = setup4();
     const broken = () => {
       throw new Error("boom");
     };
-    app(
-      container,
-      {},
-      () => [
-        DIV,
-        [
-          SECTION,
-          { catch: (s, err) => [P, `caught: ${err.message}`] },
-          broken
-        ]
-      ]
-    );
-    await expect(container).toMatch(
-      [
-        DIV,
-        [P, "caught: boom"]
-      ]
-    );
+    app(container, {}, () => [
+      DIV,
+      [SECTION, { catch: (s, err) => [P, `caught: ${err.message}`] }, broken]
+    ]);
+    await expect(container).toMatch([DIV, [P, "caught: boom"]]);
   },
   "catch: static vode fallback renders instead of broken component": async () => {
-    const container = setup3();
+    const container = setup4();
     const broken = () => {
       throw new Error("boom");
     };
-    app(
-      container,
-      {},
-      () => [
-        DIV,
-        [
-          SECTION,
-          { catch: [ARTICLE, "error occurred"] },
-          broken
-        ]
-      ]
-    );
-    await expect(container).toMatch(
-      [
-        DIV,
-        [ARTICLE, "error occurred"]
-      ]
-    );
+    app(container, {}, () => [DIV, [SECTION, { catch: [ARTICLE, "error occurred"] }, broken]]);
+    await expect(container).toMatch([DIV, [ARTICLE, "error occurred"]]);
   },
-  "catch: nested error boundaries \u2014 inner catch handles inner error": async () => {
-    const container = setup3();
+  "catch: nested error boundaries -> inner catch handles inner error": async () => {
+    const container = setup4();
     const broken = () => {
       throw new Error("inner boom");
     };
-    app(
-      container,
-      {},
-      () => [
-        DIV,
-        [
-          SECTION,
-          [
-            P,
-            {
-              catch: [ARTICLE, "inner fallback"]
-            },
-            broken
-          ]
-        ]
-      ]
-    );
-    await expect(container).toMatch(
+    app(container, {}, () => [
+      DIV,
       [
-        DIV,
+        SECTION,
         [
-          SECTION,
-          [ARTICLE, "inner fallback"]
+          P,
+          {
+            catch: [ARTICLE, "inner fallback"]
+          },
+          broken
         ]
       ]
-    );
+    ]);
+    await expect(container).toMatch([DIV, [SECTION, [ARTICLE, "inner fallback"]]]);
   },
-  "catch: nested error boundaries \u2014 outer catches when inner has no handler": async () => {
-    const container = setup3();
+  "catch: nested error boundaries -> outer catches when inner has no handler": async () => {
+    const container = setup4();
     const broken = () => {
       throw new Error("boom");
     };
-    app(
-      container,
-      {},
-      () => [
-        DIV,
-        [
-          SECTION,
-          { catch: [P, "outer caught it"] },
-          [ARTICLE, broken]
-        ]
-      ]
-    );
-    await expect(container).toMatch(
-      [
-        DIV,
-        [P, "outer caught it"]
-      ]
-    );
+    app(container, {}, () => [
+      DIV,
+      [SECTION, { catch: [P, "outer caught it"] }, [ARTICLE, broken]]
+    ]);
+    await expect(container).toMatch([DIV, [P, "outer caught it"]]);
   },
   "catch: error propagates when no handler exists on entire tree": async () => {
-    const container = setup3();
+    const container = setup4();
     const broken = () => {
       throw new Error("crash");
     };
     let threw = false;
     try {
-      app(
-        container,
-        {},
-        () => [DIV, [P, broken]]
-      );
+      app(container, {}, () => [DIV, [P, broken]]);
     } catch {
       threw = true;
     }
     await expect(threw).toEqual(true);
   },
   "catch: catch handler changed on A\u2192A path": async () => {
-    const container = setup3();
+    const container = setup4();
     const state = createState({ catchValue: "v1", showBroken: false });
     const broken = () => {
       throw new Error("boom");
     };
-    const patch = app(
-      container,
-      state,
-      (s) => [
-        DIV,
-        [
-          SECTION,
-          { catch: [P, s.catchValue] },
-          s.showBroken ? broken : "ok"
-        ]
-      ]
-    );
-    await expect(container).toMatch(
-      [DIV, [SECTION, "ok"]]
-    );
+    const patch = app(container, state, (s) => [
+      DIV,
+      [SECTION, { catch: [P, s.catchValue] }, s.showBroken ? broken : "ok"]
+    ]);
+    await expect(container).toMatch([DIV, [SECTION, "ok"]]);
     patch({ catchValue: "v2", showBroken: true });
-    await expect(container).toMatch(
-      [DIV, [P, "v2"]]
-    );
+    await expect(container).toMatch([DIV, [P, "v2"]]);
   },
   "catch: error in one sibling doesn't affect the other": async () => {
-    const container = setup3();
+    const container = setup4();
     const broken = () => {
       throw new Error("boom");
     };
-    app(
-      container,
-      {},
-      () => [
-        DIV,
-        [
-          SECTION,
-          { catch: [P, "whoops"] },
-          broken
-        ],
-        [ARTICLE, "i am fine"]
-      ]
-    );
-    await expect(container).toMatch(
-      [
-        DIV,
-        [P, "whoops"],
-        [ARTICLE, "i am fine"]
-      ]
-    );
+    app(container, {}, () => [
+      DIV,
+      [SECTION, { catch: [P, "whoops"] }, broken],
+      [ARTICLE, "i am fine"]
+    ]);
+    await expect(container).toMatch([DIV, [P, "whoops"], [ARTICLE, "i am fine"]]);
   },
   "catch: bubbles up to the root component if deeply nested vodes don't catch it earlier": async () => {
     const root = document.createElement("div");
     const container = document.createElement("div");
     root.appendChild(container);
-    app(
-      container,
-      {},
-      () => [
-        DIV,
-        {
-          catch: (s, err) => [DIV, `caught: ${err.message}`]
-        },
+    app(container, {}, () => [
+      DIV,
+      {
+        catch: (s, err) => [DIV, `caught: ${err.message}`]
+      },
+      [
+        MAIN,
         [
-          MAIN,
+          SECTION,
           [
-            SECTION,
-            [ARTICLE, {
+            ARTICLE,
+            {
               onMount: () => {
                 throw new Error("boom");
               }
-            }]
+            }
           ]
         ]
       ]
-    );
-    await expect(container).toMatch(
-      [DIV, "caught: boom"]
-    );
+    ]);
+    await expect(container).toMatch([DIV, "caught: boom"]);
   },
   "catch: if catching in root vode with different Tag -> container will be replaced": async () => {
     const root = document.createElement("div");
     const container = document.createElement("div");
     root.appendChild(container);
     await expect(root.firstChild === container).toEqual(true);
-    app(
-      container,
-      {},
-      () => [
-        DIV,
-        {
-          catch: (s, err) => [P, `caught: ${err.message}`]
-        },
+    app(container, {}, () => [
+      DIV,
+      {
+        catch: (s, err) => [P, `caught: ${err.message}`]
+      },
+      [
+        MAIN,
         [
-          MAIN,
+          SECTION,
           [
-            SECTION,
-            [ARTICLE, {
+            ARTICLE,
+            {
               onMount: () => {
                 throw new Error("boom");
               }
-            }]
+            }
           ]
         ]
       ]
-    );
+    ]);
     await expect(root.firstChild === container).toEqual(false);
-    await expect(root.firstChild).toMatch(
-      [P, "caught: boom"]
-    );
+    await expect(root.firstChild).toMatch([P, "caught: boom"]);
   },
   "catch: directly evaluated DOM expressions cannot be caught": async () => {
     if (!globalThis.window?._fake) return;
@@ -5702,33 +6006,33 @@ var tests_catch_default = {
       ];
     });
     patch({ error: true });
-    await eventually(() => globalThis.window?.requestAnimationFrameErrors?.[0]).toEqual(error);
+    await eventually(() => globalThis.window?.requestAnimationFrameErrors?.[0]).toEqual(
+      error
+    );
   },
   "catch: onUnmount called on already-rendered child before error UI shown (A\u2192A path)": async () => {
-    const container = setup3();
+    const container = setup4();
     const state = createState({ showBroken: false });
     let unmountCalled = false;
     const broken = () => {
       throw new Error("boom");
     };
-    const patch = app(
-      container,
-      state,
-      (s) => [
-        DIV,
+    const patch = app(container, state, (s) => [
+      DIV,
+      [
+        SECTION,
+        { catch: [P, "error"] },
         [
-          SECTION,
-          { catch: [P, "error"] },
-          [
-            ARTICLE,
-            { onUnmount: () => {
+          ARTICLE,
+          {
+            onUnmount: () => {
               unmountCalled = true;
-            } }
-          ],
-          s.showBroken ? broken : "ok"
-        ]
+            }
+          }
+        ],
+        s.showBroken ? broken : "ok"
       ]
-    );
+    ]);
     await expect(container).toMatch([DIV, [SECTION, [ARTICLE], "ok"]]);
     await expect(unmountCalled).toEqual(false);
     patch({ showBroken: true });
@@ -5736,97 +6040,89 @@ var tests_catch_default = {
     await expect(unmountCalled).toEqual(true);
   },
   "catch: onUnmount called on mounted child created before sibling throws (A\u2192B path)": async () => {
-    const container = setup3();
+    const container = setup4();
     let mountCalled = false;
     let unmountCalled = false;
     const broken = () => {
       throw new Error("boom");
     };
-    app(
-      container,
-      {},
-      () => [
-        DIV,
+    app(container, {}, () => [
+      DIV,
+      [
+        SECTION,
+        { catch: [P, "error"] },
         [
-          SECTION,
-          { catch: [P, "error"] },
-          [
-            ARTICLE,
-            {
-              onMount: () => {
-                mountCalled = true;
-              },
-              onUnmount: () => {
-                unmountCalled = true;
-              }
+          ARTICLE,
+          {
+            onMount: () => {
+              mountCalled = true;
+            },
+            onUnmount: () => {
+              unmountCalled = true;
             }
-          ],
-          broken
-        ]
+          }
+        ],
+        broken
       ]
-    );
+    ]);
     await expect(container).toMatch([DIV, [P, "error"]]);
     await expect(mountCalled).toEqual(true);
     await expect(unmountCalled).toEqual(true);
   },
   "catch: onMount fires on error UI root when its tag matches the catch boundary element": async () => {
-    const container = setup3();
+    const container = setup4();
     let errorUiMountCalled = false;
     const broken = () => {
       throw new Error("boom");
     };
-    app(
-      container,
-      {},
-      () => [
-        DIV,
-        [
-          SECTION,
-          {
-            catch: (s, err) => [
-              SECTION,
-              { onMount: () => {
+    app(container, {}, () => [
+      DIV,
+      [
+        SECTION,
+        {
+          catch: (s, err) => [
+            SECTION,
+            {
+              onMount: () => {
                 errorUiMountCalled = true;
-              } },
-              "error"
-            ]
-          },
-          broken
-        ]
+              }
+            },
+            "error"
+          ]
+        },
+        broken
       ]
-    );
+    ]);
     await expect(container).toMatch([DIV, [SECTION, "error"]]);
     await expect(errorUiMountCalled).toEqual(true);
   },
   "catch: onMount fires on error UI child when its tag matches an element that was removed by the error": async () => {
-    const container = setup3();
+    const container = setup4();
     let errorUiMountCalled = false;
     const broken = () => {
       throw new Error("boom");
     };
-    app(
-      container,
-      {},
-      () => [
-        DIV,
-        [
-          SECTION,
-          {
-            catch: (s, err) => [
-              SECTION,
-              [
-                ARTICLE,
-                { onMount: () => {
+    app(container, {}, () => [
+      DIV,
+      [
+        SECTION,
+        {
+          catch: (s, err) => [
+            SECTION,
+            [
+              ARTICLE,
+              {
+                onMount: () => {
                   errorUiMountCalled = true;
-                } }
-              ]
+                }
+              }
             ]
-          },
-          [ARTICLE],
-          broken
-        ]
+          ]
+        },
+        [ARTICLE],
+        broken
       ]
-    );
+    ]);
     await expect(container).toMatch([DIV, [SECTION, [ARTICLE]]]);
     await expect(errorUiMountCalled).toEqual(true);
   },
@@ -5848,17 +6144,12 @@ var tests_catch_default = {
       ];
     });
     patch({ error: true });
-    await expect(container).toMatch(
-      [
-        DIV,
-        [P, "caught: boom"]
-      ]
-    );
+    await expect(container).toMatch([DIV, [P, "caught: boom"]]);
   }
 };
 
 // test/tests-patch-advanced.ts
-function setup4() {
+function setup5() {
   const root = document.createElement("div");
   const container = document.createElement("div");
   root.appendChild(container);
@@ -5866,7 +6157,7 @@ function setup4() {
 }
 var tests_patch_advanced_default = {
   "patch(): generator function yields multiple state updates": async () => {
-    const container = setup4();
+    const container = setup5();
     const state = createState({ count: 0 });
     app(container, state, (s) => [DIV, String(s.count)]);
     await expect(state.count).toEqual(0);
@@ -5880,16 +6171,16 @@ var tests_patch_advanced_default = {
     await expect(container).toMatch([DIV, "3"]);
   },
   "patch(): async generator yields over time": async () => {
-    const container = setup4();
+    const container = setup5();
     const state = createState({ phase: "start", value: 0 });
     app(container, state, (s) => [DIV, s.phase, String(s.value)]);
     await expect(state.phase).toEqual("start");
     state.patch((async function* () {
-      await expect(container._vode.stats.syncRenderPatchCount).toEqual(0);
+      await expect(container[VODE].stats.syncRenderPatchCount).toEqual(0);
       yield { phase: "working", value: 10 };
-      await expect(container._vode.stats.syncRenderPatchCount).toEqual(1);
+      await expect(container[VODE].stats.syncRenderPatchCount).toEqual(1);
       yield { phase: "almost", value: 20 };
-      await expect(container._vode.stats.syncRenderPatchCount).toEqual(2);
+      await expect(container[VODE].stats.syncRenderPatchCount).toEqual(2);
       return { phase: "done", value: 30 };
     })());
     await new Promise((r) => setTimeout(r, 0));
@@ -5898,7 +6189,7 @@ var tests_patch_advanced_default = {
     await expect(container).toMatch([DIV, "done", "30"]);
   },
   "patch(): Promise resolves and applies patch": async () => {
-    const container = setup4();
+    const container = setup5();
     const state = createState({ msg: "before" });
     app(container, state, (s) => [DIV, s.msg]);
     await state.patch(Promise.resolve({ msg: "after" }));
@@ -5906,7 +6197,7 @@ var tests_patch_advanced_default = {
     await expect(container).toMatch([DIV, "after"]);
   },
   "patch(): array with empty patches applies nothing": async () => {
-    const container = setup4();
+    const container = setup5();
     const state = createState({ x: 1, y: 2 });
     app(container, state, (s) => [DIV]);
     await state.patch([{}, {}]);
@@ -5914,7 +6205,7 @@ var tests_patch_advanced_default = {
     await expect(state).toEqual({ x: 1, y: 2 });
   },
   "patch(): array with null/undefined items skips them": async () => {
-    const container = setup4();
+    const container = setup5();
     const state = createState({ x: 0, y: 0 });
     app(container, state, (s) => [DIV, String(s.x), String(s.y)]);
     state.patch([null, { x: 10 }, void 0, { y: 20 }]);
@@ -5922,24 +6213,24 @@ var tests_patch_advanced_default = {
     await eventually(() => state.y).toEqual(20);
   },
   "patch(): returns Promise for generator functions, can be awaited": async () => {
-    const container = setup4();
+    const container = setup5();
     const state = createState({ count: 0 });
     app(container, state, (s) => [DIV, String(s.count)]);
-    await expect(container._vode.stats.patchCount).toEqual(0);
+    await expect(container[VODE].stats.patchCount).toEqual(0);
     const result = state.patch(function* () {
       yield { count: 1 };
       return { count: 2 };
     });
-    await expect(container._vode.stats.patchCount).toEqual(1);
+    await expect(container[VODE].stats.patchCount).toEqual(1);
     expect(result).toBeA("object");
     await expect(result instanceof Promise).toEqual(true);
     await result;
-    await expect(container._vode.stats.patchCount).toEqual(3);
+    await expect(container[VODE].stats.patchCount).toEqual(3);
     await expect(state.count).toEqual(2);
     await expect(container).toMatch([DIV, "2"]);
   },
   "patch(): returns Promise for Promise patches, can be awaited": async () => {
-    const container = setup4();
+    const container = setup5();
     const state = createState({ msg: "before" });
     app(container, state, (s) => [DIV, s.msg]);
     const result = state.patch(Promise.resolve({ msg: "after" }));
@@ -5950,7 +6241,7 @@ var tests_patch_advanced_default = {
     await expect(container).toMatch([DIV, "after"]);
   },
   "patch(): returns void for object patches": async () => {
-    const container = setup4();
+    const container = setup5();
     const state = createState({ x: 1 });
     app(container, state, (s) => [DIV, String(s.x)]);
     const result = state.patch({ x: 2 });
@@ -5959,7 +6250,7 @@ var tests_patch_advanced_default = {
     await expect(container).toMatch([DIV, "2"]);
   },
   "patch(): forward promise error when one happens during patch": async () => {
-    const container = setup4();
+    const container = setup5();
     const state = createState({ msg: "before" });
     app(container, state, (s) => [DIV, s.msg]);
     const mockPromise = Promise.withResolvers();
@@ -5974,7 +6265,7 @@ var tests_patch_advanced_default = {
     expect(err.message).toEqual("promise error");
   },
   "patch(): forward generator error when one happens during patch": async () => {
-    const container = setup4();
+    const container = setup5();
     const state = createState({ msg: "before" });
     app(container, state, (s) => [DIV, s.msg]);
     const err = await expect(
@@ -5990,7 +6281,7 @@ var tests_patch_advanced_default = {
     expect(err.message).toEqual("generator error");
   },
   "patch(): forward error when one happens during patch": async () => {
-    const container = setup4();
+    const container = setup5();
     const state = createState({ msg: "before" });
     app(container, state, (s) => [DIV, s.msg]);
     const err = await expect(
@@ -6003,20 +6294,36 @@ var tests_patch_advanced_default = {
     expect(err.message).toEqual("void error");
   },
   "patch(): animated patch while document is hidden": async () => {
-    const container = setup4();
+    const container = setup5();
     const state = createState({ x: 0 });
     app(container, state, (s) => [DIV, String(s.x)]);
     setHidden(true);
     try {
       state.patch({ x: 1 }, true);
       await eventually(() => state.x).toEqual(1);
-      await eventually(() => container._vode.qAsync == null).toEqual(true);
+      await eventually(() => container[VODE].qAsync == null).toEqual(true);
     } finally {
       setHidden(false);
     }
   },
+  "patch(): app() dispatch forwards the animate flag": async () => {
+    const container = setup5();
+    const state = createState({ x: 0 });
+    const dispatch = app(container, state, (s) => [DIV, String(s.x)]);
+    await expect(container[VODE].stats.asyncRenderPatchCount).toEqual(0);
+    dispatch({ x: 1 }, true);
+    await expect(container[VODE].stats.asyncRenderPatchCount).toEqual(1);
+    await eventually(() => state.x).toEqual(1);
+    await eventually(() => container[VODE].qAsync == null).toEqual(true);
+    const syncBefore = container[VODE].stats.syncRenderPatchCount;
+    dispatch({ x: 2 });
+    await expect(container[VODE].stats.asyncRenderPatchCount).toEqual(1);
+    await expect(container[VODE].stats.syncRenderPatchCount).toEqual(syncBefore + 1);
+    await eventually(() => state.x).toEqual(2);
+    await expect(container).toMatch([DIV, "2"]);
+  },
   "patch(): patch animated while hidden renders once visible again": async () => {
-    const container = setup4();
+    const container = setup5();
     const state = createState({ x: 0 });
     app(container, state, (s) => [DIV, String(s.x)]);
     await expect(container).toMatch([DIV, "0"]);
@@ -6032,7 +6339,7 @@ var tests_patch_advanced_default = {
 };
 
 // test/tests-patch-merge.ts
-function setup5() {
+function setup6() {
   const root = document.createElement("div");
   const container = document.createElement("div");
   root.appendChild(container);
@@ -6040,14 +6347,14 @@ function setup5() {
 }
 var tests_patch_merge_default = {
   "patch-merge: array property replaces existing array": async () => {
-    const container = setup5();
+    const container = setup6();
     const state = createState({ items: [1, 2, 3] });
     app(container, state, () => [DIV]);
     state.patch({ items: [4, 5, 6] });
     await expect(state.items).toEqual([4, 5, 6]);
   },
   "patch-merge: classes (prototypes) are stored by reference": async () => {
-    const container = setup5();
+    const container = setup6();
     const dateA = /* @__PURE__ */ new Date("2024-01-01");
     const dateB = /* @__PURE__ */ new Date("2025-06-15");
     const regexA = new RegExp("[V,{},d,e]");
@@ -6063,7 +6370,7 @@ var tests_patch_merge_default = {
     await expect(state.date.getDate()).toEqual(15);
   },
   "patch-merge: object replaces existing array property": async () => {
-    const container = setup5();
+    const container = setup6();
     const state = createState({ data: [1, 2, 3] });
     app(container, state, () => [DIV]);
     state.patch({ data: { key: "value" } });
@@ -6071,19 +6378,646 @@ var tests_patch_merge_default = {
     await expect(state.data.key).toEqual("value");
   },
   "patch-merge: object replaces existing primitive property": async () => {
-    const container = setup5();
+    const container = setup6();
     const state = createState({ value: 42 });
     app(container, state, () => [DIV]);
     state.patch({ value: { nested: true } });
     await expect(state.value.nested).toEqual(true);
   },
   "patch-merge: new array property via patch": async () => {
-    const container = setup5();
+    const container = setup6();
     const state = createState({ name: "test" });
     app(container, state, () => [DIV]);
     state.patch({ tags: ["a", "b", "c"] });
     await expect(Array.isArray(state.tags)).toEqual(true);
     await expect(state.tags).toEqual(["a", "b", "c"]);
+  }
+};
+
+// test/tests-keyed.ts
+function listNode(container) {
+  return container.childNodes[0];
+}
+function nodesById(container) {
+  const out = {};
+  const list = listNode(container);
+  for (let i = 0; i < list.childNodes.length; i++) {
+    const node = list.childNodes[i];
+    out[attr(node, "id")] = node;
+  }
+  return out;
+}
+function orderInDom(container) {
+  const list = listNode(container);
+  const ids = [];
+  for (let i = 0; i < list.childNodes.length; i++) {
+    ids.push(attr(list.childNodes[i], "id"));
+  }
+  return ids;
+}
+function setup7(items) {
+  const root = document.createElement("div");
+  const container = document.createElement("div");
+  root.appendChild(container);
+  const state = createState({ items });
+  app(container, state, (s) => [
+    DIV,
+    keyed([
+      UL,
+      { class: "list" },
+      ...s.items.map((it) => [LI, { key: it.id, id: it.id }, it.label])
+    ])
+  ]);
+  return { state, container };
+}
+var tests_keyed_default = {
+  "keyed(): renders entries in order inside the container": async () => {
+    const { container } = setup7([
+      { id: "a", label: "A" },
+      { id: "b", label: "B" },
+      { id: "c", label: "C" }
+    ]);
+    await expect(container).toMatch(
+      [
+        DIV,
+        [
+          UL,
+          { class: "list" },
+          [LI, { id: "a" }, "A"],
+          [LI, { id: "b" }, "B"],
+          [LI, { id: "c" }, "C"]
+        ]
+      ]
+    );
+  },
+  "keyed(): throws when a child has no key": async () => {
+    const err = expect(() => keyed([UL, [LI, { id: "x" }, "1"]])).toFail();
+    await expect(err.message).toEqual(`keyed(): no string key defined on child at index 0`);
+  },
+  "keyed(): throws on a non-string key": async () => {
+    const err = expect(() => keyed([UL, [LI, { key: 1 }, "1"]])).toFail();
+    await expect(err.message).toEqual(`keyed(): no string key defined on child at index 0`);
+  },
+  "keyed(): throws on duplicate keys": async () => {
+    const err = expect(() => keyed([UL, [LI, { key: "x" }, "1"], [LI, { key: "x" }, "2"]])).toFail();
+    await expect(err.message).toEqual(`keyed(): duplicate key "x"`);
+  },
+  "keyed(): preserves node identity when items are swapped": async () => {
+    const { state, container } = setup7([
+      { id: "a", label: "A" },
+      { id: "b", label: "B" },
+      { id: "c", label: "C" }
+    ]);
+    const before = nodesById(container);
+    await expect(orderInDom(container)).toEqual(["a", "b", "c"]);
+    state.patch({
+      items: [
+        { id: "c", label: "C" },
+        { id: "b", label: "B" },
+        { id: "a", label: "A" }
+      ]
+    });
+    await eventually(() => orderInDom(container)).toEqual(["c", "b", "a"]);
+    const after = nodesById(container);
+    await expect(after["a"] === before["a"]).toEqual(true, "node for 'a' must be reused");
+    await expect(after["b"] === before["b"]).toEqual(true, "node for 'b' must be reused");
+    await expect(after["c"] === before["c"]).toEqual(true, "node for 'c' must be reused");
+  },
+  "keyed(): preserves per-node DOM state across a reorder": async () => {
+    const { state, container } = setup7([
+      { id: "a", label: "A" },
+      { id: "b", label: "B" }
+    ]);
+    const bNode = nodesById(container)["b"];
+    bNode.__scratch = "keepme";
+    state.patch({
+      items: [
+        { id: "b", label: "B" },
+        { id: "a", label: "A" }
+      ]
+    });
+    await eventually(() => orderInDom(container)).toEqual(["b", "a"]);
+    await expect(nodesById(container)["b"].__scratch).toEqual("keepme");
+  },
+  "keyed(): removing a middle item keeps the surviving nodes": async () => {
+    const { state, container } = setup7([
+      { id: "a", label: "A" },
+      { id: "b", label: "B" },
+      { id: "c", label: "C" }
+    ]);
+    const before = nodesById(container);
+    state.patch({
+      items: [
+        { id: "a", label: "A" },
+        { id: "c", label: "C" }
+      ]
+    });
+    await eventually(() => orderInDom(container)).toEqual(["a", "c"]);
+    const after = nodesById(container);
+    await expect(after["a"] === before["a"]).toEqual(true, "node for 'a' must be reused");
+    await expect(after["c"] === before["c"]).toEqual(true, "node for 'c' must be reused");
+    await expect(after["b"]).toEqual(void 0, "node for 'b' must be removed");
+  },
+  "keyed(): inserting an item in the middle keeps existing nodes": async () => {
+    const { state, container } = setup7([
+      { id: "a", label: "A" },
+      { id: "b", label: "B" }
+    ]);
+    const before = nodesById(container);
+    state.patch({
+      items: [
+        { id: "a", label: "A" },
+        { id: "x", label: "X" },
+        { id: "b", label: "B" }
+      ]
+    });
+    await eventually(() => orderInDom(container)).toEqual(["a", "x", "b"]);
+    const after = nodesById(container);
+    await expect(after["a"] === before["a"]).toEqual(true, "node for 'a' must be reused");
+    await expect(after["b"] === before["b"]).toEqual(true, "node for 'b' must be reused");
+    await expect(typeof after["x"]).toEqual("object", "node for 'x' must be created");
+  },
+  "keyed(): simultaneous reorder + insert + delete": async () => {
+    const { state, container } = setup7([
+      { id: "a", label: "A" },
+      { id: "b", label: "B" },
+      { id: "c", label: "C" }
+    ]);
+    const before = nodesById(container);
+    state.patch({
+      items: [
+        { id: "c", label: "C" },
+        { id: "x", label: "X" },
+        { id: "a", label: "A" }
+      ]
+    });
+    await expect(container).toMatch(
+      [
+        DIV,
+        [
+          UL,
+          { class: "list" },
+          [LI, { id: "c" }, "C"],
+          [LI, { id: "x" }, "X"],
+          [LI, { id: "a" }, "A"]
+        ]
+      ]
+    );
+    const after = nodesById(container);
+    await expect(after["a"] === before["a"]).toEqual(true, "node for 'a' must be reused");
+    await expect(after["c"] === before["c"]).toEqual(true, "node for 'c' must be reused");
+  },
+  "keyed(): patches content of a surviving key without recreating its node": async () => {
+    const { state, container } = setup7([
+      { id: "a", label: "A" },
+      { id: "b", label: "B" }
+    ]);
+    const before = nodesById(container);
+    state.patch({
+      items: [
+        { id: "b", label: "B!" },
+        // moved AND relabeled
+        { id: "a", label: "A" }
+      ]
+    });
+    await expect(container).toMatch(
+      [
+        DIV,
+        [
+          UL,
+          { class: "list" },
+          [LI, { id: "b" }, "B!"],
+          [LI, { id: "a" }, "A"]
+        ]
+      ]
+    );
+    await expect(nodesById(container)["b"] === before["b"]).toEqual(true);
+  },
+  "keyed(): changing the key at the same position recreates the node": async () => {
+    const root = document.createElement("div");
+    const container = document.createElement("div");
+    root.appendChild(container);
+    const mounted = [];
+    const unmounted = [];
+    const state = createState({ id: "a" });
+    app(container, state, (s) => {
+      const id = s.id;
+      return [
+        DIV,
+        keyed([
+          UL,
+          [LI, {
+            key: id,
+            id,
+            onMount: () => {
+              mounted.push(id);
+            },
+            onUnmount: () => {
+              unmounted.push(id);
+            }
+          }, id.toUpperCase()]
+        ])
+      ];
+    });
+    const before = nodesById(container)["a"];
+    await expect(mounted).toEqual(["a"]);
+    state.patch({ id: "b" });
+    await eventually(() => orderInDom(container)).toEqual(["b"]);
+    await expect(nodesById(container)["b"] === before).toEqual(false, "a changed key must get a fresh node");
+    await expect(unmounted).toEqual(["a"]);
+    await expect(mounted).toEqual(["a", "b"]);
+  },
+  "keyed(): clearing all items removes every node": async () => {
+    const { state, container } = setup7([
+      { id: "a", label: "A" },
+      { id: "b", label: "B" }
+    ]);
+    state.patch({ items: [] });
+    await expect(container).toMatch([DIV, [UL, { class: "list" }]]);
+    await eventually(() => listNode(container).childNodes.length).toEqual(0);
+  },
+  "keyed(): grows from empty to a populated list": async () => {
+    const { state, container } = setup7([]);
+    await expect(listNode(container).childNodes.length).toEqual(0);
+    state.patch({
+      items: [
+        { id: "a", label: "A" },
+        { id: "b", label: "B" }
+      ]
+    });
+    await eventually(() => orderInDom(container)).toEqual(["a", "b"]);
+  },
+  "keyed(): per-render props update the container": async () => {
+    const root = document.createElement("div");
+    const container = document.createElement("div");
+    root.appendChild(container);
+    const state = createState({ busy: false });
+    app(container, state, (s) => [
+      DIV,
+      keyed([
+        UL,
+        { class: s.busy ? "list loading" : "list" },
+        [LI, { key: "a" }, "A"]
+      ])
+    ]);
+    await expect(attr(listNode(container), "class")).toEqual("list");
+    state.patch({ busy: true });
+    await eventually(() => attr(listNode(container), "class")).toEqual("list loading");
+  },
+  "keyed(): recovers when the list is unmounted then remounted": async () => {
+    const root = document.createElement("div");
+    const container = document.createElement("div");
+    root.appendChild(container);
+    const state = createState({
+      show: true,
+      items: [{ id: "a", label: "A" }, { id: "b", label: "B" }]
+    });
+    app(container, state, (s) => [
+      DIV,
+      s.show ? keyed([
+        UL,
+        { class: "list" },
+        ...s.items.map((it) => [LI, { key: it.id, id: it.id }, it.label])
+      ]) : [SPAN, "hidden"]
+    ]);
+    await expect(orderInDom(container)).toEqual(["a", "b"]);
+    state.patch({ show: false });
+    await expect(container).toMatch([DIV, [SPAN, "hidden"]]);
+    state.patch({ show: true });
+    await eventually(() => orderInDom(container)).toEqual(["a", "b"]);
+    state.patch({ items: [{ id: "b", label: "B" }, { id: "a", label: "A" }] });
+    await eventually(() => orderInDom(container)).toEqual(["b", "a"]);
+  },
+  "keyed(): two independent keyed lists do not interfere": async () => {
+    const root = document.createElement("div");
+    const container = document.createElement("div");
+    root.appendChild(container);
+    const state = createState({
+      left: [{ id: "a", label: "A" }, { id: "b", label: "B" }],
+      right: [{ id: "x", label: "X" }, { id: "y", label: "Y" }]
+    });
+    app(container, state, (s) => [
+      DIV,
+      keyed([
+        UL,
+        { class: "left" },
+        ...s.left.map((it) => [LI, { key: it.id, id: it.id }, it.label])
+      ]),
+      keyed([
+        UL,
+        { class: "right" },
+        ...s.right.map((it) => [LI, { key: it.id, id: it.id }, it.label])
+      ])
+    ]);
+    state.patch({ left: [{ id: "b", label: "B" }, { id: "a", label: "A" }] });
+    await expect(container).toMatch(
+      [
+        DIV,
+        [UL, { class: "left" }, [LI, { id: "b" }, "B"], [LI, { id: "a" }, "A"]],
+        [UL, { class: "right" }, [LI, { id: "x" }, "X"], [LI, { id: "y" }, "Y"]]
+      ]
+    );
+  },
+  "keyed(): nested keyed lists reconcile independently": async () => {
+    const root = document.createElement("div");
+    const container = document.createElement("div");
+    root.appendChild(container);
+    const state = createState({
+      groups: [
+        { id: "g1", items: ["a", "b"] },
+        { id: "g2", items: ["x", "y"] }
+      ]
+    });
+    app(container, state, (s) => [
+      DIV,
+      keyed([
+        UL,
+        { class: "outer" },
+        ...s.groups.map((g) => [
+          LI,
+          { key: g.id, id: g.id },
+          keyed([
+            UL,
+            ...g.items.map((it) => [LI, { key: it, id: it }, it])
+          ])
+        ])
+      ])
+    ]);
+    const groupIds = () => orderInDom(container);
+    const innerList = (gid) => {
+      const outer = listNode(container);
+      for (let i = 0; i < outer.childNodes.length; i++) {
+        const g = outer.childNodes[i];
+        if (attr(g, "id") === gid) return g.childNodes[0];
+      }
+      return void 0;
+    };
+    const itemsOf = (gid) => {
+      const inner = innerList(gid);
+      const ids = [];
+      for (let i = 0; i < inner.childNodes.length; i++) {
+        ids.push(attr(inner.childNodes[i], "id"));
+      }
+      return ids;
+    };
+    const itemNode = (gid, iid) => {
+      const inner = innerList(gid);
+      for (let i = 0; i < inner.childNodes.length; i++) {
+        if (attr(inner.childNodes[i], "id") === iid) return inner.childNodes[i];
+      }
+      return void 0;
+    };
+    await expect(groupIds()).toEqual(["g1", "g2"]);
+    await expect(itemsOf("g1")).toEqual(["a", "b"]);
+    await expect(itemsOf("g2")).toEqual(["x", "y"]);
+    const g2y = itemNode("g2", "y");
+    const g1a = itemNode("g1", "a");
+    state.patch({
+      groups: [
+        { id: "g2", items: ["y", "x"] },
+        { id: "g1", items: ["a", "b"] }
+      ]
+    });
+    await eventually(() => groupIds()).toEqual(["g2", "g1"]);
+    await expect(itemsOf("g2")).toEqual(["y", "x"]);
+    await expect(itemsOf("g1")).toEqual(["a", "b"]);
+    await expect(itemNode("g2", "y") === g2y).toEqual(true, "inner node 'y' must be reused");
+    await expect(itemNode("g1", "a") === g1a).toEqual(true, "inner node 'a' must be reused");
+  },
+  "keyed(): fires onUnmount for removed keys": async () => {
+    const root = document.createElement("div");
+    const container = document.createElement("div");
+    root.appendChild(container);
+    const unmounted = [];
+    const state = createState({ items: [{ id: "a" }, { id: "b" }, { id: "c" }] });
+    app(container, state, (s) => [
+      DIV,
+      // container without its own props (keyed injects the props object it needs)
+      keyed([
+        UL,
+        ...s.items.map((it) => [
+          LI,
+          { key: it.id, id: it.id, onUnmount: () => {
+            unmounted.push(it.id);
+          } },
+          it.id
+        ])
+      ])
+    ]);
+    await expect(orderInDom(container)).toEqual(["a", "b", "c"]);
+    state.patch({ items: [{ id: "a" }, { id: "c" }] });
+    await eventually(() => orderInDom(container)).toEqual(["a", "c"]);
+    await expect(unmounted).toEqual(["b"]);
+  },
+  "keyed(): fires onMount for rows inserted in the middle": async () => {
+    const root = document.createElement("div");
+    const container = document.createElement("div");
+    root.appendChild(container);
+    const mounted = [];
+    const state = createState({ items: [{ id: "a" }, { id: "c" }] });
+    app(container, state, (s) => [
+      DIV,
+      keyed([
+        UL,
+        ...s.items.map((it) => [
+          LI,
+          { key: it.id, id: it.id, onMount: () => {
+            mounted.push(it.id);
+          } },
+          it.id
+        ])
+      ])
+    ]);
+    await expect(orderInDom(container)).toEqual(["a", "c"]);
+    await expect(mounted).toEqual(["a", "c"]);
+    state.patch({ items: [{ id: "a" }, { id: "b" }, { id: "c" }] });
+    await eventually(() => orderInDom(container)).toEqual(["a", "b", "c"]);
+    await expect(mounted).toEqual(["a", "c", "b"]);
+  },
+  "keyed(): skips falsy children from conditional rendering": async () => {
+    const root = document.createElement("div");
+    const container = document.createElement("div");
+    root.appendChild(container);
+    const state = createState({
+      showFooter: false,
+      items: [{ id: "a", label: "A" }]
+    });
+    app(container, state, (s) => [
+      DIV,
+      keyed([
+        UL,
+        { class: "list" },
+        ...s.items.map((it) => [LI, { key: it.id, id: it.id }, it.label]),
+        s.showFooter && [LI, { key: "footer", id: "footer" }, "F"]
+      ])
+    ]);
+    await expect(orderInDom(container)).toEqual(["a"]);
+    state.patch({ showFooter: true });
+    await eventually(() => orderInDom(container)).toEqual(["a", "footer"]);
+    state.patch({ showFooter: false });
+    await eventually(() => orderInDom(container)).toEqual(["a"]);
+  },
+  "keyed(): tolerates child vodes hoisted/reused across renders": async () => {
+    const root = document.createElement("div");
+    const container = document.createElement("div");
+    root.appendChild(container);
+    const state = createState({ items: [{ id: "a", label: "A" }] });
+    const staticRow = [LI, { key: "static", id: "static" }, "S"];
+    app(container, state, (s) => [
+      DIV,
+      keyed([
+        UL,
+        { class: "list" },
+        staticRow,
+        ...s.items.map((it) => [LI, { key: it.id, id: it.id }, it.label])
+      ])
+    ]);
+    await expect(orderInDom(container)).toEqual(["static", "a"]);
+    const staticNode = nodesById(container)["static"];
+    state.patch({ items: [{ id: "b", label: "B" }, { id: "a", label: "A" }] });
+    await eventually(() => orderInDom(container)).toEqual(["static", "b", "a"]);
+    await expect(nodesById(container)["static"] === staticNode).toEqual(true, "hoisted row must keep its DOM node");
+  },
+  "keyed(): replaces keyless children left over from a non-keyed render": async () => {
+    const root = document.createElement("div");
+    const container = document.createElement("div");
+    root.appendChild(container);
+    const unmounted = [];
+    const state = createState({ items: [] });
+    app(container, state, (s) => [
+      DIV,
+      s.items.length ? keyed([
+        UL,
+        { class: "list" },
+        ...s.items.map((it) => [LI, { key: it.id, id: it.id }, it.label])
+      ]) : [
+        UL,
+        { class: "list" },
+        [LI, {
+          id: "placeholder",
+          onUnmount: () => {
+            unmounted.push("placeholder");
+          }
+        }, "no items"]
+      ]
+    ]);
+    await expect(orderInDom(container)).toEqual(["placeholder"]);
+    state.patch({ items: [{ id: "a", label: "A" }, { id: "b", label: "B" }] });
+    await eventually(() => orderInDom(container)).toEqual(["a", "b"]);
+    await expect(listNode(container).childNodes.length).toEqual(2);
+    await expect(unmounted).toEqual(["placeholder"]);
+    state.patch({ items: [] });
+    await eventually(() => orderInDom(container)).toEqual(["placeholder"]);
+    await eventually(() => listNode(container).childNodes.length).toEqual(1);
+  },
+  "keyed(): does not duplicate server-rendered children on hydration": async () => {
+    const root = document.createElement("div");
+    const container = document.createElement("div");
+    root.appendChild(container);
+    const ul = document.createElement("ul");
+    ul.setAttribute("class", "list");
+    for (const id of ["a", "b"]) {
+      const li = document.createElement("li");
+      li.setAttribute("id", id);
+      li.appendChild(document.createTextNode(id.toUpperCase()));
+      ul.appendChild(li);
+    }
+    container.appendChild(ul);
+    const state = createState({
+      items: [{ id: "a", label: "A" }, { id: "b", label: "B" }]
+    });
+    app(container, state, (s) => [
+      DIV,
+      keyed([
+        UL,
+        { class: "list" },
+        ...s.items.map((it) => [LI, { key: it.id, id: it.id }, it.label])
+      ])
+    ]);
+    await eventually(() => orderInDom(container)).toEqual(["a", "b"]);
+    await expect(listNode(container).childNodes.length).toEqual(2);
+    await expect(container).toMatch(
+      [
+        DIV,
+        [
+          UL,
+          { class: "list" },
+          [LI, { id: "a" }, "A"],
+          [LI, { id: "b" }, "B"]
+        ]
+      ]
+    );
+  },
+  "keyed(): preserves a user-supplied reconciled on the container": async () => {
+    const root = document.createElement("div");
+    const container = document.createElement("div");
+    root.appendChild(container);
+    let calls = 0;
+    const state = createState({ items: [{ id: "a", label: "A" }] });
+    app(container, state, (s) => [
+      DIV,
+      keyed([
+        UL,
+        { class: "list", reconciled: () => {
+          calls++;
+        } },
+        ...s.items.map((it) => [LI, { key: it.id, id: it.id }, it.label])
+      ])
+    ]);
+    await expect(calls).toEqual(1);
+    state.patch({ items: [{ id: "b", label: "B" }, { id: "a", label: "A" }] });
+    await eventually(() => orderInDom(container)).toEqual(["b", "a"]);
+    await expect(calls).toEqual(2);
+  },
+  "keyed(): moves only the minimum number of nodes (LIS reorder)": async () => {
+    const items = ["a", "b", "c", "d", "e"].map((id) => ({ id, label: id.toUpperCase() }));
+    const { state, container } = setup7(items);
+    let moves = 0;
+    const byId = nodesById(container);
+    for (const id of ["a", "b", "c", "d", "e"]) {
+      const node = byId[id];
+      const origBefore = node.before.bind(node);
+      node.before = (...nodes) => {
+        moves += nodes.length;
+        return origBefore(...nodes);
+      };
+    }
+    const list = listNode(container);
+    const origAppend = list.appendChild.bind(list);
+    list.appendChild = (child2) => {
+      moves++;
+      return origAppend(child2);
+    };
+    state.patch({ items: [...items.slice(1), items[0]] });
+    await eventually(() => orderInDom(container)).toEqual(["b", "c", "d", "e", "a"]);
+    await expect(moves).toEqual(1, "rotating one item must move exactly one node");
+    const after = nodesById(container);
+    for (const id of ["a", "b", "c", "d", "e"]) {
+      await expect(after[id] === byId[id]).toEqual(true, `node for '${id}' must be reused`);
+    }
+  },
+  "keyed(): does not move any node when the order is unchanged": async () => {
+    const items = ["a", "b", "c"].map((id) => ({ id, label: id.toUpperCase() }));
+    const { state, container } = setup7(items);
+    let moves = 0;
+    const byId = nodesById(container);
+    for (const id of ["a", "b", "c"]) {
+      const node = byId[id];
+      const origBefore = node.before.bind(node);
+      node.before = (...nodes) => {
+        moves += nodes.length;
+        return origBefore(...nodes);
+      };
+    }
+    const list = listNode(container);
+    const origAppend = list.appendChild.bind(list);
+    list.appendChild = (child2) => {
+      moves++;
+      return origAppend(child2);
+    };
+    state.patch({ items: items.map((it) => ({ ...it, label: it.label + "!" })) });
+    await eventually(() => nodesById(container)["a"]?.childNodes[0]?.nodeValue).toEqual("A!");
+    await expect(moves).toEqual(0, "an unchanged order must not move any node");
   }
 };
 
@@ -6095,6 +7029,7 @@ var tests = {
   ...tests_hydrate_default,
   ...tests_memo_default,
   ...tests_mount_unmount_default,
+  ...tests_reconciled_default,
   ...tests_createState_default,
   ...tests_createPatch_default,
   ...tests_tag_default,
@@ -6107,7 +7042,8 @@ var tests = {
   ...tests_examples_default,
   ...tests_catch_default,
   ...tests_patch_advanced_default,
-  ...tests_patch_merge_default
+  ...tests_patch_merge_default,
+  ...tests_keyed_default
 };
 export {
   tests

@@ -12,6 +12,14 @@ function isRealTextNode(node: any): node is Text {
     return isBrowser && node instanceof Text;
 }
 
+/** DOM-agnostic attribute read: FakeElement (node tests) stores attributes in
+ * `fakeAttributes`, real elements (browser tests) use `getAttribute` */
+export function attr(node: any, name: string): string | undefined {
+    if (!node) return undefined;
+    if (node.fakeAttributes) return node.fakeAttributes[name];
+    return node.getAttribute?.(name) ?? undefined;
+}
+
 export const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** set `document.hidden` in a way that works both in the fake-DOM (node) test */

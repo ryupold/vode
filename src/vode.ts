@@ -14,9 +14,9 @@ export type Tag =
 export type Component<S = PatchableState> = (s: S) => ChildVode<S>;
 export type DomElement = HTMLElement | SVGSVGElement | MathMLElement;
 
-type AttachedVode<S = PatchableState> = AttachedElementVode<S> | (Text & { [NODE]?: never });
-type AttachedElementVode<S> = Vode<S> & { [NODE]: ElementNode<S>;[UNMOUNT_COUNT]?: number };
-type ElementNode<S> = HTMLElement &
+export type AttachedVode<S = PatchableState> = AttachedElementVode<S> | (Text & { [NODE]?: never });
+export type AttachedElementVode<S> = Vode<S> & { [NODE]: ElementNode<S>;[UNMOUNT_COUNT]?: number };
+export type ElementNode<S> = HTMLElement &
     SVGSVGElement &
     MathMLElement &
     Record<string, PropertyValue<S>>;
@@ -62,14 +62,20 @@ export interface Props<S = PatchableState> extends Partial<
     xmlns?: string | null;
     class?: ClassProp;
     style?: StyleProp;
-    /** called after the element was attached */
+    /** called after the element was attached (and finished its rendering) */
     onMount?: MountFunction<S> | null | false;
-    /** called before the element is detached */
+    /** called right before the element is detached */
     onUnmount?: MountFunction<S> | null | false;
     /** used instead of original vode when an error occurs during rendering */
     catch?: ((s: S, error: Error) => ChildVode<S>) | ChildVode<S>;
-    /** called on every render */
-    onRender?: ((s: S, vode: RenderedVode) => void) | null | false;
+    /** called every render after assignment of the DOM node. 
+     * receiving the new vode and the previously (attached) one.
+     * 2 cases:
+     * - `newVode` is attached, `oldVode` is undefined: initial node assigment
+     * - `newVode` is attached, `oldVode` is defined: updated/checked */
+    reconciled?: ((s: S,
+        newVode: RenderedVode,
+        oldVode: RenderedVode | undefined) => void) | null | false;
 }
 
 export type MountFunction<S> =
@@ -707,11 +713,7 @@ function render<S extends PatchableState>(
         // unwrap component if it is memoized
         newVode = remember(state, newVode as MemoNode<S>, oldVode as MemoNode<S>) as ChildVode<S>;
 
-        const isNoVode =
-            !newVode ||
-            typeof newVode === "number" ||
-            typeof newVode === "boolean" ||
-            typeof newVode === "bigint";
+        const isNoVode = !newVode || (typeof newVode !== "object" && typeof newVode !== "string");
         if (newVode === oldVode || (!oldVode && isNoVode)) {
             return oldVode;
         }
@@ -784,7 +786,7 @@ function render<S extends PatchableState>(
         // falsy|text|element(A) -> element(B)
         if (isNode && (!oldNode || oldIsText || (<Vode<S>>oldVode)[0] !== (<Vode<S>>newVode)[0])) {
             const newvode = <Vode<S>>newVode;
-            if (1 in newvode) {
+            if (newvode.length > 1) {
                 newvode[1] = remember(state, newvode[1] as MemoNode<S>, undefined) as Vode<S>;
             }
 
@@ -798,6 +800,9 @@ function render<S extends PatchableState>(
                     : parent.ownerDocument.createElement((<Vode<S>>newVode)[0]))
             );
             (<AttachedVode<S>>newVode)[NODE] = newNode;
+            if (typeof properties?.reconciled === "function") {
+                properties.reconciled(state, newVode as RenderedVode, Array.isArray(oldVode) ? oldVode as RenderedVode : undefined);
+            }
 
             //set properties for new child in xml mode to prevent using the dom properties
             patchProperties(state, newNode, undefined, properties, xmlns ?? null);
@@ -805,6 +810,10 @@ function render<S extends PatchableState>(
             if (!!properties && "catch" in properties) {
                 (<AttachedElementVode<S>>newVode)[NODE]["catch"] = null;
                 (<AttachedElementVode<S>>newVode)[NODE].removeAttribute("catch");
+            }
+            if (!!properties && "reconciled" in properties) {
+                (<AttachedElementVode<S>>newVode)[NODE]["reconciled"] = null;
+                (<AttachedElementVode<S>>newVode)[NODE].removeAttribute("reconciled");
             }
 
             if (oldNode) {
@@ -844,9 +853,7 @@ function render<S extends PatchableState>(
                     properties.onMount(state, newNode as HTMLElement & SVGSVGElement & MathMLElement),
                 );
             }
-            if (typeof properties?.onRender === "function") {
-                properties.onRender(state, newVode as RenderedVode);
-            }
+
             return <AttachedVode<S>>newVode;
         }
 
@@ -856,6 +863,11 @@ function render<S extends PatchableState>(
             (<AttachedElementVode<S>>newVode)[NODE] = node;
 
             const properties = props(newVode);
+
+            if (typeof properties?.reconciled === "function") {
+                properties.reconciled(state, newVode as RenderedVode, oldVode as RenderedVode);
+            }
+
             const oldProps = props(oldVode);
 
             if (properties?.xmlns !== undefined) xmlns = properties.xmlns;
@@ -865,6 +877,10 @@ function render<S extends PatchableState>(
             if (!!properties?.catch && oldProps?.catch !== properties.catch) {
                 node["catch"] = null;
                 node.removeAttribute("catch");
+            }
+            if (!!properties?.reconciled && oldProps?.reconciled !== properties.reconciled) {
+                node["reconciled"] = null;
+                node.removeAttribute("reconciled");
             }
 
             const newStart = childrenStart(newVode);
@@ -899,9 +915,7 @@ function render<S extends PatchableState>(
 
             (<AttachedElementVode<S>>newVode)[UNMOUNT_COUNT] =
                 (properties?.onUnmount ? 1 : 0) + sumChildUnmountCounts(<AttachedElementVode<S>>newVode);
-            if (typeof properties?.onRender === "function") {
-                properties.onRender(state, newVode as RenderedVode);
-            }
+
             return <AttachedVode<S>>newVode;
         }
     } catch (error: any) {

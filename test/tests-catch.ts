@@ -34,7 +34,7 @@ export default {
         await expect(container).toMatch([DIV, [ARTICLE, "error occurred"]]);
     },
 
-    "catch: nested error boundaries — inner catch handles inner error": async () => {
+    "catch: nested error boundaries -> inner catch handles inner error": async () => {
         const container = setup();
         const broken = () => {
             throw new Error("inner boom");
@@ -57,7 +57,7 @@ export default {
         await expect(container).toMatch([DIV, [SECTION, [ARTICLE, "inner fallback"]]]);
     },
 
-    "catch: nested error boundaries — outer catches when inner has no handler": async () => {
+    "catch: nested error boundaries -> outer catches when inner has no handler": async () => {
         const container = setup();
         const broken = () => {
             throw new Error("boom");

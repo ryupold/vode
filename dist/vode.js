@@ -159,6 +159,7 @@ var V = (() => {
     MUNDER: () => MUNDER,
     MUNDEROVER: () => MUNDEROVER,
     NAV: () => NAV,
+    NODE: () => NODE,
     NOSCRIPT: () => NOSCRIPT,
     OBJECT: () => OBJECT,
     OL: () => OL,
@@ -191,6 +192,7 @@ var V = (() => {
     SMALL: () => SMALL,
     SOURCE: () => SOURCE,
     SPAN: () => SPAN,
+    STATS: () => STATS,
     STOP: () => STOP,
     STRONG: () => STRONG,
     STYLE: () => STYLE,
@@ -221,6 +223,7 @@ var V = (() => {
     VAR: () => VAR,
     VIDEO: () => VIDEO,
     VIEW: () => VIEW,
+    VODE: () => VODE,
     WBR: () => WBR,
     app: () => app,
     child: () => child,
@@ -232,6 +235,7 @@ var V = (() => {
     createState: () => createState,
     defuse: () => defuse,
     hydrate: () => hydrate,
+    keyed: () => keyed,
     memo: () => memo,
     mergeClass: () => mergeClass,
     mergeProps: () => mergeProps,
@@ -242,23 +246,31 @@ var V = (() => {
   });
 
   // src/vode.ts
+  var VODE = /* @__PURE__ */ Symbol("vode");
+  var NODE = /* @__PURE__ */ Symbol("node");
+  var STATS = /* @__PURE__ */ Symbol("stats");
+  var UNMOUNT_COUNT = /* @__PURE__ */ Symbol("ucount");
+  var MEMO = /* @__PURE__ */ Symbol("memo");
   var ELEMENT_NODE = 1;
   var TEXT_NODE = 3;
   function vode(tag2, props2, ...children2) {
     if (!tag2) throw new Error("first argument to vode() must be a tag name or a vode");
-    if (Array.isArray(tag2))
-      return tag2;
+    if (Array.isArray(tag2)) return tag2;
     else if (props2 !== null && typeof props2 === "object")
       return [tag2, props2, ...children2];
-    else if (props2 === void 0)
-      return [tag2, ...children2];
-    else
-      return [tag2, props2, ...children2];
+    else if (props2 === void 0) return [tag2, ...children2];
+    else return [tag2, props2, ...children2];
   }
   function app(container, state, dom, ...initialPatches) {
-    if (!container?.parentElement) throw new Error("first argument to app() must be a valid HTMLElement inside the <html></html> document");
-    if (!state || typeof state !== "object") throw new Error("second argument to app() must be a state object");
-    if (typeof dom !== "function") throw new Error("third argument to app() must be a function that returns a vode");
+    if (!container?.parentElement)
+      throw new Error(
+        "first argument to app() must be a valid HTMLElement inside the <html></html> document"
+      );
+    if (!state || typeof state !== "object")
+      throw new Error("second argument to app() must be a state object");
+    if (typeof dom !== "function")
+      throw new Error("third argument to app() must be a function that returns a vode");
+    const patchableState = state;
     const _vode = {};
     _vode.document = container.ownerDocument;
     const win = _vode.document.defaultView;
@@ -270,21 +282,33 @@ var V = (() => {
     _vode.asyncRenderer = typeof _vode.document.startViewTransition === "function" ? _vode.document.startViewTransition.bind(_vode.document) : null;
     _vode.isRendering = 0;
     _vode.qAsync = null;
-    _vode.stats = { lastSyncRenderTime: 0, lastAsyncRenderTime: 0, syncRenderCount: 0, asyncRenderCount: 0, liveEffectCount: 0, patchCount: 0, syncRenderPatchCount: 0, asyncRenderPatchCount: 0 };
-    const patchableState = state;
+    _vode.stats = patchableState[STATS] ?? {
+      lastSyncRenderTime: 0,
+      lastAsyncRenderTime: 0,
+      syncRenderCount: 0,
+      asyncRenderCount: 0,
+      liveEffectCount: 0,
+      patchCount: 0,
+      syncRenderPatchCount: 0,
+      asyncRenderPatchCount: 0
+    };
+    patchableState[STATS] = _vode.stats;
     if ("patch" in state && typeof state.patch === "function" && Array.isArray(state.patch.initialPatches)) {
-      initialPatches = [...state.patch.initialPatches, ...initialPatches];
+      initialPatches = [
+        ...state.patch.initialPatches,
+        ...initialPatches
+      ];
     }
-    async function promisePatch(action, isAnimated) {
+    async function promisePatch(action, animated) {
       _vode.stats.liveEffectCount++;
       try {
         const resolvedPatch = await action;
-        await patchableState.patch(resolvedPatch, isAnimated);
+        await patchableState.patch(resolvedPatch, animated);
       } finally {
         _vode.stats.liveEffectCount--;
       }
     }
-    async function generatorPatch(action, isAnimated) {
+    async function generatorPatch(action, animated) {
       const generator = action;
       _vode.stats.liveEffectCount++;
       try {
@@ -292,13 +316,13 @@ var V = (() => {
         while (v.done === false) {
           _vode.stats.liveEffectCount++;
           try {
-            await patchableState.patch(v.value, isAnimated);
+            await patchableState.patch(v.value, animated);
             v = await generator.next();
           } finally {
             _vode.stats.liveEffectCount--;
           }
         }
-        await patchableState.patch(v.value, isAnimated);
+        await patchableState.patch(v.value, animated);
       } finally {
         _vode.stats.liveEffectCount--;
       }
@@ -307,16 +331,16 @@ var V = (() => {
       enumerable: false,
       configurable: true,
       writable: false,
-      value: (action, isAnimated) => {
+      value: (action, animated) => {
         while (typeof action === "function") {
           action = action(_vode.state);
         }
         if (!action || typeof action !== "object") return;
         _vode.stats.patchCount++;
-        if (action?.next) {
-          return generatorPatch(action, isAnimated);
-        } else if (action.then) {
-          return promisePatch(action, isAnimated);
+        if (typeof action.next === "function") {
+          return generatorPatch(action, animated);
+        } else if (typeof action.then === "function") {
+          return promisePatch(action, animated);
         } else if (Array.isArray(action)) {
           if (action.length > 0) {
             for (const p of action) {
@@ -333,7 +357,7 @@ var V = (() => {
             _vode.renderSync();
           }
         } else {
-          if (isAnimated && !!_vode.asyncRenderer) {
+          if (animated && !!_vode.asyncRenderer) {
             _vode.stats.asyncRenderPatchCount++;
             _vode.qAsync = mergeState(_vode.qAsync || {}, action, false);
             _vode.renderAsync();
@@ -345,20 +369,26 @@ var V = (() => {
         }
       }
     });
-    function renderDom(isAnimated) {
+    function renderDom(animated) {
       const sw = performance.now();
-      _vode.vode = render(_vode.state, container.parentElement, 0, 0, _vode.vode, dom);
+      _vode.vode = render(
+        _vode.state,
+        container.parentElement,
+        0,
+        0,
+        _vode.vode,
+        dom
+      );
       if (container.tagName.toLowerCase() !== _vode.vode[0].toLowerCase()) {
-        container = _vode.vode.node;
-        container["_vode"] = _vode;
+        container = _vode.vode[NODE];
+        container[VODE] = _vode;
       }
-      if (!isAnimated) {
+      if (!animated) {
         _vode.stats.lastSyncRenderTime = performance.now() - sw;
         const changesSinceRender = _vode.isRendering !== _vode.stats.syncRenderPatchCount;
         _vode.stats.syncRenderCount++;
         _vode.isRendering = 0;
-        if (changesSinceRender)
-          _vode.renderSync();
+        if (changesSinceRender) _vode.renderSync();
       }
     }
     const sr = renderDom.bind(null, false);
@@ -382,7 +412,11 @@ var V = (() => {
         await _vode.document.currentViewTransition?.updateCallbackDone;
         if (_vode.isAnimating || !_vode.qAsync) return;
         if (_vode.document.hidden) {
-          _vode.state = mergeState(_vode.state, _vode.qAsync, true);
+          _vode.state = mergeState(
+            _vode.state,
+            _vode.qAsync,
+            true
+          );
           _vode.qAsync = null;
           _vode.stats.syncRenderPatchCount++;
           _vode.renderSync();
@@ -391,7 +425,11 @@ var V = (() => {
         _vode.isAnimating = true;
         const sw = performance.now();
         try {
-          _vode.state = mergeState(_vode.state, _vode.qAsync, true);
+          _vode.state = mergeState(
+            _vode.state,
+            _vode.qAsync,
+            true
+          );
           _vode.qAsync = null;
           if (_vode.asyncRenderer) {
             _vode.document.currentViewTransition = _vode.asyncRenderer(ar);
@@ -410,7 +448,7 @@ var V = (() => {
     });
     _vode.state = patchableState;
     const root = container;
-    root["_vode"] = _vode;
+    root[VODE] = _vode;
     const indexInParent = Array.from(container.parentElement.children).indexOf(container);
     const patchCountBefore = _vode.stats.syncRenderPatchCount;
     _vode.isRendering = _vode.stats.syncRenderPatchCount;
@@ -423,8 +461,8 @@ var V = (() => {
       dom
     );
     if (container.tagName.toLowerCase() !== _vode.vode[0].toLowerCase()) {
-      container = _vode.vode.node;
-      container["_vode"] = _vode;
+      container = _vode.vode[NODE];
+      container[VODE] = _vode;
     }
     const continueRendering = _vode.stats.syncRenderPatchCount !== patchCountBefore;
     _vode.isRendering = 0;
@@ -433,23 +471,23 @@ var V = (() => {
     for (const effect of initialPatches) {
       patchableState.patch(effect);
     }
-    return (action) => patchableState.patch(action);
+    return (action, animated) => patchableState.patch(action, animated);
   }
   function defuse(container) {
-    if (container?.["_vode"]) {
+    if (container?.[VODE]) {
       let clearEvents2 = function(av) {
-        if (!av?.node) return;
+        if (!av?.[NODE]) return;
         const p = props(av);
         if (p) {
           for (const key in p) {
             if (key[0] === "o" && key[1] === "n") {
-              av.node[key] = null;
+              av[NODE][key] = null;
             }
           }
-          av.node.catch = null;
+          av[NODE].catch = null;
         }
-        if (av.node["_vode"]) {
-          defuse(av.node);
+        if (av[NODE][VODE]) {
+          defuse(av[NODE]);
         } else {
           const kids = children(av);
           if (kids) {
@@ -460,8 +498,9 @@ var V = (() => {
         }
       };
       var clearEvents = clearEvents2;
-      const v = container["_vode"];
-      delete container["_vode"];
+      const v = container[VODE];
+      delete container[VODE];
+      delete v.state[STATS];
       Object.defineProperty(v.state, "patch", { value: void 0 });
       Object.defineProperty(v, "renderSync", { value: () => {
       } });
@@ -482,7 +521,7 @@ var V = (() => {
     } else if (element.nodeType === ELEMENT_NODE) {
       const tag2 = element.tagName.toLowerCase();
       const root = [tag2];
-      if (prepareForRender) root.node = element;
+      if (prepareForRender) root[NODE] = element;
       if (element?.hasAttributes()) {
         const props2 = {};
         const attr = element.attributes;
@@ -508,30 +547,45 @@ var V = (() => {
     }
   }
   function memo(compare, component) {
-    if (!compare || !Array.isArray(compare)) throw new Error("first argument to memo() must be an array of values to compare");
-    if (typeof component !== "function") throw new Error("second argument to memo() must be a function that returns a child vode");
-    if (component.__memo) {
+    if (!compare || !Array.isArray(compare))
+      throw new Error("first argument to memo() must be an array of values to compare");
+    if (typeof component !== "function")
+      throw new Error("second argument to memo() must be a function that returns a child vode");
+    if (component[MEMO]) {
       const comp = component;
       component = (s) => comp(s);
     }
-    component.__memo = compare;
+    component[MEMO] = compare;
     return component;
   }
   function createState(state) {
-    if (!state || typeof state !== "object") throw new Error("createState() must be called with a state object");
+    if (!state || typeof state !== "object")
+      throw new Error("createState() must be called with a state object");
     if (!("patch" in state)) {
       Object.defineProperty(state, "patch", {
         enumerable: false,
         configurable: true,
         writable: false,
-        value: (action) => {
+        value: (action, animated) => {
           const futureState = state;
           if (!Array.isArray(futureState.patch.initialPatches)) {
             futureState.patch.initialPatches = [];
           }
-          futureState.patch.initialPatches.push(action);
+          futureState.patch.initialPatches.push(animated ? [action] : action);
         }
       });
+    }
+    if (!(STATS in state)) {
+      state[STATS] = {
+        lastSyncRenderTime: 0,
+        lastAsyncRenderTime: 0,
+        syncRenderCount: 0,
+        asyncRenderCount: 0,
+        liveEffectCount: 0,
+        patchCount: 0,
+        syncRenderPatchCount: 0,
+        asyncRenderPatchCount: 0
+      };
     }
     return state;
   }
@@ -569,7 +623,13 @@ var V = (() => {
     else return void 0;
   }
   function childrenStart(vode2) {
-    return props(vode2) ? vode2.length > 2 ? 2 : -1 : Array.isArray(vode2) && vode2.length > 1 ? 1 : -1;
+    if (Array.isArray(vode2) && vode2.length > 1) {
+      const first = vode2[1];
+      if (first && typeof first === "object" && !Array.isArray(first) && first.nodeType !== TEXT_NODE)
+        return vode2.length > 2 ? 2 : -1;
+      else return 1;
+    }
+    return -1;
   }
   function mergeState(target, source, allowDeletion) {
     if (typeof source !== "object") return target;
@@ -582,12 +642,10 @@ var V = (() => {
         } else {
           const targetValue = target[key];
           if (targetValue) {
-            if (Array.isArray(targetValue))
-              target[key] = mergeState({}, value, allowDeletion);
+            if (Array.isArray(targetValue)) target[key] = mergeState({}, value, allowDeletion);
             else if (typeof targetValue === "object")
               mergeState(target[key], value, allowDeletion);
-            else
-              target[key] = mergeState({}, value, allowDeletion);
+            else target[key] = mergeState({}, value, allowDeletion);
           } else {
             target[key] = mergeState({}, value, allowDeletion);
           }
@@ -603,12 +661,12 @@ var V = (() => {
   function render(state, parent, childIndex, indexInParent, oldVode, newVode, xmlns) {
     try {
       newVode = remember(state, newVode, oldVode);
-      const isNoVode = !newVode || typeof newVode === "number" || typeof newVode === "boolean" || typeof newVode === "bigint";
+      const isNoVode = !newVode || typeof newVode !== "object" && typeof newVode !== "string";
       if (newVode === oldVode || !oldVode && isNoVode) {
         return oldVode;
       }
       const oldIsText = oldVode?.nodeType === TEXT_NODE;
-      const oldNode = oldIsText ? oldVode : oldVode?.node;
+      const oldNode = oldIsText ? oldVode : oldVode?.[NODE];
       if (isNoVode) {
         if (oldNode) {
           unmountTree(state, oldVode);
@@ -618,9 +676,11 @@ var V = (() => {
       }
       const isText = !isNoVode && isTextVode(newVode);
       const isNode = !isNoVode && isNaturalVode(newVode);
-      const alreadyAttached = !!newVode && typeof newVode !== "string" && !!(newVode?.node || newVode?.nodeType === TEXT_NODE);
+      const alreadyAttached = !!newVode && typeof newVode !== "string" && !!(newVode?.[NODE] || newVode?.nodeType === TEXT_NODE);
       if (!isText && !isNode && !alreadyAttached && !oldVode) {
-        throw new Error(`invalid ChildVode at index ${childIndex}: typeof ${typeof newVode}${typeof newVode === "object" ? "\ncould be that you are adding Props at the wrong position?" : ""}`);
+        throw new Error(
+          `invalid ChildVode at index ${childIndex}: typeof ${typeof newVode}${typeof newVode === "object" ? "\ncould be that you are adding Props at the wrong position?" : ""}`
+        );
       } else if (alreadyAttached && isText) {
         newVode = newVode.wholeText;
       } else if (alreadyAttached && isNode) {
@@ -655,17 +715,24 @@ var V = (() => {
       }
       if (isNode && (!oldNode || oldIsText || oldVode[0] !== newVode[0])) {
         const newvode = newVode;
-        if (1 in newvode) {
+        if (newvode.length > 1) {
           newvode[1] = remember(state, newvode[1], void 0);
         }
         const properties = props(newVode);
         if (properties?.xmlns !== void 0) xmlns = properties.xmlns;
         const newNode = xmlns ? parent.ownerDocument.createElementNS(xmlns, newVode[0]) : parent.ownerDocument.createElement(newVode[0]);
-        newVode.node = newNode;
+        newVode[NODE] = newNode;
+        if (typeof properties?.reconciled === "function") {
+          properties.reconciled(state, newVode, Array.isArray(oldVode) ? oldVode : void 0);
+        }
         patchProperties(state, newNode, void 0, properties, xmlns ?? null);
         if (!!properties && "catch" in properties) {
-          newVode.node["catch"] = null;
-          newVode.node.removeAttribute("catch");
+          newVode[NODE]["catch"] = null;
+          newVode[NODE].removeAttribute("catch");
+        }
+        if (!!properties && "reconciled" in properties) {
+          newVode[NODE]["reconciled"] = null;
+          newVode[NODE].removeAttribute("reconciled");
         }
         if (oldNode) {
           unmountTree(state, oldVode);
@@ -694,23 +761,31 @@ var V = (() => {
             if (attached) indexP++;
           }
         }
-        newVode._unmountCount = (properties?.onUnmount ? 1 : 0) + sumChildUnmountCounts(newVode);
+        newVode[UNMOUNT_COUNT] = (properties?.onUnmount ? 1 : 0) + sumChildUnmountCounts(newVode);
         if (typeof properties?.onMount === "function") {
-          state.patch(properties.onMount(state, newNode));
+          state.patch(
+            properties.onMount(state, newNode)
+          );
         }
         return newVode;
       }
       if (!oldIsText && isNode && oldVode[0] === newVode[0]) {
         const node = oldNode;
-        newVode.node = node;
+        newVode[NODE] = node;
         const properties = props(newVode);
+        if (typeof properties?.reconciled === "function") {
+          properties.reconciled(state, newVode, oldVode);
+        }
         const oldProps = props(oldVode);
-        if (properties?.xmlns !== void 0)
-          xmlns = properties.xmlns;
+        if (properties?.xmlns !== void 0) xmlns = properties.xmlns;
         patchProperties(state, node, oldProps, properties, xmlns);
         if (!!properties?.catch && oldProps?.catch !== properties.catch) {
           node["catch"] = null;
           node.removeAttribute("catch");
+        }
+        if (!!properties?.reconciled && oldProps?.reconciled !== properties.reconciled) {
+          node["reconciled"] = null;
+          node.removeAttribute("reconciled");
         }
         const newStart = childrenStart(newVode);
         const oldStart = childrenStart(oldVode);
@@ -727,10 +802,18 @@ var V = (() => {
         if (oldStart > 0) {
           const newKidsCount = newStart > 0 ? newVode.length - newStart : 0;
           for (let i = oldVode.length - 1 - oldStart; i >= newKidsCount; i--) {
-            render(state, oldNode, i, i, oldVode[i + oldStart], void 0, xmlns);
+            render(
+              state,
+              oldNode,
+              i,
+              i,
+              oldVode[i + oldStart],
+              void 0,
+              xmlns
+            );
           }
         }
-        newVode._unmountCount = (properties?.onUnmount ? 1 : 0) + sumChildUnmountCounts(newVode);
+        newVode[UNMOUNT_COUNT] = (properties?.onUnmount ? 1 : 0) + sumChildUnmountCounts(newVode);
         return newVode;
       }
     } catch (error) {
@@ -738,13 +821,13 @@ var V = (() => {
       const newProps = props(newVode);
       const catchVode = typeof newVode === "function" ? oldProps?.catch : newProps?.catch;
       if (catchVode) {
-        const catchNode = newVode?.node || oldVode?.node;
+        const catchNode = newVode?.[NODE] || oldVode?.[NODE];
         if (!catchNode) throw error;
         const handledVode = typeof catchVode === "function" ? catchVode(state, error) : catchVode;
-        if (Array.isArray(newVode) && newVode.node) {
+        if (Array.isArray(newVode) && newVode[NODE]) {
           const partialCount = (newProps?.onUnmount ? 1 : 0) + sumChildUnmountCounts(newVode);
           if (partialCount > 0) {
-            newVode._unmountCount = partialCount;
+            newVode[UNMOUNT_COUNT] = partialCount;
             unmountTree(state, newVode);
           }
         }
@@ -758,10 +841,12 @@ var V = (() => {
           handledVode,
           xmlns
         );
-        if (errorUi?.node === catchNode) {
+        if (errorUi?.[NODE] === catchNode) {
           const errorUiProps = props(errorUi);
           if (typeof errorUiProps?.onMount === "function") {
-            state.patch(errorUiProps.onMount(state, catchNode));
+            state.patch(
+              errorUiProps.onMount(state, catchNode)
+            );
           }
         }
         return errorUi;
@@ -773,7 +858,7 @@ var V = (() => {
   }
   function unmountTree(state, v) {
     if (!v || !Array.isArray(v)) return;
-    if ((v?._unmountCount ?? 0) === 0) return;
+    if ((v?.[UNMOUNT_COUNT] ?? 0) === 0) return;
     const kidsStart = childrenStart(v);
     if (kidsStart > 0) {
       for (let i = v.length - 1; i >= kidsStart; i--) {
@@ -782,7 +867,7 @@ var V = (() => {
     }
     const p = props(v);
     if (typeof p?.onUnmount === "function") {
-      state.patch(p.onUnmount(state, v.node));
+      state.patch(p.onUnmount(state, v[NODE]));
     }
   }
   function sumChildUnmountCounts(v) {
@@ -792,7 +877,7 @@ var V = (() => {
     for (let i = kidsStart; i < v.length; i++) {
       const k = v[i];
       if (Array.isArray(k)) {
-        n += k._unmountCount ?? 0;
+        n += k[UNMOUNT_COUNT] ?? 0;
       }
     }
     return n;
@@ -804,13 +889,12 @@ var V = (() => {
     return typeof x === "string" || x?.nodeType === TEXT_NODE;
   }
   function remember(state, present, past) {
-    while (typeof present === "function" && !present.__memo) {
+    while (typeof present === "function" && !present[MEMO]) {
       present = present(state);
     }
-    if (typeof present !== "function")
-      return present;
-    const presentMemo = present?.__memo;
-    const pastMemo = past?.__memo;
+    if (typeof present !== "function") return present;
+    const presentMemo = present?.[MEMO];
+    const pastMemo = past?.[MEMO];
     if (Array.isArray(presentMemo) && Array.isArray(pastMemo) && presentMemo.length === pastMemo.length) {
       let same = true;
       for (let i = 0; i < presentMemo.length; i++) {
@@ -825,7 +909,7 @@ var V = (() => {
       present = present(state);
     }
     if (present && typeof present === "object") {
-      present.__memo = presentMemo;
+      present[MEMO] = presentMemo;
     }
     return present;
   }
@@ -838,9 +922,15 @@ var V = (() => {
         const newValue = newProps?.[key];
         if (oldValue !== newValue) {
           if (newProps)
-            newProps[key] = patchProperty(s, node, key, oldValue, newValue, xmlMode);
-          else
-            patchProperty(s, node, key, oldValue, void 0, xmlMode);
+            newProps[key] = patchProperty(
+              s,
+              node,
+              key,
+              oldValue,
+              newValue,
+              xmlMode
+            );
+          else patchProperty(s, node, key, oldValue, void 0, xmlMode);
         }
       }
     }
@@ -907,224 +997,147 @@ var V = (() => {
       if (!xmlMode) node[key] = newValue;
       if (newValue === void 0 || newValue === null || newValue === false)
         node.removeAttribute(key);
-      else
-        node.setAttribute(key, newValue);
+      else node.setAttribute(key, newValue);
     }
     return newValue;
   }
   function classString(classProp) {
-    if (typeof classProp === "string")
-      return classProp;
-    else if (Array.isArray(classProp))
-      return classProp.map(classString).join(" ");
+    if (typeof classProp === "string") return classProp;
+    else if (Array.isArray(classProp)) return classProp.map(classString).join(" ");
     else if (classProp && typeof classProp === "object")
       return Object.keys(classProp).filter((k) => classProp[k]).join(" ");
-    else
-      return "";
+    else return "";
   }
 
-  // src/vode-tags.ts
-  var A = "a";
-  var ABBR = "abbr";
-  var ADDRESS = "address";
-  var AREA = "area";
-  var ARTICLE = "article";
-  var ASIDE = "aside";
-  var AUDIO = "audio";
-  var B = "b";
-  var BASE = "base";
-  var BDI = "bdi";
-  var BDO = "bdo";
-  var BLOCKQUOTE = "blockquote";
-  var BODY = "body";
-  var BR = "br";
-  var BUTTON = "button";
-  var CANVAS = "canvas";
-  var CAPTION = "caption";
-  var CITE = "cite";
-  var CODE = "code";
-  var COL = "col";
-  var COLGROUP = "colgroup";
-  var DATA = "data";
-  var DATALIST = "datalist";
-  var DD = "dd";
-  var DEL = "del";
-  var DETAILS = "details";
-  var DFN = "dfn";
-  var DIALOG = "dialog";
-  var DIV = "div";
-  var DL = "dl";
-  var DT = "dt";
-  var EM = "em";
-  var EMBED = "embed";
-  var FIELDSET = "fieldset";
-  var FIGCAPTION = "figcaption";
-  var FIGURE = "figure";
-  var FOOTER = "footer";
-  var FORM = "form";
-  var H1 = "h1";
-  var H2 = "h2";
-  var H3 = "h3";
-  var H4 = "h4";
-  var H5 = "h5";
-  var H6 = "h6";
-  var HEAD = "head";
-  var HEADER = "header";
-  var HGROUP = "hgroup";
-  var HR = "hr";
-  var HTML = "html";
-  var I = "i";
-  var IFRAME = "iframe";
-  var IMG = "img";
-  var INPUT = "input";
-  var INS = "ins";
-  var KBD = "kbd";
-  var LABEL = "label";
-  var LEGEND = "legend";
-  var LI = "li";
-  var LINK = "link";
-  var MAIN = "main";
-  var MAP = "map";
-  var MARK = "mark";
-  var MENU = "menu";
-  var META = "meta";
-  var METER = "meter";
-  var NAV = "nav";
-  var NOSCRIPT = "noscript";
-  var OBJECT = "object";
-  var OL = "ol";
-  var OPTGROUP = "optgroup";
-  var OPTION = "option";
-  var OUTPUT = "output";
-  var P = "p";
-  var PICTURE = "picture";
-  var PRE = "pre";
-  var PROGRESS = "progress";
-  var Q = "q";
-  var RP = "rp";
-  var RT = "rt";
-  var RUBY = "ruby";
-  var S = "s";
-  var SAMP = "samp";
-  var SCRIPT = "script";
-  var SEARCH = "search";
-  var SECTION = "section";
-  var SELECT = "select";
-  var SLOT = "slot";
-  var SMALL = "small";
-  var SOURCE = "source";
-  var SPAN = "span";
-  var STRONG = "strong";
-  var STYLE = "style";
-  var SUB = "sub";
-  var SUMMARY = "summary";
-  var SUP = "sup";
-  var TABLE = "table";
-  var TBODY = "tbody";
-  var TD = "td";
-  var TEMPLATE = "template";
-  var TEXTAREA = "textarea";
-  var TFOOT = "tfoot";
-  var TH = "th";
-  var THEAD = "thead";
-  var TIME = "time";
-  var TITLE = "title";
-  var TR = "tr";
-  var TRACK = "track";
-  var U = "u";
-  var UL = "ul";
-  var VAR = "var";
-  var VIDEO = "video";
-  var WBR = "wbr";
-  var ANIMATE = "animate";
-  var ANIMATEMOTION = "animateMotion";
-  var ANIMATETRANSFORM = "animateTransform";
-  var CIRCLE = "circle";
-  var CLIPPATH = "clipPath";
-  var DEFS = "defs";
-  var DESC = "desc";
-  var ELLIPSE = "ellipse";
-  var FEBLEND = "feBlend";
-  var FECOLORMATRIX = "feColorMatrix";
-  var FECOMPONENTTRANSFER = "feComponentTransfer";
-  var FECOMPOSITE = "feComposite";
-  var FECONVOLVEMATRIX = "feConvolveMatrix";
-  var FEDIFFUSELIGHTING = "feDiffuseLighting";
-  var FEDISPLACEMENTMAP = "feDisplacementMap";
-  var FEDISTANTLIGHT = "feDistantLight";
-  var FEDROPSHADOW = "feDropShadow";
-  var FEFLOOD = "feFlood";
-  var FEFUNCA = "feFuncA";
-  var FEFUNCB = "feFuncB";
-  var FEFUNCG = "feFuncG";
-  var FEFUNCR = "feFuncR";
-  var FEGAUSSIANBLUR = "feGaussianBlur";
-  var FEIMAGE = "feImage";
-  var FEMERGE = "feMerge";
-  var FEMERGENODE = "feMergeNode";
-  var FEMORPHOLOGY = "feMorphology";
-  var FEOFFSET = "feOffset";
-  var FEPOINTLIGHT = "fePointLight";
-  var FESPECULARLIGHTING = "feSpecularLighting";
-  var FESPOTLIGHT = "feSpotLight";
-  var FETILE = "feTile";
-  var FETURBULENCE = "feTurbulence";
-  var FILTER = "filter";
-  var FOREIGNOBJECT = "foreignObject";
-  var G = "g";
-  var IMAGE = "image";
-  var LINE = "line";
-  var LINEARGRADIENT = "linearGradient";
-  var MARKER = "marker";
-  var MASK = "mask";
-  var METADATA = "metadata";
-  var MPATH = "mpath";
-  var PATH = "path";
-  var PATTERN = "pattern";
-  var POLYGON = "polygon";
-  var POLYLINE = "polyline";
-  var RADIALGRADIENT = "radialGradient";
-  var RECT = "rect";
-  var SET = "set";
-  var STOP = "stop";
-  var SVG = "svg";
-  var SWITCH = "switch";
-  var SYMBOL = "symbol";
-  var TEXT = "text";
-  var TEXTPATH = "textPath";
-  var TSPAN = "tspan";
-  var USE = "use";
-  var VIEW = "view";
-  var ANNOTATION = "annotation";
-  var ANNOTATION_XML = "annotation-xml";
-  var MACTION = "maction";
-  var MATH = "math";
-  var MERROR = "merror";
-  var MFRAC = "mfrac";
-  var MI = "mi";
-  var MMULTISCRIPTS = "mmultiscripts";
-  var MN = "mn";
-  var MO = "mo";
-  var MOVER = "mover";
-  var MPADDED = "mpadded";
-  var MPHANTOM = "mphantom";
-  var MPRESCRIPTS = "mprescripts";
-  var MROOT = "mroot";
-  var MROW = "mrow";
-  var MS = "ms";
-  var MSPACE = "mspace";
-  var MSQRT = "msqrt";
-  var MSTYLE = "mstyle";
-  var MSUB = "msub";
-  var MSUBSUP = "msubsup";
-  var MSUP = "msup";
-  var MTABLE = "mtable";
-  var MTD = "mtd";
-  var MTEXT = "mtext";
-  var MTR = "mtr";
-  var MUNDER = "munder";
-  var MUNDEROVER = "munderover";
-  var SEMANTICS = "semantics";
+  // src/keyed.ts
+  var TEXT_NODE2 = 3;
+  function keyed(container) {
+    const kidsStart = childrenStart(container);
+    if (kidsStart < 0) return container;
+    const kids = container.slice(kidsStart).filter(
+      (c) => !!c
+    );
+    const seen = /* @__PURE__ */ new Set();
+    for (let i = 0; i < kids.length; i++) {
+      const key = props(kids[i])?.key;
+      if (typeof key !== "string")
+        throw new Error(`keyed(): no string key defined on child at index ${i}`);
+      if (seen.has(key)) throw new Error(`keyed(): duplicate key "${key}"`);
+      seen.add(key);
+    }
+    const userProps = kidsStart === 2 ? container[1] : void 0;
+    const userReconcile = userProps?.reconciled;
+    const containerProps = {
+      ...userProps,
+      reconciled: typeof userReconcile === "function" ? (s, newVode, oldVode) => {
+        reconcile(s, newVode, oldVode);
+        userReconcile(s, newVode, oldVode);
+      } : reconcile
+    };
+    return [container[0], containerProps, ...kids];
+  }
+  function reconcile(_s, newVode, oldVode) {
+    if (!newVode || !oldVode) return;
+    const oldStart = childrenStart(oldVode);
+    if (oldStart < 0) return;
+    const newStart = childrenStart(newVode);
+    const oldSlots = oldVode.slice(oldStart);
+    const slotByKey = /* @__PURE__ */ new Map();
+    for (const slot of oldSlots) {
+      const k = keyOf(slot);
+      if (k !== void 0 && !slotByKey.has(k)) slotByKey.set(k, slot);
+    }
+    const newKeys = newStart > 0 ? newVode.slice(newStart).map(keyOf) : [];
+    const newKeySet = new Set(newKeys);
+    const removed = [];
+    for (const slot of oldSlots) {
+      const k = keyOf(slot);
+      if (k === void 0 || slotByKey.get(k) !== slot || !newKeySet.has(k)) removed.push(slot);
+    }
+    const node = oldVode[NODE];
+    const desired = [];
+    for (const k of newKeys) {
+      if (k === void 0) continue;
+      const dn = nodeOf(slotByKey.get(k));
+      if (dn) desired.push(dn);
+    }
+    for (const slot of removed) {
+      const dn = nodeOf(slot);
+      if (dn) desired.push(dn);
+    }
+    reorder(node, desired);
+    const slots = oldVode;
+    slots.length = oldStart;
+    for (const k of newKeys) {
+      slots.push(k !== void 0 ? slotByKey.get(k) : void 0);
+    }
+    for (const slot of removed) {
+      slots.push(slot);
+    }
+  }
+  function keyOf(v) {
+    const k = props(v)?.key;
+    return typeof k === "string" ? k : void 0;
+  }
+  function nodeOf(slot) {
+    if (!slot) return void 0;
+    if (slot.nodeType === TEXT_NODE2) return slot;
+    return slot[NODE];
+  }
+  function reorder(parent, desired) {
+    const n = desired.length;
+    if (n < 2) return;
+    const pos = /* @__PURE__ */ new Map();
+    for (let i = 0; i < n; i++) pos.set(desired[i], i);
+    const seq = [];
+    const kids = parent.childNodes;
+    for (let i = 0; i < kids.length; i++) {
+      const p = pos.get(kids[i]);
+      if (p !== void 0) seq.push(p);
+    }
+    if (seq.length === n) {
+      let sorted = true;
+      for (let i = 1; i < n; i++) {
+        if (seq[i] < seq[i - 1]) {
+          sorted = false;
+          break;
+        }
+      }
+      if (sorted) return;
+    }
+    const stays = lis(seq);
+    let anchor;
+    for (let i = n - 1; i >= 0; i--) {
+      const node = desired[i];
+      if (!stays.has(i)) {
+        if (anchor && anchor.before) anchor.before(node);
+        else if (parent.appendChild) parent.appendChild(node);
+      }
+      anchor = node;
+    }
+  }
+  function lis(seq) {
+    const tails = [];
+    const prev = new Array(seq.length).fill(-1);
+    for (let i = 0; i < seq.length; i++) {
+      const v = seq[i];
+      let lo = 0, hi = tails.length;
+      while (lo < hi) {
+        const mid = lo + hi >> 1;
+        if (seq[tails[mid]] < v) lo = mid + 1;
+        else hi = mid;
+      }
+      if (lo > 0) prev[i] = tails[lo - 1];
+      tails[lo] = i;
+    }
+    const stays = /* @__PURE__ */ new Set();
+    let k = tails.length > 0 ? tails[tails.length - 1] : -1;
+    while (k >= 0) {
+      stays.add(seq[k]);
+      k = prev[k];
+    }
+    return stays;
+  }
 
   // src/merge-class.ts
   function mergeClass(...classes) {
@@ -1343,7 +1356,7 @@ var V = (() => {
     state;
     keys;
   };
-  var KEYS_SYMBOL = /* @__PURE__ */ Symbol("vode.keys");
+  var KEYS_SYMBOL = /* @__PURE__ */ Symbol("keys");
   function proxyState(state, keys) {
     return new Proxy(state, {
       get: (target, prop, receiver) => {
@@ -1358,5 +1371,208 @@ var V = (() => {
       }
     });
   }
+
+  // src/tags.ts
+  var A = "a";
+  var ABBR = "abbr";
+  var ADDRESS = "address";
+  var AREA = "area";
+  var ARTICLE = "article";
+  var ASIDE = "aside";
+  var AUDIO = "audio";
+  var B = "b";
+  var BASE = "base";
+  var BDI = "bdi";
+  var BDO = "bdo";
+  var BLOCKQUOTE = "blockquote";
+  var BODY = "body";
+  var BR = "br";
+  var BUTTON = "button";
+  var CANVAS = "canvas";
+  var CAPTION = "caption";
+  var CITE = "cite";
+  var CODE = "code";
+  var COL = "col";
+  var COLGROUP = "colgroup";
+  var DATA = "data";
+  var DATALIST = "datalist";
+  var DD = "dd";
+  var DEL = "del";
+  var DETAILS = "details";
+  var DFN = "dfn";
+  var DIALOG = "dialog";
+  var DIV = "div";
+  var DL = "dl";
+  var DT = "dt";
+  var EM = "em";
+  var EMBED = "embed";
+  var FIELDSET = "fieldset";
+  var FIGCAPTION = "figcaption";
+  var FIGURE = "figure";
+  var FOOTER = "footer";
+  var FORM = "form";
+  var H1 = "h1";
+  var H2 = "h2";
+  var H3 = "h3";
+  var H4 = "h4";
+  var H5 = "h5";
+  var H6 = "h6";
+  var HEAD = "head";
+  var HEADER = "header";
+  var HGROUP = "hgroup";
+  var HR = "hr";
+  var HTML = "html";
+  var I = "i";
+  var IFRAME = "iframe";
+  var IMG = "img";
+  var INPUT = "input";
+  var INS = "ins";
+  var KBD = "kbd";
+  var LABEL = "label";
+  var LEGEND = "legend";
+  var LI = "li";
+  var LINK = "link";
+  var MAIN = "main";
+  var MAP = "map";
+  var MARK = "mark";
+  var MENU = "menu";
+  var META = "meta";
+  var METER = "meter";
+  var NAV = "nav";
+  var NOSCRIPT = "noscript";
+  var OBJECT = "object";
+  var OL = "ol";
+  var OPTGROUP = "optgroup";
+  var OPTION = "option";
+  var OUTPUT = "output";
+  var P = "p";
+  var PICTURE = "picture";
+  var PRE = "pre";
+  var PROGRESS = "progress";
+  var Q = "q";
+  var RP = "rp";
+  var RT = "rt";
+  var RUBY = "ruby";
+  var S = "s";
+  var SAMP = "samp";
+  var SCRIPT = "script";
+  var SEARCH = "search";
+  var SECTION = "section";
+  var SELECT = "select";
+  var SLOT = "slot";
+  var SMALL = "small";
+  var SOURCE = "source";
+  var SPAN = "span";
+  var STRONG = "strong";
+  var STYLE = "style";
+  var SUB = "sub";
+  var SUMMARY = "summary";
+  var SUP = "sup";
+  var TABLE = "table";
+  var TBODY = "tbody";
+  var TD = "td";
+  var TEMPLATE = "template";
+  var TEXTAREA = "textarea";
+  var TFOOT = "tfoot";
+  var TH = "th";
+  var THEAD = "thead";
+  var TIME = "time";
+  var TITLE = "title";
+  var TR = "tr";
+  var TRACK = "track";
+  var U = "u";
+  var UL = "ul";
+  var VAR = "var";
+  var VIDEO = "video";
+  var WBR = "wbr";
+  var ANIMATE = "animate";
+  var ANIMATEMOTION = "animateMotion";
+  var ANIMATETRANSFORM = "animateTransform";
+  var CIRCLE = "circle";
+  var CLIPPATH = "clipPath";
+  var DEFS = "defs";
+  var DESC = "desc";
+  var ELLIPSE = "ellipse";
+  var FEBLEND = "feBlend";
+  var FECOLORMATRIX = "feColorMatrix";
+  var FECOMPONENTTRANSFER = "feComponentTransfer";
+  var FECOMPOSITE = "feComposite";
+  var FECONVOLVEMATRIX = "feConvolveMatrix";
+  var FEDIFFUSELIGHTING = "feDiffuseLighting";
+  var FEDISPLACEMENTMAP = "feDisplacementMap";
+  var FEDISTANTLIGHT = "feDistantLight";
+  var FEDROPSHADOW = "feDropShadow";
+  var FEFLOOD = "feFlood";
+  var FEFUNCA = "feFuncA";
+  var FEFUNCB = "feFuncB";
+  var FEFUNCG = "feFuncG";
+  var FEFUNCR = "feFuncR";
+  var FEGAUSSIANBLUR = "feGaussianBlur";
+  var FEIMAGE = "feImage";
+  var FEMERGE = "feMerge";
+  var FEMERGENODE = "feMergeNode";
+  var FEMORPHOLOGY = "feMorphology";
+  var FEOFFSET = "feOffset";
+  var FEPOINTLIGHT = "fePointLight";
+  var FESPECULARLIGHTING = "feSpecularLighting";
+  var FESPOTLIGHT = "feSpotLight";
+  var FETILE = "feTile";
+  var FETURBULENCE = "feTurbulence";
+  var FILTER = "filter";
+  var FOREIGNOBJECT = "foreignObject";
+  var G = "g";
+  var IMAGE = "image";
+  var LINE = "line";
+  var LINEARGRADIENT = "linearGradient";
+  var MARKER = "marker";
+  var MASK = "mask";
+  var METADATA = "metadata";
+  var MPATH = "mpath";
+  var PATH = "path";
+  var PATTERN = "pattern";
+  var POLYGON = "polygon";
+  var POLYLINE = "polyline";
+  var RADIALGRADIENT = "radialGradient";
+  var RECT = "rect";
+  var SET = "set";
+  var STOP = "stop";
+  var SVG = "svg";
+  var SWITCH = "switch";
+  var SYMBOL = "symbol";
+  var TEXT = "text";
+  var TEXTPATH = "textPath";
+  var TSPAN = "tspan";
+  var USE = "use";
+  var VIEW = "view";
+  var ANNOTATION = "annotation";
+  var ANNOTATION_XML = "annotation-xml";
+  var MACTION = "maction";
+  var MATH = "math";
+  var MERROR = "merror";
+  var MFRAC = "mfrac";
+  var MI = "mi";
+  var MMULTISCRIPTS = "mmultiscripts";
+  var MN = "mn";
+  var MO = "mo";
+  var MOVER = "mover";
+  var MPADDED = "mpadded";
+  var MPHANTOM = "mphantom";
+  var MPRESCRIPTS = "mprescripts";
+  var MROOT = "mroot";
+  var MROW = "mrow";
+  var MS = "ms";
+  var MSPACE = "mspace";
+  var MSQRT = "msqrt";
+  var MSTYLE = "mstyle";
+  var MSUB = "msub";
+  var MSUBSUP = "msubsup";
+  var MSUP = "msup";
+  var MTABLE = "mtable";
+  var MTD = "mtd";
+  var MTEXT = "mtext";
+  var MTR = "mtr";
+  var MUNDER = "munder";
+  var MUNDEROVER = "munderover";
+  var SEMANTICS = "semantics";
   return __toCommonJS(index_exports);
 })();
