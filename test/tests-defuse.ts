@@ -1,22 +1,22 @@
 import { expect } from "./helper";
-import { app, DIV, defuse, VODE, NODE } from "../index";
+import { app, DIV, defuse, $VODE, $NODE } from "../index";
 
 export default {
-    "defuse(): on a container without _vode is a no-op": () => {
+    "defuse(): on a container without $VODE is a no-op": () => {
         const container = document.createElement("div");
 
         expect(() => defuse(container as any)).toSucceed();
     },
 
-    "defuse(): removes _vode from container": async () => {
+    "defuse(): removes $VODE from container": async () => {
         const root = document.createElement("div");
         const container = document.createElement("div");
         root.appendChild(container);
         app(container, {}, () => [DIV]);
-        await expect(typeof (container as any)[VODE]).toEqual("object");
+        await expect(typeof (container as any)[$VODE]).toEqual("object");
         defuse(container as any);
 
-        await expect((container as any)[VODE]).toEqual(undefined);
+        await expect((container as any)[$VODE]).toEqual(undefined);
     },
 
     "defuse(): removes patch function from state": async () => {
@@ -38,7 +38,7 @@ export default {
         app(container, {}, () => [DIV]);
         defuse(container as any);
 
-        await expect((container as any)[VODE]).toEqual(undefined);
+        await expect((container as any)[$VODE]).toEqual(undefined);
     },
 
     "defuse(): clears event listeners from rendered elements": async () => {
@@ -46,7 +46,7 @@ export default {
         const container = document.createElement("div");
         root.appendChild(container);
         app(container, {}, () => [DIV, { onclick: () => ({}) }] as any);
-        const node = (container as any)[VODE].vode[NODE];
+        const node = (container as any)[$VODE].vode[$NODE];
         await expect(typeof node.onclick).toEqual("function");
         defuse(container as any);
 
@@ -66,15 +66,15 @@ export default {
         await expect(state.patch).toEqual(undefined);
     },
 
-    "defuse(): clears event listeners from child vodes without _vode": async () => {
+    "defuse(): clears event listeners from child vodes without $VODE": async () => {
         const root = document.createElement("div");
         const container = document.createElement("div");
         root.appendChild(container);
         app(container, {}, () => [DIV, { onclick: () => ({}) }, [DIV, { onclick: () => ({}) }]] as any);
-        const v = (container as any)[VODE].vode;
-        const child1 = (v as any)[NODE];
+        const v = (container as any)[$VODE].vode;
+        const child1 = (v as any)[$NODE];
         const child1onclick = child1.onclick;
-        const child2 = (v as any)[2][NODE];
+        const child2 = (v as any)[2][$NODE];
         await expect(typeof child1onclick).toEqual("function");
         await expect(typeof child2.onclick).toEqual("function");
         defuse(container as any);

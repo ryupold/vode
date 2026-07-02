@@ -1,5 +1,5 @@
 import { delay, eventually, expect, setHidden } from "./helper";
-import { app, ContainerNode, createState, DIV, VODE } from "../index";
+import { app, ContainerNode, createState, DIV, $VODE } from "../index";
 
 function setup() {
     const root = document.createElement("div");
@@ -36,11 +36,11 @@ export default {
         await expect(state.phase).toEqual("start");
 
         state.patch(async function* () {
-            await expect(container[VODE].stats.syncRenderPatchCount).toEqual(0);
+            await expect(container[$VODE].stats.syncRenderPatchCount).toEqual(0);
             yield { phase: "working", value: 10 };
-            await expect(container[VODE].stats.syncRenderPatchCount).toEqual(1);
+            await expect(container[$VODE].stats.syncRenderPatchCount).toEqual(1);
             yield { phase: "almost", value: 20 };
-            await expect(container[VODE].stats.syncRenderPatchCount).toEqual(2);
+            await expect(container[$VODE].stats.syncRenderPatchCount).toEqual(2);
             return { phase: "done", value: 30 };
         }());
 
@@ -89,18 +89,18 @@ export default {
         const state = createState({ count: 0 });
         app(container, state, (s) => [DIV, String(s.count)]);
 
-        await expect(container[VODE].stats.patchCount).toEqual(0);
+        await expect(container[$VODE].stats.patchCount).toEqual(0);
         const result = state.patch(function* () {
             yield { count: 1 };
             return { count: 2 };
         });
-        await expect(container[VODE].stats.patchCount).toEqual(1);
+        await expect(container[$VODE].stats.patchCount).toEqual(1);
 
         expect(result).toBeA("object");
         await expect(result instanceof Promise).toEqual(true);
 
         await result;
-        await expect(container[VODE].stats.patchCount).toEqual(3);
+        await expect(container[$VODE].stats.patchCount).toEqual(3);
 
         await expect(state.count).toEqual(2);
         await expect(container).toMatch([DIV, "2"]);
@@ -199,7 +199,7 @@ export default {
 
             // state is applied immediately and the animated queue is drained
             await eventually(() => state.x).toEqual(1);
-            await eventually(() => container[VODE].qAsync == null).toEqual(true);
+            await eventually(() => container[$VODE].qAsync == null).toEqual(true);
         } finally {
             setHidden(false);
         }
@@ -210,21 +210,21 @@ export default {
         const state = createState({ x: 0 });
         const dispatch = app(container, state, (s) => [DIV, String(s.x)]);
 
-        await expect(container[VODE].stats.asyncRenderPatchCount).toEqual(0);
+        await expect(container[$VODE].stats.asyncRenderPatchCount).toEqual(0);
 
         // animated dispatch via the returned function must route through the view-transition path
         dispatch({ x: 1 }, true);
-        await expect(container[VODE].stats.asyncRenderPatchCount).toEqual(1);
+        await expect(container[$VODE].stats.asyncRenderPatchCount).toEqual(1);
 
         // the animated path merges the queued value into state and drains the async queue
         await eventually(() => state.x).toEqual(1);
-        await eventually(() => container[VODE].qAsync == null).toEqual(true);
+        await eventually(() => container[$VODE].qAsync == null).toEqual(true);
 
         // a non-animated dispatch must stay on the sync path (async count unchanged)
-        const syncBefore = container[VODE].stats.syncRenderPatchCount;
+        const syncBefore = container[$VODE].stats.syncRenderPatchCount;
         dispatch({ x: 2 });
-        await expect(container[VODE].stats.asyncRenderPatchCount).toEqual(1);
-        await expect(container[VODE].stats.syncRenderPatchCount).toEqual(syncBefore + 1);
+        await expect(container[$VODE].stats.asyncRenderPatchCount).toEqual(1);
+        await expect(container[$VODE].stats.syncRenderPatchCount).toEqual(syncBefore + 1);
 
         await eventually(() => state.x).toEqual(2);
         await expect(container).toMatch([DIV, "2"]);

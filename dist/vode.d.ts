@@ -20,23 +20,23 @@ export type Tag = keyof (HTMLElementTagNameMap & SVGElementTagNameMap & MathMLEl
 export type Component<S = PatchableState> = (s: S) => ChildVode<S>;
 export type DomElement = HTMLElement | SVGSVGElement | MathMLElement;
 export type AttachedVode<S = PatchableState> = AttachedElementVode<S> | (Text & {
-	[NODE]?: never;
+	[$NODE]?: never;
 });
 export type AttachedElementVode<S> = Vode<S> & {
-	[NODE]: ElementNode<S>;
-	[UNMOUNT_COUNT]?: number;
+	[$NODE]: ElementNode<S>;
+	[$UNMOUNT_COUNT]?: number;
 };
 export type ElementNode<S> = HTMLElement & SVGSVGElement & MathMLElement & Record<string, PropertyValue<S>>;
 export type RenderedVode = Vode & {
-	[NODE]: DomElement;
+	[$NODE]: DomElement;
 };
 /** can be used to access the internal vode meta data of a ContainerNode */
-export declare const VODE: unique symbol;
+export declare const $VODE: unique symbol;
 /** can be used to access the ElementNode of an AttachedVode */
-export declare const NODE: unique symbol;
+export declare const $NODE: unique symbol;
 /** can be used to access the stats on the state object */
-export declare const STATS: unique symbol;
-declare const UNMOUNT_COUNT: unique symbol;
+export declare const $STATS: unique symbol;
+declare const $UNMOUNT_COUNT: unique symbol;
 export type Patch<S> = IgnoredPatch | RenderPatch<S> | Promise<Patch<S>> | Effect<S>;
 export type IgnoredPatch = undefined | null | number | boolean | bigint | string | symbol | void;
 export type RenderPatch<S> = {} | DeepPartial<S>;
@@ -86,7 +86,7 @@ export interface Patchable<S = object> {
 	patch: Dispatch<S>;
 }
 export type PatchableState<S = object> = S & Patchable<S> & {
-	[STATS]: Stats;
+	[$STATS]: Stats;
 };
 /** stats about the overall patches & render times */
 export type Stats = {
@@ -106,7 +106,7 @@ export type ContainerNode<S = PatchableState> = DomElement & {
 	/** the `VODE` (symbol) property is added to the container in `app()`.
 	 * it contains all necessary stuff for the vode app to function.
 	 * remove the container node to clear vode's resources */
-	[VODE]: {
+	[$VODE]: {
 		state: PatchableState<S>;
 		vode: AttachedVode<S>;
 		document: Document & {

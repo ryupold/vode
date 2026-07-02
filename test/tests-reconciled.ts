@@ -1,5 +1,5 @@
 import { attr, eventually, expect } from "./helper";
-import { app, createState, NODE, RenderedVode, ARTICLE, ASIDE, DIV, P } from "../index";
+import { app, createState, $NODE, RenderedVode, ARTICLE, ASIDE, DIV, P } from "../index";
 
 type Call = { newVode: RenderedVode; oldVode: RenderedVode | undefined };
 
@@ -26,7 +26,7 @@ export default {
         await eventually(() => calls.length).toEqual(1);
         await expect(calls[0].oldVode).toEqual(undefined, "create case must pass no oldVode");
         await expect(calls[0].newVode[0]).toEqual(ARTICLE);
-        await expect(calls[0].newVode[NODE] === (container.childNodes[0] as any))
+        await expect(calls[0].newVode[$NODE] === (container.childNodes[0] as any))
             .toEqual(true, "newVode must carry the attached DOM node");
     },
 
@@ -51,7 +51,7 @@ export default {
         await expect(calls[1].oldVode === calls[0].newVode)
             .toEqual(true, "oldVode must be the newVode of the previous render");
         // ... and the DOM node was reused, not recreated
-        await expect(calls[1].newVode[NODE] === calls[0].newVode[NODE])
+        await expect(calls[1].newVode[$NODE] === calls[0].newVode[$NODE])
             .toEqual(true, "the DOM node must be reused across updates");
 
         state.patch({ count: 2 });

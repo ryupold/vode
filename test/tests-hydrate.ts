@@ -1,5 +1,5 @@
 import { expect } from "./helper";
-import { hydrate, DIV, SPAN, P, NODE } from "../index";
+import { hydrate, DIV, SPAN, P, $NODE } from "../index";
 import { FakeElement, FakeTextNode } from "./mocks";
 
 export default {
@@ -75,15 +75,15 @@ export default {
         await expect((result as any).nodeValue).toEqual("hello");
     },
 
-    "hydrate(): prepareForRender attaches .node to element vode": async () => {
+    "hydrate(): prepareForRender attaches $NODE to element vode": async () => {
         const el = new FakeElement("div");
 
         const result = hydrate(el as any, true) as any;
 
         await expect(Array.isArray(result)).toEqual(true);
         await expect(result[0]).toEqual("div");
-        await expect(result[NODE] instanceof FakeElement).toEqual(true);
-        await expect(result[NODE].tagName).toEqual("DIV");
+        await expect(result[$NODE] instanceof FakeElement).toEqual(true);
+        await expect(result[$NODE].tagName).toEqual("DIV");
     },
 
     "hydrate(): prepareForRender removes whitespace text nodes": async () => {

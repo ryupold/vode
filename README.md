@@ -810,12 +810,12 @@ A few consequences follow from this:
 
 > Keep in mind that view transitions are not supported in all browsers yet and only one active transition can happen at a time. This feature may change significantly in the future, so do not rely on it heavily.
 
-Scheduling behavior can be overridden with `containerNode._vode.asyncRenderer`.
+Scheduling behavior can be overridden with `containerNode[$VODE].asyncRenderer`.
 
 ```javascript
 // disable view transitions for a specific vode-app
 // (animated patches become sync patches for this app only)
-containerNode._vode.asyncRenderer = null;
+containerNode[$VODE].asyncRenderer = null;
 ```
 
 ### performance
@@ -826,7 +826,9 @@ They are updated on each render.
 ```typescript
 app(appNode, state, (s) => ...);
 
-console.log(appNode._vode.stats);
+console.log(state[$STATS]);
+// or
+console.log(appNode[$VODE].stats);
 ```
 
 ```javascript

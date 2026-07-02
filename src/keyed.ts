@@ -1,4 +1,4 @@
-import { AttachedVode, childrenStart, ChildVode, DomElement, NODE, NoVode, PatchableState, props, Props, RenderedVode, Tag, Vode } from "./vode";
+import { AttachedVode, childrenStart, ChildVode, DomElement, $NODE, NoVode, PatchableState, props, Props, RenderedVode, Tag, Vode } from "./vode";
 
 export type KeyedProps<S = PatchableState> = Props<S> & { key: string };
 export type KeyedVode<S = PatchableState> = [
@@ -116,7 +116,7 @@ function reconcile<S extends PatchableState>(
     }
 
     // reorder the real DOM
-    const node = oldVode[NODE] as unknown as DomNode;
+    const node = oldVode[$NODE] as unknown as DomNode;
     const desired: DomNode[] = [];
     for (const k of newKeys) {
         if (k === undefined) continue;
@@ -148,7 +148,7 @@ function keyOf(v: Slot | ChildVode): string | undefined {
 function nodeOf(slot: Slot): DomNode | undefined {
     if (!slot) return undefined;
     if ((slot as DomNode).nodeType === TEXT_NODE) return slot as DomNode;
-    return (slot as { [NODE]?: DomNode })[NODE];
+    return (slot as { [$NODE]?: DomNode })[$NODE];
 }
 
 function reorder(parent: DomNode, desired: DomNode[]): void {

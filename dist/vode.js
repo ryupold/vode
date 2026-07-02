@@ -21,6 +21,9 @@ var V = (() => {
   // index.ts
   var index_exports = {};
   __export(index_exports, {
+    $NODE: () => $NODE,
+    $STATS: () => $STATS,
+    $VODE: () => $VODE,
     A: () => A,
     ABBR: () => ABBR,
     ADDRESS: () => ADDRESS,
@@ -169,7 +172,6 @@ var V = (() => {
     MUNDER: () => MUNDER,
     MUNDEROVER: () => MUNDEROVER,
     NAV: () => NAV,
-    NODE: () => NODE,
     NONE: () => NONE,
     NOSCRIPT: () => NOSCRIPT,
     OBJECT: () => OBJECT,
@@ -204,7 +206,6 @@ var V = (() => {
     SMALL: () => SMALL,
     SOURCE: () => SOURCE,
     SPAN: () => SPAN,
-    STATS: () => STATS,
     STOP: () => STOP,
     STRONG: () => STRONG,
     STYLE: () => STYLE,
@@ -236,7 +237,6 @@ var V = (() => {
     VAR: () => VAR,
     VIDEO: () => VIDEO,
     VIEW: () => VIEW,
-    VODE: () => VODE,
     WBR: () => WBR,
     app: () => app,
     child: () => child,
@@ -259,11 +259,11 @@ var V = (() => {
   });
 
   // src/vode.ts
-  var VODE = /* @__PURE__ */ Symbol("vode");
-  var NODE = /* @__PURE__ */ Symbol("node");
-  var STATS = /* @__PURE__ */ Symbol("stats");
-  var UNMOUNT_COUNT = /* @__PURE__ */ Symbol("ucount");
-  var MEMO = /* @__PURE__ */ Symbol("memo");
+  var $VODE = /* @__PURE__ */ Symbol("vode");
+  var $NODE = /* @__PURE__ */ Symbol("node");
+  var $STATS = /* @__PURE__ */ Symbol("stats");
+  var $UNMOUNT_COUNT = /* @__PURE__ */ Symbol("ucount");
+  var $MEMO = /* @__PURE__ */ Symbol("memo");
   var ELEMENT_NODE = 1;
   var TEXT_NODE = 3;
   function vode(tag2, props2, ...children2) {
@@ -295,7 +295,7 @@ var V = (() => {
     _vode.asyncRenderer = typeof _vode.document.startViewTransition === "function" ? _vode.document.startViewTransition.bind(_vode.document) : null;
     _vode.isRendering = 0;
     _vode.qAsync = null;
-    _vode.stats = patchableState[STATS] ?? {
+    _vode.stats = patchableState[$STATS] ?? {
       lastSyncRenderTime: 0,
       lastAsyncRenderTime: 0,
       syncRenderCount: 0,
@@ -305,7 +305,7 @@ var V = (() => {
       syncRenderPatchCount: 0,
       asyncRenderPatchCount: 0
     };
-    patchableState[STATS] = _vode.stats;
+    patchableState[$STATS] = _vode.stats;
     if ("patch" in state && typeof state.patch === "function" && Array.isArray(state.patch.initialPatches)) {
       initialPatches = [
         ...state.patch.initialPatches,
@@ -393,8 +393,8 @@ var V = (() => {
         dom
       );
       if (container.tagName.toLowerCase() !== _vode.vode[0].toLowerCase()) {
-        container = _vode.vode[NODE];
-        container[VODE] = _vode;
+        container = _vode.vode[$NODE];
+        container[$VODE] = _vode;
       }
       if (!animated) {
         _vode.stats.lastSyncRenderTime = performance.now() - sw;
@@ -461,7 +461,7 @@ var V = (() => {
     });
     _vode.state = patchableState;
     const root = container;
-    root[VODE] = _vode;
+    root[$VODE] = _vode;
     const indexInParent = Array.from(container.parentElement.children).indexOf(container);
     const patchCountBefore = _vode.stats.syncRenderPatchCount;
     _vode.isRendering = _vode.stats.syncRenderPatchCount;
@@ -474,8 +474,8 @@ var V = (() => {
       dom
     );
     if (container.tagName.toLowerCase() !== _vode.vode[0].toLowerCase()) {
-      container = _vode.vode[NODE];
-      container[VODE] = _vode;
+      container = _vode.vode[$NODE];
+      container[$VODE] = _vode;
     }
     const continueRendering = _vode.stats.syncRenderPatchCount !== patchCountBefore;
     _vode.isRendering = 0;
@@ -487,20 +487,20 @@ var V = (() => {
     return (action, animated) => patchableState.patch(action, animated);
   }
   function defuse(container) {
-    if (container?.[VODE]) {
+    if (container?.[$VODE]) {
       let clearEvents2 = function(av) {
-        if (!av?.[NODE]) return;
+        if (!av?.[$NODE]) return;
         const p = props(av);
         if (p) {
           for (const key in p) {
             if (key[0] === "o" && key[1] === "n") {
-              av[NODE][key] = null;
+              av[$NODE][key] = null;
             }
           }
-          av[NODE].catch = null;
+          av[$NODE].catch = null;
         }
-        if (av[NODE][VODE]) {
-          defuse(av[NODE]);
+        if (av[$NODE][$VODE]) {
+          defuse(av[$NODE]);
         } else {
           const kids = children(av);
           if (kids) {
@@ -511,9 +511,9 @@ var V = (() => {
         }
       };
       var clearEvents = clearEvents2;
-      const v = container[VODE];
-      delete container[VODE];
-      delete v.state[STATS];
+      const v = container[$VODE];
+      delete container[$VODE];
+      delete v.state[$STATS];
       Object.defineProperty(v.state, "patch", { value: void 0 });
       Object.defineProperty(v, "renderSync", { value: () => {
       } });
@@ -534,7 +534,7 @@ var V = (() => {
     } else if (element.nodeType === ELEMENT_NODE) {
       const tag2 = element.tagName.toLowerCase();
       const root = [tag2];
-      if (prepareForRender) root[NODE] = element;
+      if (prepareForRender) root[$NODE] = element;
       if (element?.hasAttributes()) {
         const props2 = {};
         const attr = element.attributes;
@@ -564,11 +564,11 @@ var V = (() => {
       throw new Error("first argument to memo() must be an array of values to compare");
     if (typeof component !== "function")
       throw new Error("second argument to memo() must be a function that returns a child vode");
-    if (component[MEMO]) {
+    if (component[$MEMO]) {
       const comp = component;
       component = (s) => comp(s);
     }
-    component[MEMO] = compare;
+    component[$MEMO] = compare;
     return component;
   }
   function createState(state) {
@@ -588,8 +588,8 @@ var V = (() => {
         }
       });
     }
-    if (!(STATS in state)) {
-      state[STATS] = {
+    if (!($STATS in state)) {
+      state[$STATS] = {
         lastSyncRenderTime: 0,
         lastAsyncRenderTime: 0,
         syncRenderCount: 0,
@@ -679,7 +679,7 @@ var V = (() => {
         return oldVode;
       }
       const oldIsText = oldVode?.nodeType === TEXT_NODE;
-      const oldNode = oldIsText ? oldVode : oldVode?.[NODE];
+      const oldNode = oldIsText ? oldVode : oldVode?.[$NODE];
       if (isNoVode) {
         if (oldNode) {
           unmountTree(state, oldVode);
@@ -689,7 +689,7 @@ var V = (() => {
       }
       const isText = !isNoVode && isTextVode(newVode);
       const isNode = !isNoVode && isNaturalVode(newVode);
-      const alreadyAttached = !!newVode && typeof newVode !== "string" && !!(newVode?.[NODE] || newVode?.nodeType === TEXT_NODE);
+      const alreadyAttached = !!newVode && typeof newVode !== "string" && !!(newVode?.[$NODE] || newVode?.nodeType === TEXT_NODE);
       if (!isText && !isNode && !alreadyAttached && !oldVode) {
         throw new Error(
           `invalid ChildVode at index ${childIndex}: typeof ${typeof newVode}${typeof newVode === "object" ? "\ncould be that you are adding Props at the wrong position?" : ""}`
@@ -734,18 +734,18 @@ var V = (() => {
         const properties = props(newVode);
         if (properties?.xmlns !== void 0) xmlns = properties.xmlns;
         const newNode = xmlns ? parent.ownerDocument.createElementNS(xmlns, newVode[0]) : parent.ownerDocument.createElement(newVode[0]);
-        newVode[NODE] = newNode;
+        newVode[$NODE] = newNode;
         if (typeof properties?.reconciled === "function") {
           properties.reconciled(state, newVode, Array.isArray(oldVode) ? oldVode : void 0);
         }
         patchProperties(state, newNode, void 0, properties, xmlns ?? null);
         if (!!properties && "catch" in properties) {
-          newVode[NODE]["catch"] = null;
-          newVode[NODE].removeAttribute("catch");
+          newVode[$NODE]["catch"] = null;
+          newVode[$NODE].removeAttribute("catch");
         }
         if (!!properties && "reconciled" in properties) {
-          newVode[NODE]["reconciled"] = null;
-          newVode[NODE].removeAttribute("reconciled");
+          newVode[$NODE]["reconciled"] = null;
+          newVode[$NODE].removeAttribute("reconciled");
         }
         if (oldNode) {
           unmountTree(state, oldVode);
@@ -774,7 +774,7 @@ var V = (() => {
             if (attached) indexP++;
           }
         }
-        newVode[UNMOUNT_COUNT] = (properties?.onUnmount ? 1 : 0) + sumChildUnmountCounts(newVode);
+        newVode[$UNMOUNT_COUNT] = (properties?.onUnmount ? 1 : 0) + sumChildUnmountCounts(newVode);
         if (typeof properties?.onMount === "function") {
           state.patch(
             properties.onMount(state, newNode)
@@ -784,7 +784,7 @@ var V = (() => {
       }
       if (!oldIsText && isNode && oldVode[0] === newVode[0]) {
         const node = oldNode;
-        newVode[NODE] = node;
+        newVode[$NODE] = node;
         const properties = props(newVode);
         if (typeof properties?.reconciled === "function") {
           properties.reconciled(state, newVode, oldVode);
@@ -826,7 +826,7 @@ var V = (() => {
             );
           }
         }
-        newVode[UNMOUNT_COUNT] = (properties?.onUnmount ? 1 : 0) + sumChildUnmountCounts(newVode);
+        newVode[$UNMOUNT_COUNT] = (properties?.onUnmount ? 1 : 0) + sumChildUnmountCounts(newVode);
         return newVode;
       }
     } catch (error) {
@@ -834,13 +834,13 @@ var V = (() => {
       const newProps = props(newVode);
       const catchVode = typeof newVode === "function" ? oldProps?.catch : newProps?.catch;
       if (catchVode) {
-        const catchNode = newVode?.[NODE] || oldVode?.[NODE];
+        const catchNode = newVode?.[$NODE] || oldVode?.[$NODE];
         if (!catchNode) throw error;
         const handledVode = typeof catchVode === "function" ? catchVode(state, error) : catchVode;
-        if (Array.isArray(newVode) && newVode[NODE]) {
+        if (Array.isArray(newVode) && newVode[$NODE]) {
           const partialCount = (newProps?.onUnmount ? 1 : 0) + sumChildUnmountCounts(newVode);
           if (partialCount > 0) {
-            newVode[UNMOUNT_COUNT] = partialCount;
+            newVode[$UNMOUNT_COUNT] = partialCount;
             unmountTree(state, newVode);
           }
         }
@@ -854,7 +854,7 @@ var V = (() => {
           handledVode,
           xmlns
         );
-        if (errorUi?.[NODE] === catchNode) {
+        if (errorUi?.[$NODE] === catchNode) {
           const errorUiProps = props(errorUi);
           if (typeof errorUiProps?.onMount === "function") {
             state.patch(
@@ -871,7 +871,7 @@ var V = (() => {
   }
   function unmountTree(state, v) {
     if (!v || !Array.isArray(v)) return;
-    if ((v?.[UNMOUNT_COUNT] ?? 0) === 0) return;
+    if ((v?.[$UNMOUNT_COUNT] ?? 0) === 0) return;
     const kidsStart = childrenStart(v);
     if (kidsStart > 0) {
       for (let i = v.length - 1; i >= kidsStart; i--) {
@@ -880,7 +880,7 @@ var V = (() => {
     }
     const p = props(v);
     if (typeof p?.onUnmount === "function") {
-      state.patch(p.onUnmount(state, v[NODE]));
+      state.patch(p.onUnmount(state, v[$NODE]));
     }
   }
   function sumChildUnmountCounts(v) {
@@ -890,7 +890,7 @@ var V = (() => {
     for (let i = kidsStart; i < v.length; i++) {
       const k = v[i];
       if (Array.isArray(k)) {
-        n += k[UNMOUNT_COUNT] ?? 0;
+        n += k[$UNMOUNT_COUNT] ?? 0;
       }
     }
     return n;
@@ -902,12 +902,12 @@ var V = (() => {
     return typeof x === "string" || x?.nodeType === TEXT_NODE;
   }
   function remember(state, present, past) {
-    while (typeof present === "function" && !present[MEMO]) {
+    while (typeof present === "function" && !present[$MEMO]) {
       present = present(state);
     }
     if (typeof present !== "function") return present;
-    const presentMemo = present?.[MEMO];
-    const pastMemo = past?.[MEMO];
+    const presentMemo = present?.[$MEMO];
+    const pastMemo = past?.[$MEMO];
     if (Array.isArray(presentMemo) && Array.isArray(pastMemo) && presentMemo.length === pastMemo.length) {
       let same = true;
       for (let i = 0; i < presentMemo.length; i++) {
@@ -922,7 +922,7 @@ var V = (() => {
       present = present(state);
     }
     if (present && typeof present === "object") {
-      present[MEMO] = presentMemo;
+      present[$MEMO] = presentMemo;
     }
     return present;
   }
@@ -1067,7 +1067,7 @@ var V = (() => {
       const k = keyOf(slot);
       if (k === void 0 || slotByKey.get(k) !== slot || !newKeySet.has(k)) removed.push(slot);
     }
-    const node = oldVode[NODE];
+    const node = oldVode[$NODE];
     const desired = [];
     for (const k of newKeys) {
       if (k === void 0) continue;
@@ -1095,7 +1095,7 @@ var V = (() => {
   function nodeOf(slot) {
     if (!slot) return void 0;
     if (slot.nodeType === TEXT_NODE2) return slot;
-    return slot[NODE];
+    return slot[$NODE];
   }
   function reorder(parent, desired) {
     const n = desired.length;

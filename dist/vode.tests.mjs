@@ -1,9 +1,9 @@
 // src/vode.ts
-var VODE = /* @__PURE__ */ Symbol("vode");
-var NODE = /* @__PURE__ */ Symbol("node");
-var STATS = /* @__PURE__ */ Symbol("stats");
-var UNMOUNT_COUNT = /* @__PURE__ */ Symbol("ucount");
-var MEMO = /* @__PURE__ */ Symbol("memo");
+var $VODE = /* @__PURE__ */ Symbol("vode");
+var $NODE = /* @__PURE__ */ Symbol("node");
+var $STATS = /* @__PURE__ */ Symbol("stats");
+var $UNMOUNT_COUNT = /* @__PURE__ */ Symbol("ucount");
+var $MEMO = /* @__PURE__ */ Symbol("memo");
 var ELEMENT_NODE = 1;
 var TEXT_NODE = 3;
 function vode(tag2, props2, ...children2) {
@@ -35,7 +35,7 @@ function app(container, state, dom, ...initialPatches) {
   _vode.asyncRenderer = typeof _vode.document.startViewTransition === "function" ? _vode.document.startViewTransition.bind(_vode.document) : null;
   _vode.isRendering = 0;
   _vode.qAsync = null;
-  _vode.stats = patchableState[STATS] ?? {
+  _vode.stats = patchableState[$STATS] ?? {
     lastSyncRenderTime: 0,
     lastAsyncRenderTime: 0,
     syncRenderCount: 0,
@@ -45,7 +45,7 @@ function app(container, state, dom, ...initialPatches) {
     syncRenderPatchCount: 0,
     asyncRenderPatchCount: 0
   };
-  patchableState[STATS] = _vode.stats;
+  patchableState[$STATS] = _vode.stats;
   if ("patch" in state && typeof state.patch === "function" && Array.isArray(state.patch.initialPatches)) {
     initialPatches = [
       ...state.patch.initialPatches,
@@ -133,8 +133,8 @@ function app(container, state, dom, ...initialPatches) {
       dom
     );
     if (container.tagName.toLowerCase() !== _vode.vode[0].toLowerCase()) {
-      container = _vode.vode[NODE];
-      container[VODE] = _vode;
+      container = _vode.vode[$NODE];
+      container[$VODE] = _vode;
     }
     if (!animated) {
       _vode.stats.lastSyncRenderTime = performance.now() - sw;
@@ -201,7 +201,7 @@ function app(container, state, dom, ...initialPatches) {
   });
   _vode.state = patchableState;
   const root = container;
-  root[VODE] = _vode;
+  root[$VODE] = _vode;
   const indexInParent = Array.from(container.parentElement.children).indexOf(container);
   const patchCountBefore = _vode.stats.syncRenderPatchCount;
   _vode.isRendering = _vode.stats.syncRenderPatchCount;
@@ -214,8 +214,8 @@ function app(container, state, dom, ...initialPatches) {
     dom
   );
   if (container.tagName.toLowerCase() !== _vode.vode[0].toLowerCase()) {
-    container = _vode.vode[NODE];
-    container[VODE] = _vode;
+    container = _vode.vode[$NODE];
+    container[$VODE] = _vode;
   }
   const continueRendering = _vode.stats.syncRenderPatchCount !== patchCountBefore;
   _vode.isRendering = 0;
@@ -227,20 +227,20 @@ function app(container, state, dom, ...initialPatches) {
   return (action, animated) => patchableState.patch(action, animated);
 }
 function defuse(container) {
-  if (container?.[VODE]) {
+  if (container?.[$VODE]) {
     let clearEvents2 = function(av) {
-      if (!av?.[NODE]) return;
+      if (!av?.[$NODE]) return;
       const p = props(av);
       if (p) {
         for (const key in p) {
           if (key[0] === "o" && key[1] === "n") {
-            av[NODE][key] = null;
+            av[$NODE][key] = null;
           }
         }
-        av[NODE].catch = null;
+        av[$NODE].catch = null;
       }
-      if (av[NODE][VODE]) {
-        defuse(av[NODE]);
+      if (av[$NODE][$VODE]) {
+        defuse(av[$NODE]);
       } else {
         const kids = children(av);
         if (kids) {
@@ -251,9 +251,9 @@ function defuse(container) {
       }
     };
     var clearEvents = clearEvents2;
-    const v = container[VODE];
-    delete container[VODE];
-    delete v.state[STATS];
+    const v = container[$VODE];
+    delete container[$VODE];
+    delete v.state[$STATS];
     Object.defineProperty(v.state, "patch", { value: void 0 });
     Object.defineProperty(v, "renderSync", { value: () => {
     } });
@@ -274,7 +274,7 @@ function hydrate(element, prepareForRender) {
   } else if (element.nodeType === ELEMENT_NODE) {
     const tag2 = element.tagName.toLowerCase();
     const root = [tag2];
-    if (prepareForRender) root[NODE] = element;
+    if (prepareForRender) root[$NODE] = element;
     if (element?.hasAttributes()) {
       const props2 = {};
       const attr2 = element.attributes;
@@ -304,11 +304,11 @@ function memo(compare, component) {
     throw new Error("first argument to memo() must be an array of values to compare");
   if (typeof component !== "function")
     throw new Error("second argument to memo() must be a function that returns a child vode");
-  if (component[MEMO]) {
+  if (component[$MEMO]) {
     const comp = component;
     component = (s) => comp(s);
   }
-  component[MEMO] = compare;
+  component[$MEMO] = compare;
   return component;
 }
 function createState(state) {
@@ -328,8 +328,8 @@ function createState(state) {
       }
     });
   }
-  if (!(STATS in state)) {
-    state[STATS] = {
+  if (!($STATS in state)) {
+    state[$STATS] = {
       lastSyncRenderTime: 0,
       lastAsyncRenderTime: 0,
       syncRenderCount: 0,
@@ -419,7 +419,7 @@ function render(state, parent, childIndex, indexInParent, oldVode, newVode, xmln
       return oldVode;
     }
     const oldIsText = oldVode?.nodeType === TEXT_NODE;
-    const oldNode = oldIsText ? oldVode : oldVode?.[NODE];
+    const oldNode = oldIsText ? oldVode : oldVode?.[$NODE];
     if (isNoVode) {
       if (oldNode) {
         unmountTree(state, oldVode);
@@ -429,7 +429,7 @@ function render(state, parent, childIndex, indexInParent, oldVode, newVode, xmln
     }
     const isText = !isNoVode && isTextVode(newVode);
     const isNode = !isNoVode && isNaturalVode(newVode);
-    const alreadyAttached = !!newVode && typeof newVode !== "string" && !!(newVode?.[NODE] || newVode?.nodeType === TEXT_NODE);
+    const alreadyAttached = !!newVode && typeof newVode !== "string" && !!(newVode?.[$NODE] || newVode?.nodeType === TEXT_NODE);
     if (!isText && !isNode && !alreadyAttached && !oldVode) {
       throw new Error(
         `invalid ChildVode at index ${childIndex}: typeof ${typeof newVode}${typeof newVode === "object" ? "\ncould be that you are adding Props at the wrong position?" : ""}`
@@ -474,18 +474,18 @@ function render(state, parent, childIndex, indexInParent, oldVode, newVode, xmln
       const properties = props(newVode);
       if (properties?.xmlns !== void 0) xmlns = properties.xmlns;
       const newNode = xmlns ? parent.ownerDocument.createElementNS(xmlns, newVode[0]) : parent.ownerDocument.createElement(newVode[0]);
-      newVode[NODE] = newNode;
+      newVode[$NODE] = newNode;
       if (typeof properties?.reconciled === "function") {
         properties.reconciled(state, newVode, Array.isArray(oldVode) ? oldVode : void 0);
       }
       patchProperties(state, newNode, void 0, properties, xmlns ?? null);
       if (!!properties && "catch" in properties) {
-        newVode[NODE]["catch"] = null;
-        newVode[NODE].removeAttribute("catch");
+        newVode[$NODE]["catch"] = null;
+        newVode[$NODE].removeAttribute("catch");
       }
       if (!!properties && "reconciled" in properties) {
-        newVode[NODE]["reconciled"] = null;
-        newVode[NODE].removeAttribute("reconciled");
+        newVode[$NODE]["reconciled"] = null;
+        newVode[$NODE].removeAttribute("reconciled");
       }
       if (oldNode) {
         unmountTree(state, oldVode);
@@ -514,7 +514,7 @@ function render(state, parent, childIndex, indexInParent, oldVode, newVode, xmln
           if (attached) indexP++;
         }
       }
-      newVode[UNMOUNT_COUNT] = (properties?.onUnmount ? 1 : 0) + sumChildUnmountCounts(newVode);
+      newVode[$UNMOUNT_COUNT] = (properties?.onUnmount ? 1 : 0) + sumChildUnmountCounts(newVode);
       if (typeof properties?.onMount === "function") {
         state.patch(
           properties.onMount(state, newNode)
@@ -524,7 +524,7 @@ function render(state, parent, childIndex, indexInParent, oldVode, newVode, xmln
     }
     if (!oldIsText && isNode && oldVode[0] === newVode[0]) {
       const node = oldNode;
-      newVode[NODE] = node;
+      newVode[$NODE] = node;
       const properties = props(newVode);
       if (typeof properties?.reconciled === "function") {
         properties.reconciled(state, newVode, oldVode);
@@ -566,7 +566,7 @@ function render(state, parent, childIndex, indexInParent, oldVode, newVode, xmln
           );
         }
       }
-      newVode[UNMOUNT_COUNT] = (properties?.onUnmount ? 1 : 0) + sumChildUnmountCounts(newVode);
+      newVode[$UNMOUNT_COUNT] = (properties?.onUnmount ? 1 : 0) + sumChildUnmountCounts(newVode);
       return newVode;
     }
   } catch (error) {
@@ -574,13 +574,13 @@ function render(state, parent, childIndex, indexInParent, oldVode, newVode, xmln
     const newProps = props(newVode);
     const catchVode = typeof newVode === "function" ? oldProps?.catch : newProps?.catch;
     if (catchVode) {
-      const catchNode = newVode?.[NODE] || oldVode?.[NODE];
+      const catchNode = newVode?.[$NODE] || oldVode?.[$NODE];
       if (!catchNode) throw error;
       const handledVode = typeof catchVode === "function" ? catchVode(state, error) : catchVode;
-      if (Array.isArray(newVode) && newVode[NODE]) {
+      if (Array.isArray(newVode) && newVode[$NODE]) {
         const partialCount = (newProps?.onUnmount ? 1 : 0) + sumChildUnmountCounts(newVode);
         if (partialCount > 0) {
-          newVode[UNMOUNT_COUNT] = partialCount;
+          newVode[$UNMOUNT_COUNT] = partialCount;
           unmountTree(state, newVode);
         }
       }
@@ -594,7 +594,7 @@ function render(state, parent, childIndex, indexInParent, oldVode, newVode, xmln
         handledVode,
         xmlns
       );
-      if (errorUi?.[NODE] === catchNode) {
+      if (errorUi?.[$NODE] === catchNode) {
         const errorUiProps = props(errorUi);
         if (typeof errorUiProps?.onMount === "function") {
           state.patch(
@@ -611,7 +611,7 @@ function render(state, parent, childIndex, indexInParent, oldVode, newVode, xmln
 }
 function unmountTree(state, v) {
   if (!v || !Array.isArray(v)) return;
-  if ((v?.[UNMOUNT_COUNT] ?? 0) === 0) return;
+  if ((v?.[$UNMOUNT_COUNT] ?? 0) === 0) return;
   const kidsStart = childrenStart(v);
   if (kidsStart > 0) {
     for (let i = v.length - 1; i >= kidsStart; i--) {
@@ -620,7 +620,7 @@ function unmountTree(state, v) {
   }
   const p = props(v);
   if (typeof p?.onUnmount === "function") {
-    state.patch(p.onUnmount(state, v[NODE]));
+    state.patch(p.onUnmount(state, v[$NODE]));
   }
 }
 function sumChildUnmountCounts(v) {
@@ -630,7 +630,7 @@ function sumChildUnmountCounts(v) {
   for (let i = kidsStart; i < v.length; i++) {
     const k = v[i];
     if (Array.isArray(k)) {
-      n += k[UNMOUNT_COUNT] ?? 0;
+      n += k[$UNMOUNT_COUNT] ?? 0;
     }
   }
   return n;
@@ -642,12 +642,12 @@ function isTextVode(x) {
   return typeof x === "string" || x?.nodeType === TEXT_NODE;
 }
 function remember(state, present, past) {
-  while (typeof present === "function" && !present[MEMO]) {
+  while (typeof present === "function" && !present[$MEMO]) {
     present = present(state);
   }
   if (typeof present !== "function") return present;
-  const presentMemo = present?.[MEMO];
-  const pastMemo = past?.[MEMO];
+  const presentMemo = present?.[$MEMO];
+  const pastMemo = past?.[$MEMO];
   if (Array.isArray(presentMemo) && Array.isArray(pastMemo) && presentMemo.length === pastMemo.length) {
     let same = true;
     for (let i = 0; i < presentMemo.length; i++) {
@@ -662,7 +662,7 @@ function remember(state, present, past) {
     present = present(state);
   }
   if (present && typeof present === "object") {
-    present[MEMO] = presentMemo;
+    present[$MEMO] = presentMemo;
   }
   return present;
 }
@@ -807,7 +807,7 @@ function reconcile(_s, newVode, oldVode) {
     const k = keyOf(slot);
     if (k === void 0 || slotByKey.get(k) !== slot || !newKeySet.has(k)) removed.push(slot);
   }
-  const node = oldVode[NODE];
+  const node = oldVode[$NODE];
   const desired = [];
   for (const k of newKeys) {
     if (k === void 0) continue;
@@ -835,7 +835,7 @@ function keyOf(v) {
 function nodeOf(slot) {
   if (!slot) return void 0;
   if (slot.nodeType === TEXT_NODE2) return slot;
-  return slot[NODE];
+  return slot[$NODE];
 }
 function reorder(parent, desired) {
   const n = desired.length;
@@ -2198,7 +2198,7 @@ var tests_app_default = {
     root.appendChild(container);
     const state = { count: 0 };
     app(container, state, (s) => [DIV, { onclick: { count: 42 } }, "click me"]);
-    const el = container[VODE].vode[NODE];
+    const el = container[$VODE].vode[$NODE];
     expect(el.onclick).toBeA("function");
   },
   "app(): class as array renders correctly": async () => {
@@ -2239,7 +2239,7 @@ var tests_app_default = {
       { style: s.useObject ? { fontWeight: "bold" } : "color: red" },
       "text"
     ]);
-    const el = container[VODE].vode[NODE];
+    const el = container[$VODE].vode[$NODE];
     await eventually(() => /^color: red;?$/.test(el.style.cssText)).toEqual(true);
     state.patch({ useObject: true });
     await eventually(() => /^color: red;?$/.test(el.style.cssText)).toEqual(false);
@@ -2293,18 +2293,18 @@ var tests_app_default = {
 
 // test/tests-defuse.ts
 var tests_defuse_default = {
-  "defuse(): on a container without _vode is a no-op": () => {
+  "defuse(): on a container without $VODE is a no-op": () => {
     const container = document.createElement("div");
     expect(() => defuse(container)).toSucceed();
   },
-  "defuse(): removes _vode from container": async () => {
+  "defuse(): removes $VODE from container": async () => {
     const root = document.createElement("div");
     const container = document.createElement("div");
     root.appendChild(container);
     app(container, {}, () => [DIV]);
-    await expect(typeof container[VODE]).toEqual("object");
+    await expect(typeof container[$VODE]).toEqual("object");
     defuse(container);
-    await expect(container[VODE]).toEqual(void 0);
+    await expect(container[$VODE]).toEqual(void 0);
   },
   "defuse(): removes patch function from state": async () => {
     const root = document.createElement("div");
@@ -2322,14 +2322,14 @@ var tests_defuse_default = {
     root.appendChild(container);
     app(container, {}, () => [DIV]);
     defuse(container);
-    await expect(container[VODE]).toEqual(void 0);
+    await expect(container[$VODE]).toEqual(void 0);
   },
   "defuse(): clears event listeners from rendered elements": async () => {
     const root = document.createElement("div");
     const container = document.createElement("div");
     root.appendChild(container);
     app(container, {}, () => [DIV, { onclick: () => ({}) }]);
-    const node = container[VODE].vode[NODE];
+    const node = container[$VODE].vode[$NODE];
     await expect(typeof node.onclick).toEqual("function");
     defuse(container);
     await expect(node.onclick).toEqual(null);
@@ -2345,15 +2345,15 @@ var tests_defuse_default = {
     defuse(outer);
     await expect(state.patch).toEqual(void 0);
   },
-  "defuse(): clears event listeners from child vodes without _vode": async () => {
+  "defuse(): clears event listeners from child vodes without $VODE": async () => {
     const root = document.createElement("div");
     const container = document.createElement("div");
     root.appendChild(container);
     app(container, {}, () => [DIV, { onclick: () => ({}) }, [DIV, { onclick: () => ({}) }]]);
-    const v = container[VODE].vode;
-    const child1 = v[NODE];
+    const v = container[$VODE].vode;
+    const child1 = v[$NODE];
     const child1onclick = child1.onclick;
-    const child2 = v[2][NODE];
+    const child2 = v[2][$NODE];
     await expect(typeof child1onclick).toEqual("function");
     await expect(typeof child2.onclick).toEqual("function");
     defuse(container);
@@ -2412,13 +2412,13 @@ var tests_hydrate_default = {
     await expect(result instanceof FakeTextNode).toEqual(true);
     await expect(result.nodeValue).toEqual("hello");
   },
-  "hydrate(): prepareForRender attaches .node to element vode": async () => {
+  "hydrate(): prepareForRender attaches $NODE to element vode": async () => {
     const el = new FakeElement("div");
     const result = hydrate(el, true);
     await expect(Array.isArray(result)).toEqual(true);
     await expect(result[0]).toEqual("div");
-    await expect(result[NODE] instanceof FakeElement).toEqual(true);
-    await expect(result[NODE].tagName).toEqual("DIV");
+    await expect(result[$NODE] instanceof FakeElement).toEqual(true);
+    await expect(result[$NODE].tagName).toEqual("DIV");
   },
   "hydrate(): prepareForRender removes whitespace text nodes": async () => {
     const el = new FakeElement("div");
@@ -3791,13 +3791,13 @@ var tests_mount_unmount_default = {
       ]
     );
     await expect(unmounts).toEqual([]);
-    let before = container[VODE].stats.syncRenderCount;
+    let before = container[$VODE].stats.syncRenderCount;
     patch({ toggle: true });
-    await eventually(() => container[VODE].stats.syncRenderCount).toBeGreaterThan(before);
+    await eventually(() => container[$VODE].stats.syncRenderCount).toBeGreaterThan(before);
     await expect(unmounts).toEqual([]);
-    before = container[VODE].stats.syncRenderCount;
+    before = container[$VODE].stats.syncRenderCount;
     patch({ remove: true });
-    await eventually(() => container[VODE].stats.syncRenderCount).toBeGreaterThan(before);
+    await eventually(() => container[$VODE].stats.syncRenderCount).toBeGreaterThan(before);
     await expect(unmounts).toEqual(["unmount p", "unmount section"]);
   },
   "onUnmount(): A->A path - onUnmount removed during update does not fire": async () => {
@@ -3847,9 +3847,9 @@ var tests_mount_unmount_default = {
       ]
     );
     await expect(unmounts).toEqual([]);
-    const before = container[VODE].stats.syncRenderCount;
+    const before = container[$VODE].stats.syncRenderCount;
     patch({ version: "b" });
-    await eventually(() => container[VODE].stats.syncRenderCount).toBeGreaterThan(before);
+    await eventually(() => container[$VODE].stats.syncRenderCount).toBeGreaterThan(before);
     await expect(unmounts).toEqual([]);
     patch({ remove: true });
     await expect(unmounts).toEqual(["unmount b"]);
@@ -4009,9 +4009,9 @@ var tests_mount_unmount_default = {
       ]
     );
     await expect(unmounts).toEqual([]);
-    const before = container[VODE].stats.syncRenderCount;
+    const before = container[$VODE].stats.syncRenderCount;
     patch({ showElement: true });
-    await eventually(() => container[VODE].stats.syncRenderCount).toBeGreaterThan(before);
+    await eventually(() => container[$VODE].stats.syncRenderCount).toBeGreaterThan(before);
     await expect(unmounts).toEqual([]);
     patch({ remove: true });
     await expect(unmounts).toEqual(["unmount article"]);
@@ -4365,9 +4365,9 @@ var tests_mount_unmount_default = {
       ]
     );
     await expect(unmounts).toEqual([]);
-    const before = container[VODE].stats.syncRenderCount;
+    const before = container[$VODE].stats.syncRenderCount;
     patch({ addUnmount: true });
-    await eventually(() => container[VODE].stats.syncRenderCount).toEqual(before + 1);
+    await eventually(() => container[$VODE].stats.syncRenderCount).toEqual(before + 1);
     await expect(unmounts).toEqual([]);
     patch({ show: false });
     await expect(unmounts).toEqual(["unmount article"]);
@@ -4655,7 +4655,7 @@ var tests_mount_unmount_default = {
     patch({ showInput: false });
     await eventually(() => state.inputReady).toEqual(false, "expected: inputReady == false");
     patch({ showTimer: false });
-    await eventually(() => container[VODE].stats.syncRenderCount).toBeGreaterOrEqualThan(4);
+    await eventually(() => container[$VODE].stats.syncRenderCount).toBeGreaterOrEqualThan(4);
     await expect(logs).toEqual([
       "Input mounted",
       "Timer started",
@@ -4760,7 +4760,7 @@ var tests_reconciled_default = {
     await eventually(() => calls.length).toEqual(1);
     await expect(calls[0].oldVode).toEqual(void 0, "create case must pass no oldVode");
     await expect(calls[0].newVode[0]).toEqual(ARTICLE);
-    await expect(calls[0].newVode[NODE] === container.childNodes[0]).toEqual(true, "newVode must carry the attached DOM node");
+    await expect(calls[0].newVode[$NODE] === container.childNodes[0]).toEqual(true, "newVode must carry the attached DOM node");
   },
   "reconciled: fires on every update, receiving the previous vode": async () => {
     const container = setup2();
@@ -4778,7 +4778,7 @@ var tests_reconciled_default = {
     state.patch({ count: 1 });
     await eventually(() => calls.length).toEqual(2);
     await expect(calls[1].oldVode === calls[0].newVode).toEqual(true, "oldVode must be the newVode of the previous render");
-    await expect(calls[1].newVode[NODE] === calls[0].newVode[NODE]).toEqual(true, "the DOM node must be reused across updates");
+    await expect(calls[1].newVode[$NODE] === calls[0].newVode[$NODE]).toEqual(true, "the DOM node must be reused across updates");
     state.patch({ count: 2 });
     await eventually(() => calls.length).toEqual(3);
     await expect(calls[2].oldVode === calls[1].newVode).toEqual(true);
@@ -6176,11 +6176,11 @@ var tests_patch_advanced_default = {
     app(container, state, (s) => [DIV, s.phase, String(s.value)]);
     await expect(state.phase).toEqual("start");
     state.patch((async function* () {
-      await expect(container[VODE].stats.syncRenderPatchCount).toEqual(0);
+      await expect(container[$VODE].stats.syncRenderPatchCount).toEqual(0);
       yield { phase: "working", value: 10 };
-      await expect(container[VODE].stats.syncRenderPatchCount).toEqual(1);
+      await expect(container[$VODE].stats.syncRenderPatchCount).toEqual(1);
       yield { phase: "almost", value: 20 };
-      await expect(container[VODE].stats.syncRenderPatchCount).toEqual(2);
+      await expect(container[$VODE].stats.syncRenderPatchCount).toEqual(2);
       return { phase: "done", value: 30 };
     })());
     await new Promise((r) => setTimeout(r, 0));
@@ -6216,16 +6216,16 @@ var tests_patch_advanced_default = {
     const container = setup5();
     const state = createState({ count: 0 });
     app(container, state, (s) => [DIV, String(s.count)]);
-    await expect(container[VODE].stats.patchCount).toEqual(0);
+    await expect(container[$VODE].stats.patchCount).toEqual(0);
     const result = state.patch(function* () {
       yield { count: 1 };
       return { count: 2 };
     });
-    await expect(container[VODE].stats.patchCount).toEqual(1);
+    await expect(container[$VODE].stats.patchCount).toEqual(1);
     expect(result).toBeA("object");
     await expect(result instanceof Promise).toEqual(true);
     await result;
-    await expect(container[VODE].stats.patchCount).toEqual(3);
+    await expect(container[$VODE].stats.patchCount).toEqual(3);
     await expect(state.count).toEqual(2);
     await expect(container).toMatch([DIV, "2"]);
   },
@@ -6301,7 +6301,7 @@ var tests_patch_advanced_default = {
     try {
       state.patch({ x: 1 }, true);
       await eventually(() => state.x).toEqual(1);
-      await eventually(() => container[VODE].qAsync == null).toEqual(true);
+      await eventually(() => container[$VODE].qAsync == null).toEqual(true);
     } finally {
       setHidden(false);
     }
@@ -6310,15 +6310,15 @@ var tests_patch_advanced_default = {
     const container = setup5();
     const state = createState({ x: 0 });
     const dispatch = app(container, state, (s) => [DIV, String(s.x)]);
-    await expect(container[VODE].stats.asyncRenderPatchCount).toEqual(0);
+    await expect(container[$VODE].stats.asyncRenderPatchCount).toEqual(0);
     dispatch({ x: 1 }, true);
-    await expect(container[VODE].stats.asyncRenderPatchCount).toEqual(1);
+    await expect(container[$VODE].stats.asyncRenderPatchCount).toEqual(1);
     await eventually(() => state.x).toEqual(1);
-    await eventually(() => container[VODE].qAsync == null).toEqual(true);
-    const syncBefore = container[VODE].stats.syncRenderPatchCount;
+    await eventually(() => container[$VODE].qAsync == null).toEqual(true);
+    const syncBefore = container[$VODE].stats.syncRenderPatchCount;
     dispatch({ x: 2 });
-    await expect(container[VODE].stats.asyncRenderPatchCount).toEqual(1);
-    await expect(container[VODE].stats.syncRenderPatchCount).toEqual(syncBefore + 1);
+    await expect(container[$VODE].stats.asyncRenderPatchCount).toEqual(1);
+    await expect(container[$VODE].stats.syncRenderPatchCount).toEqual(syncBefore + 1);
     await eventually(() => state.x).toEqual(2);
     await expect(container).toMatch([DIV, "2"]);
   },

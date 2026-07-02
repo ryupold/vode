@@ -1,5 +1,5 @@
 import { eventually, expect } from "./helper";
-import { app, ARTICLE, BUTTON, createState, DIV, P, SPAN, SECTION, VODE, NODE } from "../index";
+import { app, ARTICLE, BUTTON, createState, DIV, P, SPAN, SECTION, $VODE, $NODE } from "../index";
 
 export default {
     "app(): successful initialization": async () => {
@@ -315,7 +315,7 @@ export default {
 
         app(container, state, (s: any) => [DIV, { onclick: { count: 42 } }, "click me"]);
 
-        const el = (container as any)[VODE].vode[NODE];
+        const el = (container as any)[$VODE].vode[$NODE];
         expect(el.onclick).toBeA("function");
     },
 
@@ -370,7 +370,7 @@ export default {
             "text",
         ]);
 
-        const el = (container as any)[VODE].vode[NODE];
+        const el = (container as any)[$VODE].vode[$NODE];
         // normalizes (trailing ";", re-serialized props) while the fake DOM does not
         await eventually(() => /^color: red;?$/.test(el.style.cssText)).toEqual(true);
 
