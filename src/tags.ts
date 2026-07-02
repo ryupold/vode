@@ -1,6 +1,6 @@
 import { Tag } from "./vode";
 
-//=== HTML ====================================================
+//=== [HTML](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements) ================
 export const A: Tag = "a" as const;
 export const ABBR: Tag = "abbr" as const;
 export const ADDRESS: Tag = "address" as const;
@@ -16,6 +16,7 @@ export const BLOCKQUOTE: Tag = "blockquote" as const;
 export const BODY: Tag = "body" as const;
 export const BR: Tag = "br" as const;
 export const BUTTON: Tag = "button" as const;
+export const CAMERA: Tag = "camera" as const;
 export const CANVAS: Tag = "canvas" as const;
 export const CAPTION: Tag = "caption" as const;
 export const CITE: Tag = "cite" as const;
@@ -34,11 +35,13 @@ export const DL: Tag = "dl" as const;
 export const DT: Tag = "dt" as const;
 export const EM: Tag = "em" as const;
 export const EMBED: Tag = "embed" as const;
+export const FENCEDFRAME: Tag = "fencedframe" as const;
 export const FIELDSET: Tag = "fieldset" as const;
 export const FIGCAPTION: Tag = "figcaption" as const;
 export const FIGURE: Tag = "figure" as const;
 export const FOOTER: Tag = "footer" as const;
 export const FORM: Tag = "form" as const;
+export const GEOLOCATION: Tag = "geolocation" as const;
 export const H1: Tag = "h1" as const;
 export const H2: Tag = "h2" as const;
 export const H3: Tag = "h3" as const;
@@ -66,6 +69,7 @@ export const MARK: Tag = "mark" as const;
 export const MENU: Tag = "menu" as const;
 export const META: Tag = "meta" as const;
 export const METER: Tag = "meter" as const;
+export const MICROPHONE: Tag = "microphone" as const;
 export const NAV: Tag = "nav" as const;
 export const NOSCRIPT: Tag = "noscript" as const;
 export const OBJECT: Tag = "object" as const;
@@ -87,6 +91,7 @@ export const SCRIPT: Tag = "script" as const;
 export const SEARCH: Tag = "search" as const;
 export const SECTION: Tag = "section" as const;
 export const SELECT: Tag = "select" as const;
+export const SELECTEDCONTENT: Tag = "selectedcontent" as const;
 export const SLOT: Tag = "slot" as const;
 export const SMALL: Tag = "small" as const;
 export const SOURCE: Tag = "source" as const;
@@ -110,11 +115,12 @@ export const TR: Tag = "tr" as const;
 export const TRACK: Tag = "track" as const;
 export const U: Tag = "u" as const;
 export const UL: Tag = "ul" as const;
+export const USERMEDIA: Tag = "usermedia" as const;
 export const VAR: Tag = "var" as const;
 export const VIDEO: Tag = "video" as const;
 export const WBR: Tag = "wbr" as const;
 
-//=== SVG =====================================================
+//=== [SVG](https://developer.mozilla.org/en-US/docs/Web/SVG/Reference/Element) ===================
 export const ANIMATE: Tag = "animate" as const;
 export const ANIMATEMOTION: Tag = "animateMotion" as const;
 export const ANIMATETRANSFORM: Tag = "animateTransform" as const;
@@ -175,14 +181,20 @@ export const TSPAN: Tag = "tspan" as const;
 export const USE: Tag = "use" as const;
 export const VIEW: Tag = "view" as const;
 
-//=== MathML ==================================================
+//=== [MathML](https://developer.mozilla.org/en-US/docs/Web/MathML/Reference/Element) =============
 export const ANNOTATION: Tag = "annotation" as const;
 export const ANNOTATION_XML: Tag = "annotation-xml" as const;
 export const MACTION: Tag = "maction" as const;
+export const MALIGNGROUP: Tag = "maligngroup" as const;
+export const MALIGNMARK: Tag = "malignmark" as const;
 export const MATH: Tag = "math" as const;
+export const MENCLOSE: Tag = "menclose" as const;
 export const MERROR: Tag = "merror" as const;
+export const MFENCED: Tag = "mfenced" as const;
 export const MFRAC: Tag = "mfrac" as const;
+export const MGLYPH: Tag = "mglyph" as const;
 export const MI: Tag = "mi" as const;
+export const MLABELEDTR: Tag = "mlabeledtr" as const;
 export const MMULTISCRIPTS: Tag = "mmultiscripts" as const;
 export const MN: Tag = "mn" as const;
 export const MO: Tag = "mo" as const;
@@ -205,4 +217,7 @@ export const MTEXT: Tag = "mtext" as const;
 export const MTR: Tag = "mtr" as const;
 export const MUNDER: Tag = "munder" as const;
 export const MUNDEROVER: Tag = "munderover" as const;
+export const NONE: Tag = "none" as const;
 export const SEMANTICS: Tag = "semantics" as const;
+// to save space here only the MathML Core elements are exported
+// you can find a comprehensive list of MathML Content Elements at https://www.data2type.de/xml-xslt-xslfo/math-ml/content-elements

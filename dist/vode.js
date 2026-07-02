@@ -41,6 +41,7 @@ var V = (() => {
     BODY: () => BODY,
     BR: () => BR,
     BUTTON: () => BUTTON,
+    CAMERA: () => CAMERA,
     CANVAS: () => CANVAS,
     CAPTION: () => CAPTION,
     CIRCLE: () => CIRCLE,
@@ -83,6 +84,7 @@ var V = (() => {
     FEMERGE: () => FEMERGE,
     FEMERGENODE: () => FEMERGENODE,
     FEMORPHOLOGY: () => FEMORPHOLOGY,
+    FENCEDFRAME: () => FENCEDFRAME,
     FEOFFSET: () => FEOFFSET,
     FEPOINTLIGHT: () => FEPOINTLIGHT,
     FESPECULARLIGHTING: () => FESPECULARLIGHTING,
@@ -97,6 +99,7 @@ var V = (() => {
     FOREIGNOBJECT: () => FOREIGNOBJECT,
     FORM: () => FORM,
     G: () => G,
+    GEOLOCATION: () => GEOLOCATION,
     H1: () => H1,
     H2: () => H2,
     H3: () => H3,
@@ -123,18 +126,25 @@ var V = (() => {
     LINK: () => LINK,
     MACTION: () => MACTION,
     MAIN: () => MAIN,
+    MALIGNGROUP: () => MALIGNGROUP,
+    MALIGNMARK: () => MALIGNMARK,
     MAP: () => MAP,
     MARK: () => MARK,
     MARKER: () => MARKER,
     MASK: () => MASK,
     MATH: () => MATH,
+    MENCLOSE: () => MENCLOSE,
     MENU: () => MENU,
     MERROR: () => MERROR,
     META: () => META,
     METADATA: () => METADATA,
     METER: () => METER,
+    MFENCED: () => MFENCED,
     MFRAC: () => MFRAC,
+    MGLYPH: () => MGLYPH,
     MI: () => MI,
+    MICROPHONE: () => MICROPHONE,
+    MLABELEDTR: () => MLABELEDTR,
     MMULTISCRIPTS: () => MMULTISCRIPTS,
     MN: () => MN,
     MO: () => MO,
@@ -160,6 +170,7 @@ var V = (() => {
     MUNDEROVER: () => MUNDEROVER,
     NAV: () => NAV,
     NODE: () => NODE,
+    NONE: () => NONE,
     NOSCRIPT: () => NOSCRIPT,
     OBJECT: () => OBJECT,
     OL: () => OL,
@@ -186,6 +197,7 @@ var V = (() => {
     SEARCH: () => SEARCH,
     SECTION: () => SECTION,
     SELECT: () => SELECT,
+    SELECTEDCONTENT: () => SELECTEDCONTENT,
     SEMANTICS: () => SEMANTICS,
     SET: () => SET,
     SLOT: () => SLOT,
@@ -220,6 +232,7 @@ var V = (() => {
     U: () => U,
     UL: () => UL,
     USE: () => USE,
+    USERMEDIA: () => USERMEDIA,
     VAR: () => VAR,
     VIDEO: () => VIDEO,
     VIEW: () => VIEW,
@@ -1388,6 +1401,7 @@ var V = (() => {
   var BODY = "body";
   var BR = "br";
   var BUTTON = "button";
+  var CAMERA = "camera";
   var CANVAS = "canvas";
   var CAPTION = "caption";
   var CITE = "cite";
@@ -1406,11 +1420,13 @@ var V = (() => {
   var DT = "dt";
   var EM = "em";
   var EMBED = "embed";
+  var FENCEDFRAME = "fencedframe";
   var FIELDSET = "fieldset";
   var FIGCAPTION = "figcaption";
   var FIGURE = "figure";
   var FOOTER = "footer";
   var FORM = "form";
+  var GEOLOCATION = "geolocation";
   var H1 = "h1";
   var H2 = "h2";
   var H3 = "h3";
@@ -1438,6 +1454,7 @@ var V = (() => {
   var MENU = "menu";
   var META = "meta";
   var METER = "meter";
+  var MICROPHONE = "microphone";
   var NAV = "nav";
   var NOSCRIPT = "noscript";
   var OBJECT = "object";
@@ -1459,6 +1476,7 @@ var V = (() => {
   var SEARCH = "search";
   var SECTION = "section";
   var SELECT = "select";
+  var SELECTEDCONTENT = "selectedcontent";
   var SLOT = "slot";
   var SMALL = "small";
   var SOURCE = "source";
@@ -1482,6 +1500,7 @@ var V = (() => {
   var TRACK = "track";
   var U = "u";
   var UL = "ul";
+  var USERMEDIA = "usermedia";
   var VAR = "var";
   var VIDEO = "video";
   var WBR = "wbr";
@@ -1547,10 +1566,16 @@ var V = (() => {
   var ANNOTATION = "annotation";
   var ANNOTATION_XML = "annotation-xml";
   var MACTION = "maction";
+  var MALIGNGROUP = "maligngroup";
+  var MALIGNMARK = "malignmark";
   var MATH = "math";
+  var MENCLOSE = "menclose";
   var MERROR = "merror";
+  var MFENCED = "mfenced";
   var MFRAC = "mfrac";
+  var MGLYPH = "mglyph";
   var MI = "mi";
+  var MLABELEDTR = "mlabeledtr";
   var MMULTISCRIPTS = "mmultiscripts";
   var MN = "mn";
   var MO = "mo";
@@ -1573,6 +1598,7 @@ var V = (() => {
   var MTR = "mtr";
   var MUNDER = "munder";
   var MUNDEROVER = "munderover";
+  var NONE = "none";
   var SEMANTICS = "semantics";
   return __toCommonJS(index_exports);
 })();

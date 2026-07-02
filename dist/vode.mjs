@@ -1141,6 +1141,7 @@ var BLOCKQUOTE = "blockquote";
 var BODY = "body";
 var BR = "br";
 var BUTTON = "button";
+var CAMERA = "camera";
 var CANVAS = "canvas";
 var CAPTION = "caption";
 var CITE = "cite";
@@ -1159,11 +1160,13 @@ var DL = "dl";
 var DT = "dt";
 var EM = "em";
 var EMBED = "embed";
+var FENCEDFRAME = "fencedframe";
 var FIELDSET = "fieldset";
 var FIGCAPTION = "figcaption";
 var FIGURE = "figure";
 var FOOTER = "footer";
 var FORM = "form";
+var GEOLOCATION = "geolocation";
 var H1 = "h1";
 var H2 = "h2";
 var H3 = "h3";
@@ -1191,6 +1194,7 @@ var MARK = "mark";
 var MENU = "menu";
 var META = "meta";
 var METER = "meter";
+var MICROPHONE = "microphone";
 var NAV = "nav";
 var NOSCRIPT = "noscript";
 var OBJECT = "object";
@@ -1212,6 +1216,7 @@ var SCRIPT = "script";
 var SEARCH = "search";
 var SECTION = "section";
 var SELECT = "select";
+var SELECTEDCONTENT = "selectedcontent";
 var SLOT = "slot";
 var SMALL = "small";
 var SOURCE = "source";
@@ -1235,6 +1240,7 @@ var TR = "tr";
 var TRACK = "track";
 var U = "u";
 var UL = "ul";
+var USERMEDIA = "usermedia";
 var VAR = "var";
 var VIDEO = "video";
 var WBR = "wbr";
@@ -1300,10 +1306,16 @@ var VIEW = "view";
 var ANNOTATION = "annotation";
 var ANNOTATION_XML = "annotation-xml";
 var MACTION = "maction";
+var MALIGNGROUP = "maligngroup";
+var MALIGNMARK = "malignmark";
 var MATH = "math";
+var MENCLOSE = "menclose";
 var MERROR = "merror";
+var MFENCED = "mfenced";
 var MFRAC = "mfrac";
+var MGLYPH = "mglyph";
 var MI = "mi";
+var MLABELEDTR = "mlabeledtr";
 var MMULTISCRIPTS = "mmultiscripts";
 var MN = "mn";
 var MO = "mo";
@@ -1326,6 +1338,7 @@ var MTEXT = "mtext";
 var MTR = "mtr";
 var MUNDER = "munder";
 var MUNDEROVER = "munderover";
+var NONE = "none";
 var SEMANTICS = "semantics";
 export {
   A,
@@ -1348,6 +1361,7 @@ export {
   BODY,
   BR,
   BUTTON,
+  CAMERA,
   CANVAS,
   CAPTION,
   CIRCLE,
@@ -1390,6 +1404,7 @@ export {
   FEMERGE,
   FEMERGENODE,
   FEMORPHOLOGY,
+  FENCEDFRAME,
   FEOFFSET,
   FEPOINTLIGHT,
   FESPECULARLIGHTING,
@@ -1404,6 +1419,7 @@ export {
   FOREIGNOBJECT,
   FORM,
   G,
+  GEOLOCATION,
   H1,
   H2,
   H3,
@@ -1430,18 +1446,25 @@ export {
   LINK,
   MACTION,
   MAIN,
+  MALIGNGROUP,
+  MALIGNMARK,
   MAP,
   MARK,
   MARKER,
   MASK,
   MATH,
+  MENCLOSE,
   MENU,
   MERROR,
   META,
   METADATA,
   METER,
+  MFENCED,
   MFRAC,
+  MGLYPH,
   MI,
+  MICROPHONE,
+  MLABELEDTR,
   MMULTISCRIPTS,
   MN,
   MO,
@@ -1467,6 +1490,7 @@ export {
   MUNDEROVER,
   NAV,
   NODE,
+  NONE,
   NOSCRIPT,
   OBJECT,
   OL,
@@ -1493,6 +1517,7 @@ export {
   SEARCH,
   SECTION,
   SELECT,
+  SELECTEDCONTENT,
   SEMANTICS,
   SET,
   SLOT,
@@ -1527,6 +1552,7 @@ export {
   U,
   UL,
   USE,
+  USERMEDIA,
   VAR,
   VIDEO,
   VIEW,
