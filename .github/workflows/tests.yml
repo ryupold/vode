@@ -7,7 +7,7 @@ on:
 jobs:
   run-tests:
     name: Check Unit Tests
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_LABEL }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v6

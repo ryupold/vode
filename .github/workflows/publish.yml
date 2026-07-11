@@ -16,7 +16,7 @@ permissions:
 jobs:
   run-tests:
     name: Check Unit Tests
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_LABEL }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v6
@@ -29,7 +29,7 @@ jobs:
   build-and-publish-to-npm:
     name: Build and Publish to NPM
     needs: run-tests
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_LABEL }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v6
@@ -54,11 +54,11 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      
+
   build-and-publish-to-github:
     name: Build and Publish to Github
     needs: run-tests
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_LABEL }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v6
@@ -86,7 +86,7 @@ jobs:
   build-and-publish-to-chimps:
     name: Build and Publish to Chimps
     needs: run-tests
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_LABEL }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v6
