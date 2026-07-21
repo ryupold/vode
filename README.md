@@ -7,7 +7,7 @@
 
 A compact web framework for minimalist developers. Zero dependencies, no build step except for TypeScript compilation, and a simple virtual DOM implementation that is easy to understand and use. Autocompletion out of the box thanks to `lib.dom.d.ts`.
 
-It brings a primitive building block to the table that gives flexibility in composition and makes refactoring easy. 
+It brings a primitive building block to the table that gives flexibility in composition and makes refactoring easy.
 The use cases can be single page applications or isolated components with complex state.
 
 ## Usage
@@ -215,12 +215,12 @@ expressed as *vode* structure it would look like this:
 ]
 ```
 
-Viewed in isolation, it does not provide an obvious benefit (apart from looking better IMHO), 
-but as a function of state, it can become very useful to express conditional UI this way. 
+Viewed in isolation, it does not provide an obvious benefit (apart from looking better IMHO),
+but as a function of state, it can become very useful to express conditional UI this way.
 
 ### app
 
-`app` is a function that takes an HTML node, a state object, and a render function (`Component<State>`).  
+`app` is a function that takes an HTML node, a state object, and a render function (`Component<State>`).
 
 ```typescript
 const containerNode = document.getElementById('ANY-ELEMENT');
@@ -233,19 +233,19 @@ const state = {
 };
 
 const patch = app(
-    containerNode, 
-    state, 
-    (s) => 
-        [DIV, 
+    containerNode,
+    state,
+    (s) =>
+        [DIV,
             [P, { style: { color: 'red' } }, `${s.counter}`],
-            [BUTTON, { onclick: () => ({ counter: s.counter + 1 }) }, 'Click me'],    
+            [BUTTON, { onclick: () => ({ counter: s.counter + 1 }) }, 'Click me'],
         ]
     );
 ```
 
-It will analyze the current structure of the given `ContainerNode` and adjust its structure in the first render. 
-When render-patches are applied to the `patch` function or via yield/return of events, 
-the `ContainerNode` is updated to match the vode structure 1:1. 
+It will analyze the current structure of the given `ContainerNode` and adjust its structure in the first render.
+When render-patches are applied to the `patch` function or via yield/return of events,
+the `ContainerNode` is updated to match the vode structure 1:1.
 
 > `app()` infers the state type from the second argument, so you don't need explicit generics or parameter types in the `dom` function. If you prefer, you can still write them explicitly:
 > ```typescript
@@ -275,33 +275,33 @@ The DOM elements created by the vode app will remain in the `ContainerNode`, but
 type Component<S> = (s: S) => ChildVode<S>;
 ```
 
-A `Component<State>` is a function that takes a state object and returns a ChildVode (`Vode<State>` or `string` or `null`). 
-It is used to render the UI based on the current state. 
+A `Component<State>` is a function that takes a state object and returns a ChildVode (`Vode<State>` or `string` or `null`).
+It is used to render the UI based on the current state.
 A new *vode* structure must be created on each render, otherwise it would be skipped which could lead to unexpected results. If you seek to improve render performance, have a look at the [`memo`](#memoization) function.
 
 ```typescript
 // A full vode has a tag, properties, and children. props and children are optional.
 const CompFoo = (s) => [SPAN, { class: "foo" }, s.isAuthenticated ? "foo" : "bar"];
 
-const CompBar = (s) => [DIV, { class: "container" }, 
-    
+const CompBar = (s) => [DIV, { class: "container" },
+
     // a child vode can be a string, which results in a text node
-    [H1, "Hello World"], 
-    
+    [H1, "Hello World"],
+
     // a vode can also be a self-closing tag
     [HR],
 
     // conditional rendering
-    s.isAuthenticated 
+    s.isAuthenticated
         ? [STRONG, `and also hello ${s.user}`]
         : [FORM,
             [INPUT, { type: "email", name: "email" }],
             [INPUT, { type: "password", name: "pw" }],
             [INPUT, { type: "submit" }],
         ],
-    // a child-vode of false, undefined or null is not rendered 
+    // a child-vode of false, undefined or null is not rendered
     !s.isAuthenticated && [HR],
-    
+
     // style object maps directly to the HTML style attribute
     [P, { style: { color: "red", fontWeight: "bold" } }, "This is a paragraph."],
     [P, { style: "color: red; font-weight: bold;" }, "This is also a paragraph."],
@@ -319,7 +319,7 @@ const CompBar = (s) => [DIV, { class: "container" },
         // all on* events accept `Patch<State>`
         onclick: (s, evt) => {
             // objects returned by events are patched automatically
-            return { counter: s.counter + 1 }; 
+            return { counter: s.counter + 1 };
         },
 
         // you can set the patch object directly for events
@@ -335,9 +335,9 @@ const CompBar = (s) => [DIV, { class: "container" },
 
         // you can also use a generator function that yields patches
         onmousedown: async function* (s, evt) {
-            yield { loading: true }; 
+            yield { loading: true };
             const result = await apiCall();
-            yield { 
+            yield {
                 body: result.data.body,
             };
             return { loading: false };
@@ -359,8 +359,8 @@ const CompBar = (s) => [DIV, { class: "container" },
 ```
 
 ### state & patch
-The state object you pass to [`app`](#app) can be updated directly or via `patch`. 
-During the call to `app`, the state object is bound to the vode app instance and becomes a singleton from its perspective. 
+The state object you pass to [`app`](#app) can be updated directly or via `patch`.
+During the call to `app`, the state object is bound to the vode app instance and becomes a singleton from its perspective.
 A `patch` function is also added to the state object; it is the same function that is returned by `app`.
 A re-render happens when a patch object is supplied to the `patch` function or via event.
 When an object is passed to `patch`, its properties are recursively deep merged onto the state object.
@@ -375,7 +375,7 @@ const s = {
     body: '',
 };
 
-app(appNode, s, s => AppView(s)); 
+app(appNode, s, s => AppView(s));
 // after calling app(), the state object is bound to the appNode
 
 // update state directly as it is a singleton (silent patch, no render)
@@ -384,11 +384,11 @@ s.title = 'Hello World';
 // render patch
 s.patch({});
 
-// render patch with a change that is applied to the state 
-s.patch({ title: 'bar' }); 
+// render patch with a change that is applied to the state
+s.patch({ title: 'bar' });
 
 // patch with a function that receives the state
-s.patch((s) => ({body: s.body + ' baz'})); 
+s.patch((s) => ({body: s.body + ' baz'}));
 
 // patch with an async function that receives the state
 s.patch(async (s) => {
@@ -403,7 +403,7 @@ s.patch(async function*(s){
     yield { loading: true };
     const result = await apiCall();
     yield { title: result.title, body: result.body };
-    return { loading: false }; 
+    return { loading: false };
 }); // can be awaited to wait for execution
 
 // ignored, also: undefined, number, string, boolean, symbol, void
@@ -446,13 +446,13 @@ const CompMemoList: Component<State> = (s) =>
         [H1, "Hello World"],
         [BR],
         [P, "This is a paragraph."],
-        
+
         // expensive component to render
         memo(
             // this array is used to determine when to re-render the component; it is shallow-compared against the previous render's array
             [s.title, s.body],
 
-            // this is the component function that will be 
+            // this is the component function that will be
             // called only when the array changes
             (s) => {
                 const list = <Vode>[UL];
@@ -543,7 +543,7 @@ const CompWithError: ChildVode = () =>
 If the `catch` property is a function, it will be called with the current state and the error as arguments, and should return a valid child-vode to render instead.
 If it is a vode, it will be rendered directly.
 If no `catch` property is provided, the error will propagate to the nearest ancestor that has a `catch` property defined, or to the top-level app if none is found.
-Try to keep the `catch` blocks as specific as possible to avoid masking other errors. 
+Try to keep the `catch` blocks as specific as possible to avoid masking other errors.
 Or just don't make errors happen in the first place :)
 
 ### helper functions
@@ -566,13 +566,13 @@ mergeStyle('color: white; background-color: blue;', { marginTop: '10px', color: 
 mergeProps(
     { title: 'Hello', src: 'foo.png', class: 'foo', style: { color: 'red' } },
     { id: 'my-element', src: 'bar.png', class: ['bar', 'baz'], style: 'font-weight: bold;' },
-); 
-/* -> { 
-  title: 'Hello', 
-  id: 'my-element', 
-  src: 'bar.png', 
-  class: 'foo bar baz', 
-  style: 'color: red; font-weight: bold;' 
+);
+/* -> {
+  title: 'Hello',
+  id: 'my-element',
+  src: 'bar.png',
+  class: 'foo bar baz',
+  style: 'color: red; font-weight: bold;'
 } */
 
 // create a vode
@@ -591,9 +591,9 @@ const asVode = hydrate(document.getElementById('my-element'));
 
 #### onMount & onUnmount
 
-Additionally to the standard HTML attributes, you can define 2 special event attributes: 
-`onMount(State, Element)` and `onUnmount(State, Element)` in the vode props. 
-`onMount` runs after an element is attached, `onUnmount` just before it is detached. 
+Additionally to the standard HTML attributes, you can define 2 special event attributes:
+`onMount(State, Element)` and `onUnmount(State, Element)` in the vode props.
+`onMount` runs after an element is attached, `onUnmount` just before it is detached.
 They receive the `State` as the first argument and the DOM element as the second argument.
 
 ```typescript
@@ -666,21 +666,21 @@ Like the other events (onclick, onmouseenter, etc.), these can also be attached 
 >           "Component B"
 >       ]
 >     ];
->     
+>
 > const state = createState({ showB: false });
 > app(container, state, s => [DIV,
 >   s.showB ? CompB : CompA,
 > ]);
-> 
+>
 > state.patch({ showB: true });
-> 
+>
 > // Output:
 > // > "mount A"
 > ```
 > onMount of B and onUnmount of A are not called because DOM does not require element creation or removal (same TAGs)
 
-When `app()` hydrates pre-existing DOM (e.g. server-rendered HTML), 
-the matching elements take this same A->A path, so their `onMount` does not fire automatically. 
+When `app()` hydrates pre-existing DOM (e.g. server-rendered HTML),
+the matching elements take this same A->A path, so their `onMount` does not fire automatically.
 The hooks are still reflected onto the DOM node though, so you can invoke them yourself after hydration:
 
 ```typescript
@@ -696,7 +696,7 @@ SVG and MathML elements are supported but need the namespace defined in properti
 ```typescript
 import { SVG, CIRCLE } from '@ryupold/vode';
 
-const CompSVG = (s) => 
+const CompSVG = (s) =>
     [SVG, { xmlns: 'http://www.w3.org/2000/svg', width: 100, height: 100 },
         [CIRCLE, { cx: 50, cy: 50, r: 40, stroke: 'green', 'stroke-width': 4, fill: 'yellow' }]
     ];
@@ -705,10 +705,10 @@ const CompSVG = (s) =>
 ```typescript
 import { MATH, MSUP, MI, MN } from '@ryupold/vode';
 
-const CompMathML = (s) => 
+const CompMathML = (s) =>
     [MATH, { xmlns: 'http://www.w3.org/1998/Math/MathML' },
-        [MSUP, 
-            [MI, 'x'], 
+        [MSUP,
+            [MI, 'x'],
             [MN, '2']
         ]
     ];
@@ -722,7 +722,7 @@ The state context utilities can help create shareable, type-safe components.
 These do not need to know the 'full' state of the app, but only the part they are interested in. This can be especially useful for differently deep nested components that need access to the same part of the state.
 
 ```typescript
-import { app, context, createState, SubContext, Vode, DIV, FORM, H1, OPTION, P, SELECT } from "@ryupold/vode";
+import { Vode, app, context, createState, ProxySubContext, SubContext, DIV, FORM, H1, LABEL, OPTION, SELECT } from "@ryupold/vode";
 
 type Settings = { theme: string, lang: string };
 type StateType = {
@@ -747,26 +747,29 @@ app(element, state,
     (s) => [DIV,
         [H1, "Settings"],
         SettingsForm(settingsCtx),
+        SettingsFormWithSelection(settingsCtx),
     ]
 );
 
+/** simple settings form  */
 function SettingsForm(ctx: SubContext<Settings>) {
     const settings = ctx.get(); // { theme: 'dark', lang: 'es' }
 
     return <Vode>[FORM,
-        [P, "current theme:", settings.theme],
+        [LABEL, { for: 'theme' }, 'theme: ', settings.theme],
         [SELECT,
             {
-                class: 'theme-select',
+                name: 'theme',
                 onchange: (_: unknown, e: Event) => ctx.patch({ theme: (<HTMLSelectElement>e.target).value }),
                 value: settings.theme,
             },
             [OPTION, { value: 'light', selected: settings.theme === 'light' }, 'light'],
             [OPTION, { value: 'dark', selected: settings.theme === 'dark' }, 'dark'],
         ],
-        [P, "current lang:", settings.lang],
+
+        [LABEL, { for: 'language' }, 'language: ', settings.lang],
         [SELECT, {
-            class: 'lang-select',
+            name: 'language',
             onchange: (_: unknown, e: Event) => ctx.patch({ lang: (<HTMLSelectElement>e.target).value }),
             value: settings.lang,
         },
@@ -774,6 +777,50 @@ function SettingsForm(ctx: SubContext<Settings>) {
             [OPTION, { value: 'de', selected: settings.lang === 'de' }, 'de'],
             [OPTION, { value: 'es', selected: settings.lang === 'es' }, 'es'],
             [OPTION, { value: 'fr', selected: settings.lang === 'fr' }, 'fr'],
+        ],
+    ];
+}
+
+/** the same, but further broken up into smaller sub-components
+ * note the usage of ProxySubContext to avoid having
+ * to pass the entire settings object around
+*/
+function SettingsFormWithSelection(ctx: ProxySubContext<Settings>) {
+    return <Vode>[FORM,
+
+        Selection(ctx.theme, 'theme', [
+            { value: 'light', label: 'light' },
+            { value: 'dark', label: 'dark' },
+        ]),
+
+        Selection(ctx.lang, 'language', [
+            { value: 'en', label: 'en' },
+            { value: 'de', label: 'de' },
+            { value: 'es', label: 'es' },
+            { value: 'fr', label: 'fr' },
+        ]),
+
+    ];
+}
+
+function Selection<Value extends Settings[keyof Settings]>(
+    ctx: SubContext<Value>,
+    name: string,
+    optios: { value: Value, label: string }[]
+) {
+    const value = ctx.get();
+
+    return <Vode[]>[
+
+        [LABEL, { for: name }, name + ': ', value],
+
+        [SELECT,
+            {
+                name: name,
+                onchange: (_: unknown, e: Event) => ctx.patch((<HTMLSelectElement>e.target).value as Value),
+                value: value,
+            },
+            ...optios.map(o => [OPTION, { value: o.value, selected: value === o.value }, o.label]),
         ],
     ];
 }
@@ -799,10 +846,10 @@ See [test/tests-examples.ts](./test/tests-examples.ts) for more advanced example
 The library has experimental support for the [View Transitions API](https://developer.mozilla.org/en-US/docs/Web/API/View_Transition_API).
 You can pass an array of patches to the `patch` function where each patch will be applied with the next available view transition.
 
-Patching an empty array `[]` will skip the current view transition and set the queued animated patches until now as current state with a sync patch. 
+Patching an empty array `[]` will skip the current view transition and set the queued animated patches until now as current state with a sync patch.
 
-This results in two patch paths: sync patches merge into the state and render right away, 
-while animated patches are queued and merged into the state just before their transition runs. 
+This results in two patch paths: sync patches merge into the state and render right away,
+while animated patches are queued and merged into the state just before their transition runs.
 A few consequences follow from this:
 - Events and effects read the current sync state. Queued animated changes are not visible to code running before the transition.
 - A sync patch does not see pending animated patches. When the transition runs, the queued values are merged on top.
@@ -820,7 +867,7 @@ containerNode[$VODE].asyncRenderer = null;
 
 ### performance
 
-There are some metrics available on the appNode. 
+There are some metrics available on the appNode.
 They are updated on each render.
 
 ```typescript
@@ -856,7 +903,7 @@ The library is optimized for small to medium sized applications. In my own tests
 
 This being said, the library does not focus on performance.
 It is designed to feel nice while coding, by providing a primitive that is simple to bend & form.
-I want the mental model to be easy to grasp and the API surface to be small 
+I want the mental model to be easy to grasp and the API surface to be small
 so that a developer can focus on building a web application instead of learning the framework and get to a flow state as quickly as possible.
 
 ## Thanks
@@ -865,7 +912,7 @@ The simplicity of [Hyperapp](https://github.com/jorgebucaran/hyperapp) demonstra
 
 I'm not planning to add more features, just keeping it simple and easy (and hopefully bug free).
 
-But if you find bugs or have suggestions, 
+But if you find bugs or have suggestions,
 feel free to open an [issue](https://github.com/ryupold/vode/issues) or a pull request.
 
 ## License
