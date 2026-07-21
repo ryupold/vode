@@ -168,7 +168,7 @@ export declare function props<S = PatchableState>(vode: ChildVode<S> | AttachedV
 /** get a slice of all children of a vode, if there are any */
 export declare function children<S = PatchableState>(vode: ChildVode<S> | AttachedVode<S>): ChildVode<S>[] | undefined;
 export declare function childCount<S = PatchableState>(vode: Vode<S>): number;
-export declare function child<S = PatchableState>(vode: Vode<S>, index: number): ChildVode<S> | undefined;
+export declare function child<S = PatchableState>(vode: Vode<S>, index: number): ChildVode<S>;
 /** index in vode at which child-vodes start */
 export declare function childrenStart<S = PatchableState>(vode: ChildVode<S> | AttachedVode<S>): 1 | 2 | -1;
 export type KeyedProps<S = PatchableState> = Props<S> & {

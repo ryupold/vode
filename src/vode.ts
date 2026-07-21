@@ -68,7 +68,7 @@ export interface Props<S = PatchableState> extends Partial<
     onUnmount?: MountFunction<S> | null | false;
     /** used instead of original vode when an error occurs during rendering */
     catch?: ((s: S, error: Error) => ChildVode<S>) | ChildVode<S>;
-    /** called every render after assignment of the DOM node. 
+    /** called every render after assignment of the DOM node.
      * receiving the new vode and the previously (attached) one.
      * 2 cases:
      * - `newVode` is attached, `oldVode` is undefined: initial node assigment
@@ -643,7 +643,7 @@ export function childCount<S = PatchableState>(vode: Vode<S>) {
     return vode.length - start;
 }
 
-export function child<S = PatchableState>(vode: Vode<S>, index: number): ChildVode<S> | undefined {
+export function child<S = PatchableState>(vode: Vode<S>, index: number): ChildVode<S> {
     const start = childrenStart(vode);
     if (start > 0) return vode[index + start] as ChildVode<S>;
     else return undefined;
