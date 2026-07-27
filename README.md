@@ -5,9 +5,13 @@
 
 ---
 
-A compact web framework for minimalist developers. Zero dependencies, no build step except for TypeScript compilation, and a simple virtual DOM implementation that is easy to understand and use. Autocompletion out of the box thanks to `lib.dom.d.ts`.
+A compact web framework for minimalist developers.
+Zero dependencies, no build step except for TypeScript compilation,
+and a simple virtual DOM implementation that is easy to understand and use.
+Autocompletion out of the box thanks to `lib.dom.d.ts`.
 
-It brings a primitive building block to the table that gives flexibility in composition and makes refactoring easy.
+It brings a primitive building block to the table that gives flexibility in composition
+and makes refactoring easy.
 The use cases can be single page applications or isolated components with complex state.
 
 ## Usage
@@ -275,7 +279,8 @@ The DOM elements created by the vode app will remain in the `ContainerNode`, but
 type Component<S> = (s: S) => ChildVode<S>;
 ```
 
-A `Component<State>` is a function that takes a state object and returns a ChildVode (`Vode<State>` or `string` or `null`).
+A `Component<State>` is a function that takes a state object
+and returns a ChildVode (`Vode<State>` or `string` or `null`).
 It is used to render the UI based on the current state.
 A new *vode* structure must be created on each render, otherwise it would be skipped which could lead to unexpected results. If you seek to improve render performance, have a look at the [`memo`](#memoization) function.
 
@@ -360,7 +365,8 @@ const CompBar = (s) => [DIV, { class: "container" },
 
 ### state & patch
 The state object you pass to [`app`](#app) can be updated directly or via `patch`.
-During the call to `app`, the state object is bound to the vode app instance and becomes a singleton from its perspective.
+During the call to `app`, the state object is bound to the vode app instance
+and becomes a singleton from its perspective.
 A `patch` function is also added to the state object; it is the same function that is returned by `app`.
 A re-render happens when a patch object is supplied to the `patch` function or via event.
 When an object is passed to `patch`, its properties are recursively deep merged onto the state object.
@@ -433,8 +439,11 @@ s.patch([[], { loading: true }]);
 ```
 
 ### memoization
-To optimize performance, you can use `memo(depsArray, Component)` to cache the result of a component function. If the array of dependencies does not change (shallow compare), the component function is not called again, indicating for the render to skip this node and all its children.
-This is useful when the creation of the vode is expensive or the rendering of it takes a significant amount of time.
+To optimize performance, you can use `memo(depsArray, Component)` to cache the result of a component function.
+If the array of dependencies does not change (shallow compare), the component function is not called again,
+indicating for the render to skip this node and all its children.
+This is useful when the creation of the vode is expensive or the rendering of it
+takes a significant amount of time.
 
 
 ```typescript
@@ -473,7 +482,12 @@ Passing an empty dependency array means the component is only rendered once and 
 
 ### keyed lists
 
-vode normaly reconciles children *by position*: on every render the DOM node at index `i` is patched to match the new child at index `i`. For lists this is usually fine, but when entries are reordered, inserted or removed in the middle, and the vode+elements identity matter because you need to reference the DOM nodes to preserve state (e.g. scroll position, input values, running animations & transitions), the `keyed()` helper function can be used to match children by a stable `key` instead of their position.
+Vode normaly reconciles children *by position*:
+on every render the DOM node at index `i` is patched to match the new child at index `i`.
+For lists this is usually fine, but when entries are reordered, inserted or removed in the middle,
+and the vode+elements identity matter because you need to reference the DOM nodes to preserve state
+(e.g. scroll position, input values, running animations & transitions),
+the `keyed()` helper function can be used to match children by a stable `key` instead of their position.
 
 ```typescript
 import { keyed } from '@ryupold/vode';
@@ -493,7 +507,11 @@ app(container, state, (s) => [DIV,
 ]);
 ```
 
-During rendering, children that kept their key are *reused and patched in place* (keeping their exact DOM node), new keys are created, removed keys are unmounted (`onUnmount` fires), and reordered nodes are physically moved with the minimum number of DOM operations.
+During rendering, children that kept their key are *reused and patched in place* (keeping their exact DOM node),
+new keys are created, removed keys are unmounted (`onUnmount` fires),
+and reordered nodes are physically moved with the minimum number of DOM operations.
+Keys are only unique within the first child level of the vode passed to the `keyed()` call,
+so it is no problem to reuse the same keys in other or even nested `keyed` calls.
 
 consequences:
 - keys must be unique strings within one `keyed()` call
@@ -516,7 +534,8 @@ app(container, state, (s) => [DIV,
 ```
 ]);
 
-Note that due to the way `keyed` works, memo cannot be directly nested inside a `keyed` call but must be wrapped inside at least one vode.
+Note that due to the way `keyed` works, memo cannot be directly nested inside
+a `keyed` call but must be wrapped inside at least one vode.
 
 ### error handling
 
@@ -540,9 +559,11 @@ const CompWithError: ChildVode = () =>
     ];
 ```
 
-If the `catch` property is a function, it will be called with the current state and the error as arguments, and should return a valid child-vode to render instead.
+If the `catch` property is a function, it will be called with the current state and the error as arguments,
+and should return a valid child-vode to render instead.
 If it is a vode, it will be rendered directly.
-If no `catch` property is provided, the error will propagate to the nearest ancestor that has a `catch` property defined, or to the top-level app if none is found.
+If no `catch` property is provided, the error will propagate to the nearest ancestor
+that has a `catch` property defined, or to the top-level app if none is found.
 Try to keep the `catch` blocks as specific as possible to avoid masking other errors.
 Or just don't make errors happen in the first place :)
 
@@ -756,27 +777,31 @@ function SettingsForm(ctx: SubContext<Settings>) {
     const settings = ctx.get(); // { theme: 'dark', lang: 'es' }
 
     return <Vode>[FORM,
-        [LABEL, { for: 'theme' }, 'theme: ', settings.theme],
-        [SELECT,
-            {
-                name: 'theme',
-                onchange: (_: unknown, e: Event) => ctx.patch({ theme: (<HTMLSelectElement>e.target).value }),
-                value: settings.theme,
-            },
-            [OPTION, { value: 'light', selected: settings.theme === 'light' }, 'light'],
-            [OPTION, { value: 'dark', selected: settings.theme === 'dark' }, 'dark'],
+        [DIV,
+            [LABEL, { for: 'theme' }, 'theme: ', settings.theme],
+            [SELECT,
+                {
+                    name: 'theme',
+                    onchange: (_: unknown, e: Event) => ctx.patch({ theme: (<HTMLSelectElement>e.target).value }),
+                    value: settings.theme,
+                },
+                [OPTION, { value: 'light', selected: settings.theme === 'light' }, 'light'],
+                [OPTION, { value: 'dark', selected: settings.theme === 'dark' }, 'dark'],
+            ],
         ],
 
-        [LABEL, { for: 'language' }, 'language: ', settings.lang],
-        [SELECT, {
-            name: 'language',
-            onchange: (_: unknown, e: Event) => ctx.patch({ lang: (<HTMLSelectElement>e.target).value }),
-            value: settings.lang,
-        },
-            [OPTION, { value: 'en', selected: settings.lang === 'en' }, 'en'],
-            [OPTION, { value: 'de', selected: settings.lang === 'de' }, 'de'],
-            [OPTION, { value: 'es', selected: settings.lang === 'es' }, 'es'],
-            [OPTION, { value: 'fr', selected: settings.lang === 'fr' }, 'fr'],
+        [DIV,
+            [LABEL, { for: 'language' }, 'language: ', settings.lang],
+            [SELECT, {
+                name: 'language',
+                onchange: (_: unknown, e: Event) => ctx.patch({ lang: (<HTMLSelectElement>e.target).value }),
+                value: settings.lang,
+            },
+                [OPTION, { value: 'en', selected: settings.lang === 'en' }, 'en'],
+                [OPTION, { value: 'de', selected: settings.lang === 'de' }, 'de'],
+                [OPTION, { value: 'es', selected: settings.lang === 'es' }, 'es'],
+                [OPTION, { value: 'fr', selected: settings.lang === 'fr' }, 'fr'],
+            ],
         ],
     ];
 }
@@ -803,21 +828,20 @@ function SettingsFormWithSelection(ctx: ProxySubContext<Settings>) {
     ];
 }
 
-function Selection<Value extends Settings[keyof Settings]>(
-    ctx: SubContext<Value>,
+function Selection(
+    ctx: SubContext<string>,
     name: string,
-    optios: { value: Value, label: string }[]
+    optios: { value: string, label: string }[]
 ) {
     const value = ctx.get();
 
-    return <Vode[]>[
-
+    return <Vode>[DIV,
         [LABEL, { for: name }, name + ': ', value],
 
         [SELECT,
             {
                 name: name,
-                onchange: (_: unknown, e: Event) => ctx.patch((<HTMLSelectElement>e.target).value as Value),
+                onchange: (_: unknown, e: Event) => ctx.patch((<HTMLSelectElement>e.target).value),
                 value: value,
             },
             ...optios.map(o => [OPTION, { value: o.value, selected: value === o.value }, o.label]),
@@ -855,7 +879,8 @@ A few consequences follow from this:
 - A sync patch does not see pending animated patches. When the transition runs, the queued values are merged on top.
 - While the document is hidden, animated patches are applied as a sync patch.
 
-> Keep in mind that view transitions are not supported in all browsers yet and only one active transition can happen at a time. This feature may change significantly in the future, so do not rely on it heavily.
+> Keep in mind that view transitions are not supported in all browsers yet and only one active transition
+> can happen at a time. This feature may change significantly in the future, so do not rely on it heavily.
 
 Scheduling behavior can be overridden with `containerNode[$VODE].asyncRenderer`.
 
@@ -899,12 +924,16 @@ console.log(appNode[$VODE].stats);
 }
 ```
 
-The library is optimized for small to medium sized applications. In my own tests it could easily handle sites with tens of thousands of elements. Smart usage of `memo` can help to optimize performance further. You can find a comparison of the performance with other libraries [here](https://krausest.github.io/js-framework-benchmark/current.html).
+The library is optimized for small to medium sized applications. In my own tests it could easily
+handle sites with tens of thousands of elements. Smart usage of `memo` can help to optimize
+performance further. You can find a comparison of the performance with other libraries
+[here](https://krausest.github.io/js-framework-benchmark/current.html).
 
 This being said, the library does not focus on performance.
 It is designed to feel nice while coding, by providing a primitive that is simple to bend & form.
 I want the mental model to be easy to grasp and the API surface to be small
-so that a developer can focus on building a web application instead of learning the framework and get to a flow state as quickly as possible.
+so that a developer can focus on building a web application instead of learning the framework
+ and get to a flow state as quickly as possible.
 
 ## Thanks
 
@@ -914,6 +943,7 @@ I'm not planning to add more features, just keeping it simple and easy (and hope
 
 But if you find bugs or have suggestions,
 feel free to open an [issue](https://github.com/ryupold/vode/issues) or a pull request.
+
 
 ## License
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
