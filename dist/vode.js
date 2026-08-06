@@ -260,9 +260,9 @@ var V = (() => {
 
   // src/vode.ts
   var $VODE = /* @__PURE__ */ Symbol("vode");
-  var $NODE = /* @__PURE__ */ Symbol("node");
+  var $NODE = /* @__PURE__ */ Symbol("dom node");
   var $STATS = /* @__PURE__ */ Symbol("stats");
-  var $UNMOUNT_COUNT = /* @__PURE__ */ Symbol("ucount");
+  var $UNMOUNT_COUNT = /* @__PURE__ */ Symbol("unmount count");
   var $MEMO = /* @__PURE__ */ Symbol("memo");
   var ELEMENT_NODE = 1;
   var TEXT_NODE = 3;
@@ -1296,7 +1296,7 @@ var V = (() => {
   function context(state, producePath) {
     if (producePath) {
       const proxy = producePath(proxyState(state, []));
-      const keys = proxy[KEYS_SYMBOL];
+      const keys = proxy[$KEYS];
       return new ProxyStateContextImpl(state, keys);
     }
     return new ProxyStateContextImpl(state, []);
@@ -1369,11 +1369,11 @@ var V = (() => {
     state;
     keys;
   };
-  var KEYS_SYMBOL = /* @__PURE__ */ Symbol("keys");
+  var $KEYS = /* @__PURE__ */ Symbol("keys");
   function proxyState(state, keys) {
     return new Proxy(state, {
       get: (target, prop, receiver) => {
-        if (prop === KEYS_SYMBOL) {
+        if (prop === $KEYS) {
           return keys;
         }
         const newKeys = [...keys, String(prop)];
