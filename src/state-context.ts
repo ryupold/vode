@@ -12,7 +12,7 @@ export interface StateContext<S extends Patchable<S>, SubState> extends SubConte
 export interface SubContext<SubState> {
     /**
      * Reads the current value of the sub-state if it exists.
-     * 
+     *
      * @returns The current value, or undefined if the path doesn't exist
      */
     get(): SubState;
@@ -63,7 +63,7 @@ type ProxyState<SubState> = SubState & {
  * const ctx = context(state).user.profile.settings;
  * ```
  *
- * **2. Path producer function**: pass a callback that navigates 
+ * **2. Path producer function**: pass a callback that navigates
  * the state tree; needed if your intermediate path contains 'get', 'put' or 'patch' properties that would conflict with the context API:
  * ```typescript
  * const ctx = context(state, s => s.user.profile.settings);
@@ -86,7 +86,7 @@ export function context<S extends PatchableState, SS>(state: S, producePath: (ct
 export function context<S extends PatchableState, SS = S>(state: S, producePath?: (ctx: ProxyState<S>) => ProxyState<SS>): ProxyStateContext<S, SS> {
     if (producePath) {
         const proxy = producePath(proxyState<S>(state, [] as string[]));
-        const keys = (proxy as any)[KEYS_SYMBOL] as string[];
+        const keys = (proxy as any)[$KEYS] as string[];
         return new ProxyStateContextImpl<S, SS>(state, keys) as unknown as ProxyStateContext<S, SS>;
     }
     return new ProxyStateContextImpl<S, S>(state, []) as unknown as ProxyStateContext<S, SS>;
@@ -175,7 +175,7 @@ class ProxyStateContextImpl<S extends PatchableState, SubState> {
 }
 
 
-const KEYS_SYMBOL = Symbol("keys");
+const $KEYS = Symbol("keys");
 
 function proxyState<S extends PatchableState>(
     state: S,
@@ -183,7 +183,7 @@ function proxyState<S extends PatchableState>(
 ) {
     return new Proxy(state, {
         get: (target, prop, receiver) => {
-            if (prop === KEYS_SYMBOL) {
+            if (prop === $KEYS) {
                 return keys;
             }
 

@@ -26,10 +26,10 @@ export type RenderedVode = Vode & { [$NODE]: DomElement };
 /** can be used to access the internal vode meta data of a ContainerNode */
 export const $VODE = Symbol("vode");
 /** can be used to access the ElementNode of an AttachedVode */
-export const $NODE = Symbol("node");
+export const $NODE = Symbol("dom node");
 /** can be used to access the stats on the state object */
 export const $STATS = Symbol("stats");
-const $UNMOUNT_COUNT = Symbol("ucount");
+const $UNMOUNT_COUNT = Symbol("unmount count");
 const $MEMO = Symbol("memo");
 
 export type Patch<S> =
