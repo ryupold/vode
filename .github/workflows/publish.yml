@@ -58,10 +58,18 @@ jobs:
       - run: npm test
       - run: npm run clean
       - run: npm run build
+      - run: npm run test:package
 
       - name: Verify committed release artifacts
         shell: bash
-        run: git diff --exit-code -- dist
+        run: |
+          git diff --exit-code -- dist
+
+          if [[ -n "$(git status --porcelain --untracked-files=all -- dist)" ]]; then
+            git status --short --untracked-files=all -- dist
+            echo "The build produced uncommitted files in dist."
+            exit 1
+          fi
 
   publish-to-npm:
     name: Publish to NPM

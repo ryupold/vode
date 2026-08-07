@@ -16,3 +16,6 @@ jobs:
           node-version: 24
       - run: npm ci
       - run: npm run test
+      - run: npm run clean
+      - run: npm run build
+      - run: npm run test:package

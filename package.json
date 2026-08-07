@@ -59,6 +59,7 @@
         "clean": "tsc -b --clean && node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
         "watch": "tsc -b -w",
         "test": "tsc -p tsconfig.test.json && esbuild test/run-tests.ts --bundle --outfile=test/run-tests.js --platform=node && node test/run-tests.js",
+        "test:package": "node test/package-consumer-smoke.mjs",
         "build-tests": "esbuild test/index.ts --bundle --format=esm --outfile=dist/vode.tests.mjs"
     },
     "devDependencies": {
