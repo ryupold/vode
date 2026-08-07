@@ -71,7 +71,7 @@ export interface Props<S = PatchableState> extends Partial<
     /** called every render after assignment of the DOM node.
      * receiving the new vode and the previously (attached) one.
      * 2 cases:
-     * - `newVode` is attached, `oldVode` is undefined: initial node assigment
+     * - `newVode` is attached, `oldVode` is undefined: initial node assignment
      * - `newVode` is attached, `oldVode` is defined: updated/checked */
     reconciled?: ((s: S,
         newVode: RenderedVode,

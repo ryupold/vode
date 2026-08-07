@@ -62,7 +62,7 @@ export interface Props<S = PatchableState> extends Partial<Omit<HTMLElement, key
 	/** called every render after assignment of the DOM node.
 	 * receiving the new vode and the previously (attached) one.
 	 * 2 cases:
-	 * - `newVode` is attached, `oldVode` is undefined: initial node assigment
+	 * - `newVode` is attached, `oldVode` is undefined: initial node assignment
 	 * - `newVode` is attached, `oldVode` is defined: updated/checked */
 	reconciled?: ((s: S, newVode: RenderedVode, oldVode: RenderedVode | undefined) => void) | null | false;
 }
@@ -189,7 +189,7 @@ export type WideKeyedChild<S = PatchableState> = (Tag | KeyedProps<S> | WideChil
 export type WideChild<S> = ChildVode<S> | (Tag | Props<S> | WideChild<S>)[];
 /**
  * **Keyed reconciliation** for vode. Reuse, reorder, insert and remove list items
- * by a stable `key` instead of by position. Use this when you have a usecase where
+ * by a stable `key` instead of by position. Use this when you have a use case where
  * the order of items can change dynamically, but you need to maintain the DOM reference
  * to the vode at the same position.
  *

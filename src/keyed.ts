@@ -23,7 +23,7 @@ type Slot = AttachedVode | DomNode | undefined;
 
 /**
  * **Keyed reconciliation** for vode. Reuse, reorder, insert and remove list items
- * by a stable `key` instead of by position. Use this when you have a usecase where
+ * by a stable `key` instead of by position. Use this when you have a use case where
  * the order of items can change dynamically, but you need to maintain the DOM reference
  * to the vode at the same position.
  *
@@ -35,7 +35,7 @@ type Slot = AttachedVode | DomNode | undefined;
  *     { id: "3", label: "item 3" },
  *   ],
  * }
- * 
+ *
  * app(container, state, (s) => [DIV,
  *   keyed([UL, { class: "todos" },
  *     ...s.items.map(it => [LI, { key: it.id }, it.label]),

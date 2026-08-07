@@ -482,7 +482,7 @@ Passing an empty dependency array means the component is only rendered once and 
 
 ### keyed lists
 
-Vode normaly reconciles children *by position*:
+Vode normally reconciles children *by position*:
 on every render the DOM node at index `i` is patched to match the new child at index `i`.
 For lists this is usually fine, but when entries are reordered, inserted or removed in the middle,
 and the vode+elements identity matter because you need to reference the DOM nodes to preserve state
@@ -531,8 +531,8 @@ app(container, state, (s) => [DIV,
             memo([t.text], () => [SPAN, { class: "todo" }, t.text]),
         ]),
     ]),
-```
 ]);
+```
 
 Note that due to the way `keyed` works, memo cannot be directly nested inside
 a `keyed` call but must be wrapped inside at least one vode.
@@ -579,7 +579,7 @@ mergeClass('foo', ['baz', 'bar']);  // -> 'foo baz bar'
 mergeClass(['foo'], { bar: true, baz: false }); // -> 'foo bar'
 mergeClass({zig: true, zag: false}, 'foo', ['baz', 'bar']);  // -> 'zig foo baz bar'
 
-// Merge style props intelligently (same style properties are overwritten from left to right)
+// Merge style properties intelligently. Later values override earlier ones.
 mergeStyle({ color: 'red' }, 'font-weight: bold;'); // -> 'color: red; font-weight: bold;'
 mergeStyle('color: white; background-color: blue;', { marginTop: '10px', color: 'green' }); // -> 'color: green; background-color: blue; margin-top: 10px;'
 
@@ -781,7 +781,7 @@ function SettingsForm(ctx: SubContext<Settings>) {
             [LABEL, { for: 'theme' }, 'theme: ', settings.theme],
             [SELECT,
                 {
-                    name: 'theme',
+                    id: 'theme',
                     onchange: (_: unknown, e: Event) => ctx.patch({ theme: (<HTMLSelectElement>e.target).value }),
                     value: settings.theme,
                 },
@@ -793,7 +793,7 @@ function SettingsForm(ctx: SubContext<Settings>) {
         [DIV,
             [LABEL, { for: 'language' }, 'language: ', settings.lang],
             [SELECT, {
-                name: 'language',
+                id: 'language',
                 onchange: (_: unknown, e: Event) => ctx.patch({ lang: (<HTMLSelectElement>e.target).value }),
                 value: settings.lang,
             },
@@ -831,7 +831,7 @@ function SettingsFormWithSelection(ctx: ProxySubContext<Settings>) {
 function Selection(
     ctx: SubContext<string>,
     name: string,
-    optios: { value: string, label: string }[]
+    options: { value: string, label: string }[]
 ) {
     const value = ctx.get();
 
@@ -840,11 +840,11 @@ function Selection(
 
         [SELECT,
             {
-                name: name,
+                id: name,
                 onchange: (_: unknown, e: Event) => ctx.patch((<HTMLSelectElement>e.target).value),
                 value: value,
             },
-            ...optios.map(o => [OPTION, { value: o.value, selected: value === o.value }, o.label]),
+            ...options.map((o) => [OPTION, { value: o.value, selected: value === o.value }, o.label]),
         ],
     ];
 }
