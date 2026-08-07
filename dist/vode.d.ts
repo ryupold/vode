@@ -145,7 +145,7 @@ export declare function app<S extends object = PatchableState>(container: DomEle
  * removes patch function from state object
  * leaves the DOM as is
  */
-export declare function defuse(container: ContainerNode): void;
+export declare function defuse<S = PatchableState>(container: ContainerNode<S>): void;
 /** return vode representation of given DOM node */
 export declare function hydrate<S = PatchableState>(element: DomElement | Text): Vode<S> | string | undefined;
 export declare function hydrate<S = PatchableState>(element: DomElement | Text, prepareForRender: boolean): AttachedVode<S> | undefined;

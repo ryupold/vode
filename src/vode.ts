@@ -449,9 +449,9 @@ export function app<S extends PatchableState = PatchableState>(
  * removes patch function from state object
  * leaves the DOM as is
  */
-export function defuse(container: ContainerNode) {
+export function defuse<S = PatchableState>(container: ContainerNode<S>) {
     if (container?.[$VODE]) {
-        function clearEvents(av: AttachedVode) {
+        function clearEvents(av: AttachedVode<S>) {
             if (!av?.[$NODE]) return;
 
             const p = props(av);
@@ -470,7 +470,7 @@ export function defuse(container: ContainerNode) {
                 const kids = children(av);
                 if (kids) {
                     for (let child of kids) {
-                        clearEvents(child as AttachedVode);
+                        clearEvents(child as AttachedVode<S>);
                     }
                 }
             }
