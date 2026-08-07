@@ -14,6 +14,34 @@ It brings a primitive building block to the table that gives flexibility in comp
 and makes refactoring easy.
 The use cases can be single page applications or isolated components with complex state.
 
+## Table of contents
+
+- [Usage](#usage)
+    - [ESM](#esm)
+    - [Classic (IIFE)](#classic-iife)
+    - [NPM](#npm)
+- [Vode](#vde)
+    - [app](#app)
+        - [defuse](#defuse)
+    - [component](#component)
+    - [state & patch](#state--patch)
+    - [memoization](#memoization)
+    - [keyed lists](#keyed-lists)
+        - [keyed + memo](#keyed--memo)
+    - [error handling](#error-handling)
+    - [helper functions](#helper-functions)
+        - [onMount & onUnmount](#onmount--onunmount)
+    - [SVG & MathML](#svg--mathml)
+    - [advanced usage](#advanced-usage)
+        - [state context](#state-context)
+        - [isolated state](#isolated-state)
+        - [advanced examples](#advanced-examples)
+        - [view transitions](#view-transitions)
+    - [performance](#performance)
+- [Coming from React, Angular, Vue, or plain JavaScript](#coming-from-react-angular-vue-or-plain-javascript)
+- [Thanks](#thanks)
+- [License](#license)
+
 ## Usage
 
 ### ESM
@@ -90,13 +118,32 @@ Binds the library to the global `V` variable.
 
 [![NPM](https://nodei.co/npm/@ryupold/vode.svg?color=red&data=n,v,s,d,u)](https://www.npmjs.com/package/@ryupold/vode)
 
-index.html
+Create a project and install Vode:
+
+```sh
+mkdir vode-example
+cd vode-example
+npm init -y
+npm install @ryupold/vode --save
+```
+
+The browser cannot resolve a bare import such as `@ryupold/vode` on its own. This example uses an import map to resolve it directly from `node_modules`, so it does not need a bundler or any additional npm packages.
+
+`index.html`
 
 ```html
+<!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
     <title>Vode NPM Example</title>
+    <script type="importmap">
+        {
+            "imports": {
+                "@ryupold/vode": "./node_modules/@ryupold/vode/dist/vode.min.mjs"
+            }
+        }
+    </script>
     <script type="module" src="main.js"></script>
 </head>
 <body>
@@ -105,15 +152,16 @@ index.html
 </html>
 ```
 
-main.ts
-```typescript
+`main.js`
+
+```javascript
 import { app, createState, BR, DIV, INPUT, SPAN } from '@ryupold/vode';
 
 const state = createState({
     counter: 0,
 });
 
-const appNode = document.getElementById('app')!;
+const appNode = document.getElementById('app');
 
 app(appNode, state,
     (s) => [DIV,
@@ -127,6 +175,10 @@ app(appNode, state,
     ]
 );
 ```
+
+Now you can serve the directory with a static file server (e.g. `npx http-server`).
+
+In an application that already uses a bundler, omit the import map and keep the same bare import. If you use TypeScript, put the code in `main.ts` and let your existing TypeScript/bundler setup produce the `main.js` loaded by the page.
 
 ## `[V,{},d,e]`
 
@@ -792,11 +844,12 @@ function SettingsForm(ctx: SubContext<Settings>) {
 
         [DIV,
             [LABEL, { for: 'language' }, 'language: ', settings.lang],
-            [SELECT, {
-                id: 'language',
-                onchange: (_: unknown, e: Event) => ctx.patch({ lang: (<HTMLSelectElement>e.target).value }),
-                value: settings.lang,
-            },
+            [SELECT,
+                {
+                    id: 'language',
+                    onchange: (_: unknown, e: Event) => ctx.patch({ lang: (<HTMLSelectElement>e.target).value }),
+                    value: settings.lang,
+                },
                 [OPTION, { value: 'en', selected: settings.lang === 'en' }, 'en'],
                 [OPTION, { value: 'de', selected: settings.lang === 'de' }, 'de'],
                 [OPTION, { value: 'es', selected: settings.lang === 'es' }, 'es'],
@@ -934,6 +987,27 @@ It is designed to feel nice while coding, by providing a primitive that is simpl
 I want the mental model to be easy to grasp and the API surface to be small
 so that a developer can focus on building a web application instead of learning the framework
  and get to a flow state as quickly as possible.
+
+## Coming from React, Angular, Vue, or plain JavaScript
+
+Vode uses the same broad idea as other declarative UI libraries: describe the DOM you want for the current state, then let the framework update the existing DOM. The main difference is that Vode expresses this with ordinary functions, objects, and arrays, without JSX, templates, decorators, single-file components, or a hook runtime.
+
+- **React:** A Vode component resembles a function component, but returns a vode such as `[DIV, ...children]` instead of JSX. Props are ordinary function arguments, `state.patch(...)` fills the role of a state setter, and `memo(...)` can skip an expensive unchanged subtree. There are no hook ordering rules.
+- **Angular:** A Vode component combines the role of a small component class and its template into one function. Function arguments replace inputs, event properties replace template event bindings, and an explicit state patch triggers rendering. Vode has no modules, decorators, dependency-injection container, template compiler, or automatic change-detection pass.
+- **Vue:** A Vode component is comparable to a render function without a single-file component wrapper. Function arguments replace props, conditional arrays replace directives such as `v-if`, `keyed(...)` provides keyed list reconciliation, and patches replace tracked reactive mutations. Vode does not track property access or require refs, watchers, or composables.
+- **Plain JavaScript:** Tags, properties, events, and DOM elements keep their normal browser meanings. Instead of coordinating `createElement`, `textContent`, `addEventListener`, and cleanup manually, return a vode and let `app(...)` reconcile its managed DOM subtree. You can still call browser APIs directly when needed.
+
+| Task | Vode approach |
+| --- | --- |
+| Define a component | Write an ordinary function that receives state or other arguments and returns a child vode. |
+| Pass props or inputs | Pass normal function arguments; there is no separate component-instance or props system. |
+| Update state and render | Call `state.patch({ key: value })`, or return a patch from an event or effect. Direct mutation is silent until a render patch is applied. |
+| Handle an event | Assign a patch object or a function returning a patch to an event property such as `onclick`. |
+| Render a list | Use normal array operations such as `map`. Add string keys and wrap the container in `keyed(...)` when DOM identity must survive insertion, removal, or reordering. |
+| Run asynchronous work | Pass or return functions, promises, or generators as effects; they can produce further patches. |
+| Handle mount and cleanup | Use `onMount` and `onUnmount` when work depends on the actual DOM element or needs explicit cleanup. |
+| Avoid unnecessary work | Use `memo(...)` when constructing or reconciling a subtree is measurably expensive. |
+
 
 ## Thanks
 
