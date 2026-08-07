@@ -48,15 +48,14 @@
         }
     },
     "scripts": {
+        "build": "npm run build-esm && npm run build-min && npm run build-classic && npm run build-classic-min && npm run babel && npm run babel-classic && npm run types",
         "types": "dts-bundle-generator -o ./dist/vode.d.ts ./index.ts --project tsconfig.json",
-        "build": "esbuild index.ts --bundle --format=esm --outfile=dist/vode.mjs",
+        "build-esm": "esbuild index.ts --bundle --format=esm --outfile=dist/vode.mjs",
         "build-min": "esbuild index.ts --bundle --format=esm --minify --outfile=dist/vode.min.mjs",
         "build-classic": "esbuild index.ts --outfile=dist/vode.js --bundle --format=iife --global-name=V",
         "build-classic-min": "esbuild index.ts --outfile=dist/vode.min.js --bundle --format=iife  --global-name=V --minify",
         "babel": "npx babel dist/vode.mjs --minified --out-file dist/vode.cjs.min.js",
         "babel-classic": "npx babel dist/vode.js --config-file ./babel.es5.config.json --minified --out-file dist/vode.es5.min.js",
-        "release": "npm run build && npm run build-min && npm run build-classic && npm run build-classic-min && npm run babel && npm run babel-classic && npm run types",
-        "publish": "npm publish --access public",
         "clean": "tsc -b --clean && node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
         "watch": "tsc -b -w",
         "test": "tsc -p tsconfig.test.json && esbuild test/run-tests.ts --bundle --outfile=test/run-tests.js --platform=node && node test/run-tests.js",

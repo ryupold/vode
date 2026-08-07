@@ -2,115 +2,153 @@ name: Publish release to NPM, GitHub & Chimps Packages
 
 on:
   release:
-    types: published
-    branches:
-      - "main"
+    types: [published]
   workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to publish
+        required: true
+        type: string
+
+concurrency:
+  group: publish-${{ github.event.release.tag_name || inputs.tag }}
+  cancel-in-progress: false
 
 permissions:
-  id-token: write # Required for OIDC
-  packages: write
-  attestations: write
   contents: read
 
 jobs:
-  run-tests:
-    name: Check Unit Tests
-    runs-on: ${{ vars.RUNNER_LABEL }}
+  verify-and-test:
+    name: Verify Release and Run Tests
+    runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v6
         with:
-          registry-url: "https://registry.npmjs.org"
-          node-version: 24
-      - run: npm ci
-      - run: npm run test
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
+          fetch-depth: 0
 
-  build-and-publish-to-npm:
-    name: Build and Publish to NPM
-    needs: run-tests
-    runs-on: ${{ vars.RUNNER_LABEL }}
-    steps:
-      - uses: actions/checkout@v4
       - uses: actions/setup-node@v6
         with:
-          registry-url: "https://registry.npmjs.org"
           node-version: 24
-      - run: npm ci
-      - run: npm run clean
-      - run: npm run release
-      - run: |
-          set +e
-          (npm publish --provenance --access public) > log.txt 2>&1
-          NEWVERSION=$(grep "> @ryupold/vode@" log.txt)
-          if grep -q 'publish over the previously published' log.txt || grep -q '409 Conflict' log.txt || [[ -n "$NEWVERSION" ]]; then
-            echo "new version: $NEWVERSION"
-            echo "...successfully published to npmjs.org"
-          else
-            echo "...failed to publish to npmjs.org"
-            cat log.txt
+          cache: npm
+
+      - name: Verify tag and package version
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+        run: |
+          set -euo pipefail
+
+          PACKAGE_VERSION="$(node -p "require('./package.json').version")"
+          TAG_VERSION="${RELEASE_TAG#v}"
+
+          if [[ "$TAG_VERSION" != "$PACKAGE_VERSION" ]]; then
+            echo "Release tag ${RELEASE_TAG} does not match package version ${PACKAGE_VERSION}."
             exit 1
           fi
+
+          git fetch --no-tags origin main
+
+          if ! git merge-base --is-ancestor HEAD origin/main; then
+            echo "Release tag ${RELEASE_TAG} is not based on the main branch."
+            exit 1
+          fi
+
+      - run: npm ci
+      - run: npm test
+      - run: npm run clean
+      - run: npm run build
+
+      - name: Verify committed release artifacts
+        shell: bash
+        run: git diff --exit-code -- dist
+
+  publish-to-npm:
+    name: Publish to NPM
+    needs: verify-and-test
+    runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          cache: npm
+
+      - run: npm ci
+      - run: npm run clean
+      - run: npm run build
+
+      - name: Publish package
+        run: npm publish --ignore-scripts --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-
-  build-and-publish-to-github:
-    name: Build and Publish to Github
-    needs: run-tests
-    runs-on: ${{ vars.RUNNER_LABEL }}
+  publish-to-github:
+    name: Publish to GitHub Packages
+    needs: verify-and-test
+    runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
+
       - uses: actions/setup-node@v6
         with:
-          registry-url: "https://npm.pkg.github.com"
           node-version: 24
+          registry-url: https://npm.pkg.github.com
+          scope: "@ryupold"
+          cache: npm
+
       - run: npm ci
       - run: npm run clean
-      - run: npm run release
-      - run: |
-          set +e
-          (npm publish --access public) > log.txt 2>&1
-          NEWVERSION=$(grep "> @ryupold/vode@" log.txt)
-          if grep -q 'publish over the previously published' log.txt || grep -q '409 Conflict' log.txt || [[ -n "$NEWVERSION" ]]; then
-            echo "new version: $NEWVERSION"
-            echo "...successfully published to GitHub Packages"
-          else
-            echo "...failed to publish to GitHub Packages"
-            cat log.txt
-            exit 1
-          fi
+      - run: npm run build
+
+      - name: Publish package
+        run: npm publish --ignore-scripts --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  build-and-publish-to-chimps:
-    name: Build and Publish to Chimps
-    needs: run-tests
-    runs-on: ${{ vars.RUNNER_LABEL }}
+  publish-to-chimps:
+    name: Publish to Chimps Packages
+    needs: verify-and-test
+    runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
+
       - uses: actions/setup-node@v6
         with:
           node-version: 24
-      - run: |
-          echo "@ryupold:registry=https://git.chimps.quest/api/packages/ryupold/npm/" >> .npmrc
-          echo "//git.chimps.quest/api/packages/ryupold/npm/:_authToken=${CHIMPS_TOKEN}" >> .npmrc
-        env:
-          CHIMPS_TOKEN: ${{ secrets.CHIMPS_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.CHIMPS_TOKEN }}
+          cache: npm
+
       - run: npm ci
       - run: npm run clean
-      - run: npm run release
-      - run: |
-          set +e
-          (npm publish --access public) > log.txt 2>&1
-          rm -rf .npmrc
-          NEWVERSION=$(grep "> @ryupold/vode@" log.txt)
-          if grep -q 'publish over the previously published' log.txt || grep -q '409 Conflict' log.txt || [[ -n "$NEWVERSION" ]]; then
-            echo "new version: $NEWVERSION"
-            echo "...successfully published to chimps"
-          else
-            echo "...failed to publish to chimps"
-            cat log.txt
-            exit 1
-          fi
+      - run: npm run build
+
+      - name: Publish package
+        shell: bash
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.CHIMPS_TOKEN }}
+        run: |
+          set -euo pipefail
+          trap 'rm -f .npmrc' EXIT
+
+          printf '%s\n' \
+            '@ryupold:registry=https://git.chimps.quest/api/packages/ryupold/npm/' \
+            '//git.chimps.quest/api/packages/ryupold/npm/:_authToken=${NODE_AUTH_TOKEN}' \
+            > .npmrc
+
+          npm publish --ignore-scripts --access public
