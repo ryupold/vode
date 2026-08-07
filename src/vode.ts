@@ -40,6 +40,7 @@ export type Patch<S> =
 
 export type IgnoredPatch = undefined | null | number | boolean | bigint | string | symbol | void;
 export type RenderPatch<S> = {} | DeepPartial<S>;
+
 export type DeepPartial<S> = {
     [P in keyof S]?: S[P] extends Array<infer I> ? Array<DeepPartial<I>> : DeepPartial<S[P]>;
 };
@@ -672,16 +673,18 @@ function mergeState(
     source: Record<string, unknown> | unknown | null | undefined,
     allowDeletion: boolean,
 ) {
-    if (typeof source !== "object") return target;
+    if (source === null || typeof source !== "object") return target;
 
-    for (const key in source) {
+    for (const key of Object.keys(source)) {
         const value = (<Record<string, unknown>>source)[key];
         if (value && typeof value === "object") {
             const proto = Object.getPrototypeOf(value);
             if (proto !== Object.prototype && proto !== null) {
                 target[key] = value;
             } else {
-                const targetValue = target[key];
+                const targetValue = Object.prototype.hasOwnProperty.call(target, key)
+                    ? target[key]
+                    : undefined;
                 if (targetValue) {
                     if (Array.isArray(targetValue)) target[key] = mergeState({}, value, allowDeletion);
                     else if (typeof targetValue === "object")

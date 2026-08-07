@@ -71,4 +71,32 @@ export default {
         await expect(Array.isArray(state.tags)).toEqual(true);
         await expect(state.tags).toEqual(["a", "b", "c"]);
     },
+
+    "patch-merge: unsafe and inherited keys cannot modify object prototypes": async () => {
+        const container = setup();
+        const state: any = createState({ safe: true, nested: {} });
+        app(container, state, () => [DIV]);
+
+        const patch = Object.assign(
+            Object.create({ inherited: "not copied" }),
+            JSON.parse(`{
+                "__proto__": { "polluted": true },
+                "nested": { "__proto__": { "nestedPolluted": true } }
+            }`),
+        );
+
+        try {
+            state.patch(patch);
+
+            await expect((Object.prototype as any).polluted).toEqual(undefined);
+            await expect(({} as any).polluted).toEqual(undefined);
+            await expect(({} as any).nestedPolluted).toEqual(undefined);
+            await expect(state.inherited).toEqual(undefined);
+            await expect(Object.prototype.hasOwnProperty.call(state, "__proto__")).toEqual(false, "__proto__ should not be a property of state");
+            await expect(Object.prototype.hasOwnProperty.call(state.nested, "__proto__")).toEqual(false, "__proto__ should not be a property of state.nested");
+        } finally {
+            delete (Object.prototype as any).polluted;
+            delete (Object.prototype as any).nestedPolluted;
+        }
+    },
 };

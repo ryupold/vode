@@ -121,7 +121,7 @@ class ProxyStateContextImpl<S extends PatchableState, SubState> {
         }
 
         function createPatch(value: SubState | DeepPartial<SubState> | undefined | null): RenderPatch<S> {
-            const renderPatch: DeepPartial<S> = {};
+            const renderPatch = {} as DeepPartial<S>;
             putDeep(value, renderPatch);
             return renderPatch;
         }

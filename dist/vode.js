@@ -645,15 +645,15 @@ var V = (() => {
     return -1;
   }
   function mergeState(target, source, allowDeletion) {
-    if (typeof source !== "object") return target;
-    for (const key in source) {
+    if (source === null || typeof source !== "object") return target;
+    for (const key of Object.keys(source)) {
       const value = source[key];
       if (value && typeof value === "object") {
         const proto = Object.getPrototypeOf(value);
         if (proto !== Object.prototype && proto !== null) {
           target[key] = value;
         } else {
-          const targetValue = target[key];
+          const targetValue = Object.prototype.hasOwnProperty.call(target, key) ? target[key] : void 0;
           if (targetValue) {
             if (Array.isArray(targetValue)) target[key] = mergeState({}, value, allowDeletion);
             else if (typeof targetValue === "object")

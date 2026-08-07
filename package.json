@@ -43,7 +43,7 @@
             "entrypoint": "./index.ts",
             "types": "./dist/vode.d.ts",
             "import": "./dist/vode.min.mjs",
-            "require": "./dist/vode.cjs.min.js",
+            "require": "./dist/vode.min.cjs",
             "default": "./dist/vode.min.mjs"
         }
     },
@@ -54,7 +54,7 @@
         "build-min": "esbuild index.ts --bundle --format=esm --minify --outfile=dist/vode.min.mjs",
         "build-classic": "esbuild index.ts --outfile=dist/vode.js --bundle --format=iife --global-name=V",
         "build-classic-min": "esbuild index.ts --outfile=dist/vode.min.js --bundle --format=iife  --global-name=V --minify",
-        "babel": "npx babel dist/vode.mjs --minified --out-file dist/vode.cjs.min.js",
+        "babel": "npx babel dist/vode.mjs --minified --out-file dist/vode.min.cjs",
         "babel-classic": "npx babel dist/vode.js --config-file ./babel.es5.config.json --minified --out-file dist/vode.es5.min.js",
         "clean": "tsc -b --clean && node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
         "watch": "tsc -b -w",
