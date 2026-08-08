@@ -161,8 +161,8 @@ export declare function memo<S = PatchableState>(compare: unknown[], component: 
 export declare function createState<S = PatchableState>(state: S): PatchableState<S>;
 /** type safe way to create a patch. useful for type inference and autocompletion. */
 export declare function createPatch<S = PatchableState>(p: DeepPartial<S> | Effect<S> | IgnoredPatch): typeof p;
-/** HTML tag of the vode or undefined if it has none or is a text node */
-export declare function tag(v: ChildVode): Tag | undefined;
+/** HTML tag of the vode (only if it is a Vode<S>). otherwise undefined if it has none, is a text node or a component function (not evaluated) */
+export declare function tag<S = PatchableState>(v: ChildVode<S>): Tag | undefined;
 /** get properties object of a vode, if there is any */
 export declare function props<S = PatchableState>(vode: ChildVode<S> | AttachedVode<S>): Props<S> | undefined;
 /** get a slice of all children of a vode, if there are any */
@@ -224,6 +224,15 @@ export declare function mergeProps<S extends PatchableState = PatchableState>(..
 /** merge `StyleProp`s regardless of type
  * @returns {string} merged StyleProp */
 export declare function mergeStyle(...props: StyleProp[]): StyleProp;
+export type StyleObject = Record<number, never> & {
+	[K in keyof CSSStyleDeclaration]?: CSSStyleDeclaration[K] | null;
+};
+/**
+ * get the evaluated style object from any StyleProp.
+ * @param style style prop (string, object, or null/undefined)
+ * @returns the evaluated style object or null if the style is not defined
+ */
+export declare function styleObject(style: StyleProp): StyleObject | null;
 /**
  * State context for type-safe access and manipulation of nested state paths
  * while still being able to access the parent state.

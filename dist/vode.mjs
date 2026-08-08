@@ -979,6 +979,28 @@ function mergeStyle(...props2) {
   }
   return mergeStyleFallback(props2);
 }
+function styleObject(style) {
+  if (typeof style === "string") {
+    const obj = {};
+    const styling = stylingElement ??= document.createElement("div");
+    try {
+      styling.style.cssText = style;
+      for (const key of Array.from(styling.style)) {
+        const value = styling.style[key];
+        if (value !== void 0 && value !== null && value !== "") {
+          obj[key] = value;
+        }
+      }
+      return obj;
+    } finally {
+      styling.style.cssText = "";
+    }
+  }
+  if (typeof style === "object" && style !== null) {
+    return style;
+  }
+  return null;
+}
 function mergeStyleFallback(props2) {
   const declarations = /* @__PURE__ */ new Map();
   const set = (rawProp, rawValue) => {
@@ -1574,6 +1596,7 @@ export {
   mergeProps,
   mergeStyle,
   props,
+  styleObject,
   tag,
   vode
 };
