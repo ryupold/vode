@@ -30,6 +30,7 @@ The use cases can be single page applications or isolated components with comple
         - [keyed + memo](#keyed--memo)
     - [error handling](#error-handling)
     - [helper functions](#helper-functions)
+        - [structural utilities](#structural-utilities)
         - [onMount & onUnmount](#onmount--onunmount)
     - [SVG & MathML](#svg--mathml)
     - [advanced usage](#advanced-usage)
@@ -518,9 +519,9 @@ const CompBar = (s) => [DIV, { class: "container" },
 
     // class property has multiple forms
     [UL,
-        [LI, {class: "class1 class2"}, "as string"],
-        [LI, {class: ["class1", "class2"]}, "as array"],
-        [LI, {class: {class1: true, class2: false}}, "as Record<string, boolean>"],
+        [LI, { class: "class1 class2" }, "as string"],
+        [LI, { class: ["class1", "class2"] }, "as array"],
+        [LI,  class: {class1: true, class2: false} }, "as Record<string, boolean>"],
     ],
 
     // events get the state object as first argument
@@ -773,6 +774,8 @@ Try to keep the `catch` blocks as specific as possible to avoid masking other er
 Or just don't make errors happen in the first place :)
 
 ### helper functions
+
+#### structural utilities
 
 The library provides some helper functions for common tasks.
 
