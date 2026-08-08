@@ -46,6 +46,8 @@ The use cases can be single page applications or isolated components with comple
 
 ### ESM
 
+Copy into a HTML file and open it in a browser to see the example in action.
+
 ```html
 <!DOCTYPE html>
 <html>
@@ -56,21 +58,84 @@ The use cases can be single page applications or isolated components with comple
 <body>
     <div id="app"></div>
     <script type="module">
-        import { app, BR, DIV, INPUT, SPAN } from 'https://unpkg.com/@ryupold/vode/dist/vode.min.mjs';
+        import {
+            app, context, createState,
+            DIV, INPUT, LABEL, RECT, SVG, TEXT, PRE, CODE
+        } from 'https://unpkg.com/@ryupold/vode/dist/vode.min.mjs';
 
+        // select a DOM element to be the root of the vode app
         const appNode = document.getElementById('app');
 
-        const state = { counter: 0 };
+        // create state with initial values
+        const state = createState({
+            shape: { radius: 28, border: 8, hue: 265 },
+            text: 'Hello, Vode!',
+        });
 
+        // reach any state path through a lazily evaluated sub-context
+        const shapeCtx = context(state).shape;
+        const textCtx = context(state).text;
+
+        // components are ordinary functions that return lightweight vode arrays
+        const Slider = (valueCtx, label, max, hue) => [LABEL,
+            { style: { display: 'grid', gap: '5px' } },
+            `${label}: ${valueCtx.get()}`,
+            [INPUT, {
+                type: 'range', min: 0, max, value: valueCtx.get(),
+                style: { width: '100%', accentColor: `hsl(${hue} 80% 50%)` },
+                // patch only this state path and trigger a render
+                oninput: (_, event) => valueCtx.patch(Number(event.target.value)),
+            }],
+        ];
+
+        // all HTML attributes are supported ('style' and 'class' have additional convenience features)
+        const TextInput = (valueCtx) => [INPUT, {
+            value: valueCtx.get(), maxlength: 18, placeholder: 'Type something',
+            style: { padding: '9px 11px', border: '1px solid #cbd5e1', borderRadius: '8px' },
+            oninput: (_, event) => valueCtx.patch(event.target.value),
+        }];
+
+        // SVG uses exactly the same declarative structure as HTML
+        const Preview = (s) => [SVG,
+            {
+                xmlns: 'http://www.w3.org/2000/svg',
+                viewBox: '0 0 320 220',
+                style: { width: '100%' }
+            },
+            [RECT, {
+                x: 25, y: 25, width: 270, height: 170, rx: s.shape.radius,
+                fill: `hsl(${s.shape.hue} 75% 55%)`,
+                stroke: `hsl(${s.shape.hue} 80% 25%)`,
+                'stroke-width': s.shape.border,
+            }],
+            [TEXT, {
+                x: 160, y: 110, fill: 'white', 'text-anchor': 'middle',
+                'dominant-baseline': 'middle', 'font-size': 24, 'font-family': 'system-ui',
+            }, s.text],
+        ];
+
+        // bind the root component, state and render function
         app(appNode, state,
-            (s) => [DIV,
-                [INPUT, {
-                    type: 'button',
-                    onclick: { counter: s.counter + 1 },
-                    value: 'Click me',
-                }],
-                [BR],
-                [SPAN, { style: { color: 'red' } }, `${s.counter}`],
+            (s) => [DIV, { style: {
+                maxWidth: '720px', margin: '40px auto', padding: '24px',
+                font: '15px system-ui', borderRadius: '20px', background: '#f8fafc',
+                boxShadow: '0 16px 50px #0f172a22',
+            } },
+                [DIV, { style: {
+                    display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                    gap: '28px', alignItems: 'center'
+                     } },
+                    [DIV, { style: { display: 'grid', gap: '14px' } },
+                        // give each control only the state slice it owns
+                        Slider(shapeCtx.radius, 'Corner radius', 80, s.shape.hue),
+                        Slider(shapeCtx.border, 'Border width', 20, s.shape.hue),
+                        Slider(shapeCtx.hue, 'Color hue', 360, s.shape.hue),
+                        TextInput(textCtx),
+                    ],
+                    Preview(s),
+                ],
+                // state is still plain data and can be rendered directly
+                [PRE, [CODE, JSON.stringify(s, null, 2)]]
             ]
         );
     </script>
@@ -94,20 +159,68 @@ Binds the library to the global `V` variable.
     <script>
         var appNode = document.getElementById('app');
 
-        var state = { counter: 0 };
+        var state = V.createState({
+            shape: { radius: 28, border: 8, hue: 265 },
+            text: 'Hello, Vode!'
+        });
+
+        var ctx = V.context(state);
+
+        function Slider(valueCtx, label, max, hue) {
+            return ["label", { style: { display: 'grid', gap: '5px' } },
+                label + ': ' + valueCtx.get(),
+                ["input", {
+                    type: 'range', min: 0, max: max, value: valueCtx.get(),
+                    style: { width: '100%', accentColor: 'hsl(' + hue + ' 80% 50%)' },
+                    oninput: function (_, event) {
+                        valueCtx.patch(Number(event.target.value));
+                    }
+                }]
+            ];
+        }
+
+        function TextInput(valueCtx) {
+            return ["input", {
+                value: valueCtx.get(), maxlength: 18, placeholder: 'Type something',
+                style: { padding: '9px 11px', border: '1px solid #cbd5e1', borderRadius: '8px' },
+                oninput: function (_, event) { valueCtx.patch(event.target.value); }
+            }];
+        }
+
+        function Preview(s) {
+            return ["svg",
+                { xmlns: 'http://www.w3.org/2000/svg', viewBox: '0 0 320 220', style: { width: '100%' } },
+                ["rect", {
+                    x: 25, y: 25, width: 270, height: 170, rx: s.shape.radius,
+                    fill: 'hsl(' + s.shape.hue + ' 75% 55%)',
+                    stroke: 'hsl(' + s.shape.hue + ' 80% 25%)',
+                    'stroke-width': s.shape.border
+                }],
+                ["text", {
+                    x: 160, y: 110, fill: 'white', 'text-anchor': 'middle',
+                    'dominant-baseline': 'middle', 'font-size': 24, 'font-family': 'system-ui'
+                }, s.text]
+            ];
+        }
 
         V.app(appNode, state,
             function (s) {
-                return ["div",
-                    ["input", {
-                        type: 'button',
-                        onclick: { counter: s.counter + 1 },
-                        value: 'Click me',
-                    }
+                return ["div", { style: {
+                    maxWidth: '720px', margin: '40px auto', padding: '24px',
+                    font: '15px system-ui', borderRadius: '20px', background: '#f8fafc',
+                    boxShadow: '0 16px 50px #0f172a22'
+                } },
+                    ["div", { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '28px', alignItems: 'center' } },
+                        ["div", { style: { display: 'grid', gap: '14px' } },
+                            Slider(ctx.shape.radius, 'Corner radius', 80, s.shape.hue),
+                            Slider(ctx.shape.border, 'Border width', 20, s.shape.hue),
+                            Slider(ctx.shape.hue, 'Color hue', 360, s.shape.hue),
+                            TextInput(ctx.text)
+                        ],
+                        Preview(s)
                     ],
-                    ["br"],
-                    ["span", { style: { color: 'red' } }, '' + s.counter]
-                ]
+                    ["pre", ["code", JSON.stringify(s, null, 2)]]
+                ];
             });
     </script>
 </body>
@@ -155,23 +268,63 @@ The browser cannot resolve a bare import such as `@ryupold/vode` on its own. Thi
 `main.js`
 
 ```javascript
-import { app, createState, BR, DIV, INPUT, SPAN } from '@ryupold/vode';
+import { app, context, createState, DIV, INPUT, LABEL, RECT, SVG, TEXT, PRE, CODE } from '@ryupold/vode';
 
 const state = createState({
-    counter: 0,
+    shape: { radius: 28, border: 8, hue: 265 },
+    text: 'Hello, Vode!',
 });
+
+const ctx = context(state);
 
 const appNode = document.getElementById('app');
 
+const Slider = (valueCtx, label, max, hue) => [LABEL,
+    { style: { display: 'grid', gap: '5px' } },
+    `${label}: ${valueCtx.get()}`,
+    [INPUT, {
+        type: 'range', min: 0, max, value: valueCtx.get(),
+        style: { width: '100%', accentColor: `hsl(${hue} 80% 50%)` },
+        oninput: (_, event) => valueCtx.patch(Number(event.target.value)),
+    }],
+];
+
+const TextInput = (valueCtx) => [INPUT, {
+    value: valueCtx.get(), maxlength: 18, placeholder: 'Type something',
+    style: { padding: '9px 11px', border: '1px solid #cbd5e1', borderRadius: '8px' },
+    oninput: (_, event) => valueCtx.patch(event.target.value),
+}];
+
+const Preview = (s) => [SVG,
+    { xmlns: 'http://www.w3.org/2000/svg', viewBox: '0 0 320 220', style: { width: '100%' } },
+    [RECT, {
+        x: 25, y: 25, width: 270, height: 170, rx: s.shape.radius,
+        fill: `hsl(${s.shape.hue} 75% 55%)`,
+        stroke: `hsl(${s.shape.hue} 80% 25%)`,
+        'stroke-width': s.shape.border,
+    }],
+    [TEXT, {
+        x: 160, y: 110, fill: 'white', 'text-anchor': 'middle',
+        'dominant-baseline': 'middle', 'font-size': 24, 'font-family': 'system-ui',
+    }, s.text],
+];
+
 app(appNode, state,
-    (s) => [DIV,
-        [INPUT, {
-            type: 'button',
-            onclick: { counter: s.counter + 1 },
-            value: 'Click me',
-        }],
-        [BR],
-        [SPAN, { style: { color: 'red' } }, `${s.counter}`],
+    (s) => [DIV, { style: {
+        maxWidth: '720px', margin: '40px auto', padding: '24px',
+        font: '15px system-ui', borderRadius: '20px', background: '#f8fafc',
+        boxShadow: '0 16px 50px #0f172a22',
+    } },
+        [DIV, { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '28px', alignItems: 'center' } },
+            [DIV, { style: { display: 'grid', gap: '14px' } },
+                Slider(ctx.shape.radius, 'Corner radius', 80, s.shape.hue),
+                Slider(ctx.shape.border, 'Border width', 20, s.shape.hue),
+                Slider(ctx.shape.hue, 'Color hue', 360, s.shape.hue),
+                TextInput(ctx.text),
+            ],
+            Preview(s),
+        ],
+        [PRE, [CODE, JSON.stringify(s, null, 2)]
     ]
 );
 ```
@@ -825,8 +978,8 @@ app(element, state,
 );
 
 /** simple settings form  */
-function SettingsForm(ctx: SubContext<Settings>) {
-    const settings = ctx.get(); // { theme: 'dark', lang: 'es' }
+function SettingsForm(settingsCtx: SubContext<Settings>) {
+    const settings = settingsCtx.get(); // { theme: 'dark', lang: 'es' }
 
     return <Vode>[FORM,
         [DIV,
@@ -834,7 +987,7 @@ function SettingsForm(ctx: SubContext<Settings>) {
             [SELECT,
                 {
                     id: 'theme',
-                    onchange: (_: unknown, e: Event) => ctx.patch({ theme: (<HTMLSelectElement>e.target).value }),
+                    onchange: (_: unknown, e: Event) => settingsCtx.patch({ theme: (<HTMLSelectElement>e.target).value }),
                     value: settings.theme,
                 },
                 [OPTION, { value: 'light', selected: settings.theme === 'light' }, 'light'],
@@ -847,7 +1000,7 @@ function SettingsForm(ctx: SubContext<Settings>) {
             [SELECT,
                 {
                     id: 'language',
-                    onchange: (_: unknown, e: Event) => ctx.patch({ lang: (<HTMLSelectElement>e.target).value }),
+                    onchange: (_: unknown, e: Event) => settingsCtx.patch({ lang: (<HTMLSelectElement>e.target).value }),
                     value: settings.lang,
                 },
                 [OPTION, { value: 'en', selected: settings.lang === 'en' }, 'en'],
@@ -863,15 +1016,15 @@ function SettingsForm(ctx: SubContext<Settings>) {
  * note the usage of ProxySubContext to avoid having
  * to pass the entire settings object around
 */
-function SettingsFormWithSelection(ctx: ProxySubContext<Settings>) {
+function SettingsFormWithSelection(settingsCtx: ProxySubContext<Settings>) {
     return <Vode>[FORM,
 
-        Selection(ctx.theme, 'theme', [
+        Selection(settingsCtx.theme, 'theme', [
             { value: 'light', label: 'light' },
             { value: 'dark', label: 'dark' },
         ]),
 
-        Selection(ctx.lang, 'language', [
+        Selection(settingsCtx.lang, 'language', [
             { value: 'en', label: 'en' },
             { value: 'de', label: 'de' },
             { value: 'es', label: 'es' },
@@ -882,11 +1035,11 @@ function SettingsFormWithSelection(ctx: ProxySubContext<Settings>) {
 }
 
 function Selection(
-    ctx: SubContext<string>,
+    valueCtx: SubContext<string>,
     name: string,
     options: { value: string, label: string }[]
 ) {
-    const value = ctx.get();
+    const value = valueCtx.get();
 
     return <Vode>[DIV,
         [LABEL, { for: name }, name + ': ', value],
@@ -894,7 +1047,7 @@ function Selection(
         [SELECT,
             {
                 id: name,
-                onchange: (_: unknown, e: Event) => ctx.patch((<HTMLSelectElement>e.target).value),
+                onchange: (_: unknown, e: Event) => valueCtx.patch((<HTMLSelectElement>e.target).value),
                 value: value,
             },
             ...options.map((o) => [OPTION, { value: o.value, selected: value === o.value }, o.label]),
