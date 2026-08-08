@@ -607,8 +607,8 @@ export function createPatch<S = PatchableState>(
     return p;
 }
 
-/** HTML tag of the vode or undefined if it has none or is a text node */
-export function tag(v: ChildVode): Tag | undefined {
+/** HTML tag of the vode (only if it is a Vode<S>). otherwise undefined if it has none, is a text node or a component function (not evaluated) */
+export function tag<S = PatchableState>(v: ChildVode<S>): Tag | undefined {
     const t = !!v && Array.isArray(v) && (v[0] as Tag);
     if (typeof t === "string") return t;
     return undefined;
