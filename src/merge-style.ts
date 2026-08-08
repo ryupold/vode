@@ -36,6 +36,36 @@ export function mergeStyle(...props: StyleProp[]): StyleProp {
     return mergeStyleFallback(props);
 }
 
+export type StyleObject = Record<number, never> & { [K in keyof CSSStyleDeclaration]?: CSSStyleDeclaration[K] | null };
+
+/**
+ * get the evaluated style object from any StyleProp.
+ * @param style style prop (string, object, or null/undefined)
+ * @returns the evaluated style object or null if the style is not defined
+ */
+export function styleObject(style: StyleProp): StyleObject | null {
+    if (typeof style === "string") {
+        const obj: { [K in keyof CSSStyleDeclaration]?: CSSStyleDeclaration[K] | null } = {};
+        const styling = stylingElement ??= document.createElement("div");
+        try {
+            styling.style.cssText = style;
+            for (const key of Array.from(styling.style)) {
+                const value = styling.style[key as any];
+                if (value !== undefined && value !== null && value !== "") {
+                    obj[key as any] = value;
+                }
+            }
+            return obj as StyleObject;
+        } finally {
+            styling.style.cssText = "";
+        }
+    }
+    if (typeof style === "object" && style !== null) {
+        return style as StyleObject;
+    }
+    return null;
+}
+
 function mergeStyleFallback(props: StyleProp[]): string {
     const declarations = new Map<string, string>();
 

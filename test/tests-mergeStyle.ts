@@ -1,4 +1,4 @@
-import { mergeStyle } from "../index";
+import { styleObject, mergeStyle } from "../index";
 import { expect } from "./helper";
 
 // Helper to normalize style strings for comparison (browser normalizes CSS differently)
@@ -74,6 +74,51 @@ export default {
             { background: "blue" }
         ) as string;
         await expect(hasStyle(result, "font-size", "14px")).toEqual(true);
+    },
+
+    //=== styleObject ===
+
+    "styleObject(): returns object styles unchanged if already an object": async () => {
+        const style = { color: "red", fontSize: "14px" };
+        const result = styleObject(style);
+
+        await expect(result === style).toEqual(true, "the original style object is preserved");
+    },
+
+    "styleObject(): returns null for empty style values": async () => {
+        await expect(styleObject(false)).toEqual(null);
+        await expect(styleObject(null)).toEqual(null);
+        await expect(styleObject(undefined)).toEqual(null);
+    },
+
+    "styleObject(): evaluates CSS strings into style properties": async () => {
+        if ((document as any)._fake) return;
+        // skipped: Node test DOM does not implement CSS parsing
+
+        const result = styleObject("color: red; font-size: 14px");
+
+        expect(result).toBeA("object");
+
+
+        await expect(result?.color).toEqual("red");
+        await expect(result?.fontSize).toEqual("14px");
+
+    },
+
+    "styleObject(): does not leak styles into a later mergeStyle call": async () => {
+        styleObject("color: red");
+        styleObject("background-color: blue");
+
+        const result = mergeStyle("font-size: 14px", "") as string;
+        await expect(hasStyle(result, "font-size", "14px")).toEqual(true);
+        await expect(hasStyle(result, "color", "red")).toEqual(
+            false,
+            "styleObject must not leave styles in mergeStyle's shared element",
+        );
+        await expect(hasStyle(result, "background-color", "blue")).toEqual(
+            false,
+            "styleObject must not leave styles in mergeStyle's shared element",
+        );
     },
 
     //=== SSR fallback (no DOM) ===
