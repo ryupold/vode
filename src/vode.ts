@@ -16,7 +16,7 @@ export type DomElement = HTMLElement | SVGSVGElement | MathMLElement;
 
 export type AttachedVode<S = PatchableState> = AttachedElementVode<S> | (Text & { [$NODE]?: never });
 export type AttachedElementVode<S> = Vode<S> & { [$NODE]: ElementNode<S>;[$UNMOUNT_COUNT]?: number };
-export type ElementNode<S> = HTMLElement &
+export type ElementNode<S = PatchableState> = HTMLElement &
     SVGSVGElement &
     MathMLElement &
     Record<string, PropertyValue<S>>;
@@ -79,7 +79,7 @@ export interface Props<S = PatchableState> extends Partial<
         oldVode: RenderedVode | undefined) => void) | null | false;
 }
 
-export type MountFunction<S> =
+export type MountFunction<S = PatchableState> =
     | ((s: S, node: HTMLElement) => Patch<S>)
     | ((s: S, node: SVGSVGElement) => Patch<S>)
     | ((s: S, node: MathMLElement) => Patch<S>);
@@ -107,7 +107,7 @@ type EventsMapBase = { [K in keyof HTMLElementEventMap as `on${K}`]: HTMLElement
 
 export interface EventsMap extends EventsMapBase { }
 
-export type PropertyValue<S> =
+export type PropertyValue<S = PatchableState> =
     string | boolean | null | undefined | void | StyleProp | ClassProp | Patch<S>;
 
 export type Dispatch<S> = (action: Patch<S>, animated?: boolean) => void | Promise<void>;
@@ -127,7 +127,7 @@ export type Stats = {
     lastSyncRenderTime: number;
     lastAsyncRenderTime: number;
 };
-export type AsPatchable<S> = S extends { patch: any } ? S : PatchableState<S>;
+export type AsPatchable<S> = S extends PatchableState<object> ? S : PatchableState<S>;
 type PreparedState<S> = { patch: { initialPatches: Patch<S>[] } };
 
 export type ContainerNode<S = PatchableState> = DomElement & {
@@ -188,7 +188,7 @@ export function app<S extends object = PatchableState>(
 ): Dispatch<AsPatchable<S>>;
 export function app<S extends PatchableState = PatchableState>(
     container: DomElement,
-    state: Omit<S, "patch">,
+    state: Omit<S, "patch" | typeof $STATS>,
     dom: (s: S) => Vode<S>,
     ...initialPatches: Patch<S>[]
 ): Dispatch<S> {
@@ -565,11 +565,11 @@ export function memo<S = PatchableState>(
  * calls to `patch()` prior to `app()` initialization will queue the patches and apply them before the initial patches.
  * calls to `patch()` after `app()` initialization will apply the patch immediately and trigger a render as usual.
  */
-export function createState<S = PatchableState>(state: S): PatchableState<S> {
+export function createState<S extends object>(state: S | Omit<S, "patch" | typeof $STATS>): AsPatchable<S> {
     if (!state || typeof state !== "object")
-        throw new Error("createState() must be called with a state object");
+        throw new Error("createState() must be called with an object argument");
 
-    if (!("patch" in state)) {
+    if (typeof (state as PatchableState<S>)["patch"] !== "function") {
         Object.defineProperty(state, "patch", {
             enumerable: false,
             configurable: true,
@@ -584,7 +584,7 @@ export function createState<S = PatchableState>(state: S): PatchableState<S> {
         });
     }
 
-    if (!($STATS in state)) {
+    if (typeof (state as PatchableState<S>)[$STATS] === "undefined") {
         (state as PatchableState<S>)[$STATS] = {
             lastSyncRenderTime: 0,
             lastAsyncRenderTime: 0,
@@ -597,7 +597,7 @@ export function createState<S = PatchableState>(state: S): PatchableState<S> {
         };
     }
 
-    return state as PatchableState<S>;
+    return state as AsPatchable<S>;
 }
 
 /** type safe way to create a patch. useful for type inference and autocompletion. */
