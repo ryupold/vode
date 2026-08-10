@@ -26,7 +26,7 @@ export type AttachedElementVode<S> = Vode<S> & {
 	[$NODE]: ElementNode<S>;
 	[$UNMOUNT_COUNT]?: number;
 };
-export type ElementNode<S> = HTMLElement & SVGSVGElement & MathMLElement & Record<string, PropertyValue<S>>;
+export type ElementNode<S = PatchableState> = HTMLElement & SVGSVGElement & MathMLElement & Record<string, PropertyValue<S>>;
 export type RenderedVode = Vode & {
 	[$NODE]: DomElement;
 };
@@ -66,7 +66,7 @@ export interface Props<S = PatchableState> extends Partial<Omit<HTMLElement, key
 	 * - `newVode` is attached, `oldVode` is defined: updated/checked */
 	reconciled?: ((s: S, newVode: RenderedVode, oldVode: RenderedVode | undefined) => void) | null | false;
 }
-export type MountFunction<S> = ((s: S, node: HTMLElement) => Patch<S>) | ((s: S, node: SVGSVGElement) => Patch<S>) | ((s: S, node: MathMLElement) => Patch<S>);
+export type MountFunction<S = PatchableState> = ((s: S, node: HTMLElement) => Patch<S>) | ((s: S, node: SVGSVGElement) => Patch<S>) | ((s: S, node: MathMLElement) => Patch<S>);
 export type ClassProp = string | string[] | Record<string, boolean | undefined | null> | "" | false | null | undefined;
 export type StyleProp = string | (Record<number, never> & {
 	[K in keyof CSSStyleDeclaration]?: CSSStyleDeclaration[K] | null;
@@ -80,7 +80,7 @@ export type EventsMapBase = {
 };
 export interface EventsMap extends EventsMapBase {
 }
-export type PropertyValue<S> = string | boolean | null | undefined | void | StyleProp | ClassProp | Patch<S>;
+export type PropertyValue<S = PatchableState> = string | boolean | null | undefined | void | StyleProp | ClassProp | Patch<S>;
 export type Dispatch<S> = (action: Patch<S>, animated?: boolean) => void | Promise<void>;
 export interface Patchable<S = object> {
 	patch: Dispatch<S>;
@@ -99,9 +99,7 @@ export type Stats = {
 	lastSyncRenderTime: number;
 	lastAsyncRenderTime: number;
 };
-export type AsPatchable<S> = S extends {
-	patch: any;
-} ? S : PatchableState<S>;
+export type AsPatchable<S> = S extends PatchableState<object> ? S : PatchableState<S>;
 export type ContainerNode<S = PatchableState> = DomElement & {
 	/** the `VODE` (symbol) property is added to the container in `app()`.
 	 * it contains all necessary stuff for the vode app to function.
@@ -158,7 +156,7 @@ export declare function memo<S = PatchableState>(compare: unknown[], component: 
  * calls to `patch()` prior to `app()` initialization will queue the patches and apply them before the initial patches.
  * calls to `patch()` after `app()` initialization will apply the patch immediately and trigger a render as usual.
  */
-export declare function createState<S = PatchableState>(state: S): PatchableState<S>;
+export declare function createState<S extends object>(state: S | Omit<S, "patch" | typeof $STATS>): AsPatchable<S>;
 /** type safe way to create a patch. useful for type inference and autocompletion. */
 export declare function createPatch<S = PatchableState>(p: DeepPartial<S> | Effect<S> | IgnoredPatch): typeof p;
 /** HTML tag of the vode (only if it is a Vode<S>). otherwise undefined if it has none, is a text node or a component function (not evaluated) */
@@ -171,6 +169,13 @@ export declare function childCount<S = PatchableState>(vode: Vode<S>): number;
 export declare function child<S = PatchableState>(vode: Vode<S>, index: number): ChildVode<S>;
 /** index in vode at which child-vodes start */
 export declare function childrenStart<S = PatchableState>(vode: ChildVode<S> | AttachedVode<S>): 1 | 2 | -1;
+/** merge state from source into target (deep merge).
+ * used when patch() is called on the state.
+ * @param target the target state object to merge into
+ * @param source the source state object to pull values from
+ * @param allowDeletion if true, passing key: undefined will delete the key from the target state
+ */
+export declare function mergeState(target: Record<string, unknown>, source: Record<string, unknown> | unknown | null | undefined, allowDeletion: boolean): Record<string, unknown>;
 export type KeyedProps<S = PatchableState> = Props<S> & {
 	key: string;
 };
@@ -301,8 +306,9 @@ export type ProxyState<SubState> = SubState & {
  * @param producePath - Optional path producer; receives a proxy of the state and should return the desired sub-node
  * @returns A `ProxyStateContext` rooted at the given path, with further property-chain access available
  */
-export declare function context<S extends PatchableState, SS = S>(state: S): ProxyStateContext<S, SS>;
-export declare function context<S extends PatchableState, SS>(state: S, producePath: (ctx: ProxyState<S>) => ProxyState<SS>): ProxyStateContext<S, SS>;
+export declare function context<S extends object, SS = S>(state: S | Omit<S, "patch" | typeof $STATS>): ProxyStateContext<AsPatchable<S>, SS>;
+export declare function context<S extends object, SS>(state: S | Omit<S, "patch" | typeof $STATS>, producePath: (ctx: ProxyState<AsPatchable<S>>) => ProxyState<SS>): ProxyStateContext<AsPatchable<S>, SS>;
+export declare const $KEYS: unique symbol;
 export declare const A: Tag;
 export declare const ABBR: Tag;
 export declare const ADDRESS: Tag;

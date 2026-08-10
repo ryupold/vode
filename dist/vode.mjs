@@ -313,8 +313,8 @@ function memo(compare, component) {
 }
 function createState(state) {
   if (!state || typeof state !== "object")
-    throw new Error("createState() must be called with a state object");
-  if (!("patch" in state)) {
+    throw new Error("createState() must be called with an object argument");
+  if (typeof state["patch"] !== "function") {
     Object.defineProperty(state, "patch", {
       enumerable: false,
       configurable: true,
@@ -328,7 +328,7 @@ function createState(state) {
       }
     });
   }
-  if (!($STATS in state)) {
+  if (typeof state[$STATS] === "undefined") {
     state[$STATS] = {
       lastSyncRenderTime: 0,
       lastAsyncRenderTime: 0,
@@ -1067,23 +1067,25 @@ var ProxyStateContextImpl = class _ProxyStateContextImpl {
   constructor(state, keys) {
     this.state = state;
     this.keys = keys;
+    const that = this;
     function putDeep(value, target) {
-      if (keys.length > 1) {
+      const keys2 = that.keys;
+      if (keys2.length > 1) {
         let i = 0;
-        let raw = target[keys[i]];
+        let raw = target[keys2[i]];
         if (typeof raw !== "object" || raw === null) {
-          target[keys[i]] = raw = {};
+          target[keys2[i]] = raw = {};
         }
-        for (i = 1; i < keys.length - 1; i++) {
+        for (i = 1; i < keys2.length - 1; i++) {
           const p = raw;
-          raw = raw[keys[i]];
+          raw = raw[keys2[i]];
           if (typeof raw !== "object" || raw === null) {
-            p[keys[i]] = raw = {};
+            p[keys2[i]] = raw = {};
           }
         }
-        raw[keys[i]] = value;
-      } else if (keys.length === 1) {
-        target[keys[0]] = value;
+        raw[keys2[i]] = value;
+      } else if (keys2.length === 1) {
+        target[keys2[0]] = value;
       } else {
         Object.assign(target, value);
       }
@@ -1094,11 +1096,12 @@ var ProxyStateContextImpl = class _ProxyStateContextImpl {
       return renderPatch;
     }
     function get() {
-      if (keys.length === 0)
+      const keys2 = that.keys;
+      if (keys2.length === 0)
         return state;
-      let raw = state ? state[keys[0]] : void 0;
-      for (let i = 1; i < keys.length && !!raw; i++) {
-        raw = raw[keys[i]];
+      let raw = state ? state[keys2[0]] : void 0;
+      for (let i = 1; i < keys2.length && !!raw; i++) {
+        raw = raw[keys2[i]];
       }
       return raw;
     }
@@ -1124,7 +1127,11 @@ var ProxyStateContextImpl = class _ProxyStateContextImpl {
         return new _ProxyStateContextImpl(target.state, newKeys);
       },
       set: (target, p, newValue, receiver) => {
-        throw new Error("ProxyStateContext is not meant to be directly mutated. Use put() or patch() methods on the StateContext instead");
+        if (p === $KEYS)
+          target.keys = newValue;
+        else
+          throw new Error("ProxyStateContext is not meant to be directly mutated. Use put() or patch() methods on the StateContext instead");
+        return true;
       }
     });
   }
@@ -1363,6 +1370,7 @@ var MUNDEROVER = "munderover";
 var NONE = "none";
 var SEMANTICS = "semantics";
 export {
+  $KEYS,
   $NODE,
   $STATS,
   $VODE,
@@ -1594,6 +1602,7 @@ export {
   memo,
   mergeClass,
   mergeProps,
+  mergeState,
   mergeStyle,
   props,
   styleObject,
