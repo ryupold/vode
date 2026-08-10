@@ -1,6 +1,6 @@
 import { expect } from "./helper";
-import { context } from "../src/state-context";
-import { createState } from "../src/vode";
+import { $KEYS, context } from "../src/state-context";
+import { createState, mergeState } from "../src/vode";
 
 export default {
     "context(s)...get(): returns whole state": async () => {
@@ -293,5 +293,56 @@ export default {
         patchCtx.patch({ count: 42 });
         const patches = (state as any).patch.initialPatches;
         await expect(patches[0]).toEqual({ endpoints: { patch: { count: 42 } } });
+    },
+
+    "context(rawState)...get()/put(): raw object can be used as context": async () => {
+        const state = { data: { numbers: [1, 2, 3], string: "this is a test" } };
+        const numbersCtx = context(state, s => s.data.numbers);
+        const stringCtx = context(state, s => s.data.string);
+    
+        await expect(numbersCtx.get()).toEqual([1, 2, 3]);
+        await expect(stringCtx.get()).toEqual("this is a test");
+
+        numbersCtx.put([4, 5, 6]);
+        stringCtx.put("foobar");
+
+        await expect(state.data.numbers).toEqual([4, 5, 6]);
+        await expect(state.data.string).toEqual("foobar");
+    },
+
+    "context(rawState)...patch(): raw object can be used as context but `patch`ing is not possible": async () => {
+        const status = { data: { numbers: [1, 2, 3], string: "this is a test" } };
+
+        const numbersCtx = context(status, s => s.data.numbers);
+
+        const err = expect(() => numbersCtx.patch([0,0,0])).toFail();
+        await expect(err.message).toEqual("state.patch is not a function");
+    },
+
+     "context(rawState)...patch(): raw object can be patched with a provided patch function": async () => {
+        const status = { 
+            data: { numbers: [1, 2, 3], string: "this is a test" },
+            patch: (p: object) => {},
+        };
+
+        // provide a custom patch function that uses mergeState
+        status.patch = (p: object) => mergeState(status, p, true);
+
+        const numbersCtx = context(status, s => s.data.numbers);
+
+        expect(() => numbersCtx.patch([0,0,0])).toSucceed();
+        await expect(status.data.numbers).toEqual([0, 0, 0]);
+    },
+
+     "context(state, c => c.a.b.c): change keys by setting $KEYS on the context": async () => {
+        const state = createState({ 
+            data: { numbers: [1, 2, 3], string: "this is a test" },
+        });
+
+        const numbersCtx = context(state, s => s.data.numbers);
+        await expect(numbersCtx.get()).toEqual([1,2,3]);
+
+        (numbersCtx as any)[$KEYS] = ["data", "string"];
+        await expect(numbersCtx.get()).toEqual("this is a test");
     },
 };

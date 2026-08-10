@@ -1,4 +1,4 @@
-import { DeepPartial, Patchable, PatchableState, RenderPatch } from "./vode";
+import { AsPatchable, DeepPartial, Patchable, PatchableState, RenderPatch, $STATS } from "./vode";
 
 /**
  * State context for type-safe access and manipulation of nested state paths
@@ -81,24 +81,27 @@ type ProxyState<SubState> = SubState & {
  * @returns A `ProxyStateContext` rooted at the given path, with further property-chain access available
  */
 
-export function context<S extends PatchableState, SS = S>(state: S): ProxyStateContext<S, SS>;
-export function context<S extends PatchableState, SS>(state: S, producePath: (ctx: ProxyState<S>) => ProxyState<SS>): ProxyStateContext<S, SS>;
-export function context<S extends PatchableState, SS = S>(state: S, producePath?: (ctx: ProxyState<S>) => ProxyState<SS>): ProxyStateContext<S, SS> {
+export function context<S extends object, SS = S>(state: S | Omit<S, "patch" | typeof $STATS>): ProxyStateContext<AsPatchable<S>, SS>;
+export function context<S extends object, SS>(state: S | Omit<S, "patch" | typeof $STATS>, producePath: (ctx: ProxyState<AsPatchable<S>>) => ProxyState<SS>): ProxyStateContext<AsPatchable<S>, SS>;
+export function context<S extends object, SS = S>(state: S | Omit<S, "patch" | typeof $STATS>, producePath?: (ctx: ProxyState<AsPatchable<S>>) => ProxyState<SS>): ProxyStateContext<AsPatchable<S>, SS> {
     if (producePath) {
-        const proxy = producePath(proxyState<S>(state, [] as string[]));
+        const proxy = producePath(proxyState<AsPatchable<S>>(state as AsPatchable<S>, [] as string[]));
         const keys = (proxy as any)[$KEYS] as string[];
-        return new ProxyStateContextImpl<S, SS>(state, keys) as unknown as ProxyStateContext<S, SS>;
+        return new ProxyStateContextImpl<AsPatchable<S>, SS>(state as AsPatchable<S>, keys) as unknown as ProxyStateContext<AsPatchable<S>, SS>;
     }
-    return new ProxyStateContextImpl<S, S>(state, []) as unknown as ProxyStateContext<S, SS>;
+    return new ProxyStateContextImpl<AsPatchable<S>, S>(state as AsPatchable<S>, []) as unknown as ProxyStateContext<AsPatchable<S>, SS>;
 }
 
 class ProxyStateContextImpl<S extends PatchableState, SubState> {
 
     constructor(
         readonly state: S,
-        readonly keys: string[]
+        private keys: string[]
     ) {
+        const that = this;
+        
         function putDeep(value: SubState | DeepPartial<SubState> | undefined | null, target: S | DeepPartial<S>) {
+            const keys = that.keys;
             if (keys.length > 1) {
                 let i = 0;
                 let raw = (<any>target)[keys[i]];
@@ -127,6 +130,7 @@ class ProxyStateContextImpl<S extends PatchableState, SubState> {
         }
 
         function get(): SubState | undefined {
+            const keys = that.keys;
             if (keys.length === 0)
                 return state as unknown as SubState;
 
@@ -167,15 +171,18 @@ class ProxyStateContextImpl<S extends PatchableState, SubState> {
                 return new ProxyStateContextImpl<S, any>(target.state, newKeys);
             },
             set: (target: this, p: string | symbol, newValue: any, receiver: any) => {
-                throw new Error("ProxyStateContext is not meant to be directly mutated. Use put() or patch() methods on the StateContext instead");
+                if(p === $KEYS)
+                    target.keys = newValue;
+                else
+                    throw new Error("ProxyStateContext is not meant to be directly mutated. Use put() or patch() methods on the StateContext instead");
+                
+                return true;
             }
         });
     }
-
 }
 
-
-const $KEYS = Symbol("keys");
+export const $KEYS = Symbol("keys");
 
 function proxyState<S extends PatchableState>(
     state: S,

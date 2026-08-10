@@ -668,7 +668,13 @@ export function childrenStart<S = PatchableState>(
     return -1;
 }
 
-function mergeState(
+/** merge state from source into target (deep merge).
+ * used when patch() is called on the state.
+ * @param target the target state object to merge into
+ * @param source the source state object to pull values from
+ * @param allowDeletion if true, passing key: undefined will delete the key from the target state
+ */
+export function mergeState(
     target: Record<string, unknown>,
     source: Record<string, unknown> | unknown | null | undefined,
     allowDeletion: boolean,
