@@ -997,7 +997,17 @@ function styleObject(style) {
     }
   }
   if (typeof style === "object" && style !== null) {
-    return style;
+    const styling = stylingElement ??= document.createElement("div");
+    let result;
+    try {
+      for (const key of Object.keys(style)) {
+        styling.style[key] = style[key];
+      }
+      result = styling.style.cssText;
+    } finally {
+      styling.style.cssText = "";
+    }
+    return styleObject(result);
   }
   return null;
 }
