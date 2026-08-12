@@ -68,7 +68,7 @@
         "@babel/preset-env": "8.0.2",
         "dts-bundle-generator": "9.5.1",
         "esbuild": "0.28.1",
-        "typescript": "6.0.3"
+        "typescript": "7.0.2"
     },
     "allowScripts": {
         "esbuild@0.28.1": true
