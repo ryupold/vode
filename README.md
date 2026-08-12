@@ -207,6 +207,140 @@ Binds the library to the global `V` variable.
         V.app(appNode, state,
             function (s) {
                 return ["div", { style: {
+                import {
+                  app, context, createState,
+                  type SubContext, type Vode,
+                  DIV, INPUT, LABEL, RECT, SVG, TEXT, PRE, CODE,
+                } from '@ryupold/vode';
+                
+                const state = createState({
+                    shape: { radius: 28, border: 8, hue: 265 },
+                    text: 'Hello, Vode!',
+                });
+                
+                type State = typeof state;
+                
+                const ctx = context(state);
+                
+                const appNode = document.getElementById('app')!;
+                
+                const Slider = (valueCtx: SubContext<number>, label: string, max: number, hue: number) => [LABEL,
+                    { style: { display: 'grid', gap: '5px' } },
+                    `${label}: ${valueCtx.get()}`,
+                    [INPUT, {
+                        type: 'range', min: 0, max, value: valueCtx.get(),
+                        style: { width: '100%', accentColor: `hsl(${hue} 80% 50%)` },
+                        oninput: (_: unknown, event: Event) => valueCtx.patch(Number((event.target as HTMLInputElement).value)),
+                    }],
+                ];
+                
+                const TextInput = (valueCtx: SubContext<string>) => [INPUT, {
+                    value: valueCtx.get(), maxlength: 18, placeholder: 'Type something',
+                    style: { padding: '9px 11px', border: '1px solid #cbd5e1', borderRadius: '8px' },
+                    oninput: (_: unknown, event: Event) => valueCtx.patch((event.target as HTMLInputElement).value),
+                }];
+                
+                const Preview = (s: State) => [SVG,
+                    { xmlns: 'http://www.w3.org/2000/svg', viewBox: '0 0 320 220', style: { width: '100%' } },
+                    [RECT, {
+                        x: 25, y: 25, width: 270, height: 170, rx: s.shape.radius,
+                        fill: `hsl(${s.shape.hue} 75% 55%)`,
+                        stroke: `hsl(${s.shape.hue} 80% 25%)`,
+                        'stroke-width': s.shape.border,
+                    }],
+                    [TEXT, {
+                        x: 160, y: 110, fill: 'white', 'text-anchor': 'middle',
+                        'dominant-baseline': 'middle', 'font-size': 24, 'font-family': 'system-ui',
+                    }, s.text],
+                ];
+                
+                app(appNode, state,
+                    (s) => <Vode>[DIV, 
+                          { 
+                            style: {
+                              maxWidth: '720px', margin: '40px auto', padding: '24px',
+                              font: '15px system-ui', borderRadius: '20px', background: '#f8fafc',
+                              boxShadow: '0 16px 50px #0f172a22',
+                            } 
+                          },
+                          [DIV, { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '28px', alignItems: 'center' } },
+                            [DIV, { style: { display: 'grid', gap: '14px' } },
+                                Slider(ctx.shape.radius, 'Corner radius', 80, s.shape.hue),
+                                Slider(ctx.shape.border, 'Border width', 20, s.shape.hue),
+                                Slider(ctx.shape.hue, 'Color hue', 360, s.shape.hue),
+                                TextInput(ctx.text),
+                            ],
+                            Preview(s),
+                        ],
+                        [PRE, [CODE, JSON.stringify(s, null, 2)]]
+                    ]
+                );body>
+</html>
+```
+
+### Classic (IIFE)
+Binds the library to the global `V` variable.
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <script src="https://unpkg.com/@ryupold/vode/dist/vode.es5.min.js"></script>
+    <title>Vode ES5 (IIFE) Script Example</title>
+</head>
+<body>
+    <div id="app"></div>
+    <script>
+        var appNode = document.getElementById('app');
+
+        var state = V.createState({
+            shape: { radius: 28, border: 8, hue: 265 },
+            text: 'Hello, Vode!'
+        });
+
+        var ctx = V.context(state);
+
+        function Slider(valueCtx, label, max, hue) {
+            return ["label", { style: { display: 'grid', gap: '5px' } },
+                label + ': ' + valueCtx.get(),
+                ["input", {
+                    type: 'range', min: 0, max: max, value: valueCtx.get(),
+                    style: { width: '100%', accentColor: 'hsl(' + hue + ' 80% 50%)' },
+                    oninput: function (_, event) {
+                        valueCtx.patch(Number(event.target.value));
+                    }
+                }]
+            ];
+        }
+
+        function TextInput(valueCtx) {
+            return ["input", {
+                value: valueCtx.get(), maxlength: 18, placeholder: 'Type something',
+                style: { padding: '9px 11px', border: '1px solid #cbd5e1', borderRadius: '8px' },
+                oninput: function (_, event) { valueCtx.patch(event.target.value); }
+            }];
+        }
+
+        function Preview(s) {
+            return ["svg",
+                { xmlns: 'http://www.w3.org/2000/svg', viewBox: '0 0 320 220', style: { width: '100%' } },
+                ["rect", {
+                    x: 25, y: 25, width: 270, height: 170, rx: s.shape.radius,
+                    fill: 'hsl(' + s.shape.hue + ' 75% 55%)',
+                    stroke: 'hsl(' + s.shape.hue + ' 80% 25%)',
+                    'stroke-width': s.shape.border
+                }],
+                ["text", {
+                    x: 160, y: 110, fill: 'white', 'text-anchor': 'middle',
+                    'dominant-baseline': 'middle', 'font-size': 24, 'font-family': 'system-ui'
+                }, s.text]
+            ];
+        }
+
+        V.app(appNode, state,
+            function (s) {
+                return ["div", { style: {
                     maxWidth: '720px', margin: '40px auto', padding: '24px',
                     font: '15px system-ui', borderRadius: '20px', background: '#f8fafc',
                     boxShadow: '0 16px 50px #0f172a22'
@@ -237,7 +371,8 @@ Create a project and install Vode:
 ```sh
 mkdir vode-example
 cd vode-example
-npm init -y
+npm init --init-type=module -y
+tsc --init
 npm install @ryupold/vode --save
 ```
 
@@ -266,37 +401,44 @@ The browser cannot resolve a bare import such as `@ryupold/vode` on its own. Thi
 </html>
 ```
 
-`main.js`
 
-```javascript
-import { app, context, createState, DIV, INPUT, LABEL, RECT, SVG, TEXT, PRE, CODE } from '@ryupold/vode';
+`main.ts`
+
+```typescript
+import {
+  app, context, createState,
+  type SubContext, type Vode,
+  DIV, INPUT, LABEL, RECT, SVG, TEXT, PRE, CODE,
+} from '@ryupold/vode';
 
 const state = createState({
     shape: { radius: 28, border: 8, hue: 265 },
     text: 'Hello, Vode!',
 });
 
+type State = typeof state;
+
 const ctx = context(state);
 
-const appNode = document.getElementById('app');
+const appNode = document.getElementById('app')!;
 
-const Slider = (valueCtx, label, max, hue) => [LABEL,
+const Slider = (valueCtx: SubContext<number>, label: string, max: number, hue: number) => [LABEL,
     { style: { display: 'grid', gap: '5px' } },
     `${label}: ${valueCtx.get()}`,
     [INPUT, {
         type: 'range', min: 0, max, value: valueCtx.get(),
         style: { width: '100%', accentColor: `hsl(${hue} 80% 50%)` },
-        oninput: (_, event) => valueCtx.patch(Number(event.target.value)),
+        oninput: (_: unknown, event: Event) => valueCtx.patch(Number((event.target as HTMLInputElement).value)),
     }],
 ];
 
-const TextInput = (valueCtx) => [INPUT, {
+const TextInput = (valueCtx: SubContext<string>) => [INPUT, {
     value: valueCtx.get(), maxlength: 18, placeholder: 'Type something',
     style: { padding: '9px 11px', border: '1px solid #cbd5e1', borderRadius: '8px' },
-    oninput: (_, event) => valueCtx.patch(event.target.value),
+    oninput: (_: unknown, event: Event) => valueCtx.patch((event.target as HTMLInputElement).value),
 }];
 
-const Preview = (s) => [SVG,
+const Preview = (s: State) => [SVG,
     { xmlns: 'http://www.w3.org/2000/svg', viewBox: '0 0 320 220', style: { width: '100%' } },
     [RECT, {
         x: 25, y: 25, width: 270, height: 170, rx: s.shape.radius,
@@ -311,12 +453,15 @@ const Preview = (s) => [SVG,
 ];
 
 app(appNode, state,
-    (s) => [DIV, { style: {
-        maxWidth: '720px', margin: '40px auto', padding: '24px',
-        font: '15px system-ui', borderRadius: '20px', background: '#f8fafc',
-        boxShadow: '0 16px 50px #0f172a22',
-    } },
-        [DIV, { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '28px', alignItems: 'center' } },
+    (s) => <Vode>[DIV, 
+          { 
+            style: {
+              maxWidth: '720px', margin: '40px auto', padding: '24px',
+              font: '15px system-ui', borderRadius: '20px', background: '#f8fafc',
+              boxShadow: '0 16px 50px #0f172a22',
+            } 
+          },
+          [DIV, { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '28px', alignItems: 'center' } },
             [DIV, { style: { display: 'grid', gap: '14px' } },
                 Slider(ctx.shape.radius, 'Corner radius', 80, s.shape.hue),
                 Slider(ctx.shape.border, 'Border width', 20, s.shape.hue),
@@ -325,14 +470,20 @@ app(appNode, state,
             ],
             Preview(s),
         ],
-        [PRE, [CODE, JSON.stringify(s, null, 2)]
+        [PRE, [CODE, JSON.stringify(s, null, 2)]]
     ]
 );
 ```
 
+Run 
+```sh
+tsc -b
+```
+to output the `main.js`.
+
 Now you can serve the directory with a static file server (e.g. `npx http-server`).
 
-In an application that already uses a bundler, omit the import map and keep the same bare import. If you use TypeScript, put the code in `main.ts` and let your existing TypeScript/bundler setup produce the `main.js` loaded by the page.
+In an application that already uses a bundler, omit the import map and keep the same bare import.
 
 ## `[V,{},d,e]`
 
@@ -404,65 +555,74 @@ expressed as *vode* structure it would look like this:
             [DIV, { class: 'media-left' },
                 [FIGURE, { class: 'image is-48x48' },
                     [IMG, {
-                        src: 'placeholders/96x96.png',
-                        alt: 'Placeholder image'
-                    }]
-                ]
-            ],
-            [DIV, { class: 'media-content' },
-                [P, { class: 'title is-4' }, 'John Smith'],
-                [P, { class: 'subtitle is-6' }, '@johnsmith']
-            ]
-        ],
-        [DIV, { class: 'content' },
-            'Lorem ipsum dolor sit amet, consectetur adipiscing elit.',
-            [A, { href: '?post=vode' }, 'vode'], '. ', [A, { href: '#' }, '#css'],
-            [A, { href: '#' }, '#responsive'],
-            [BR],
-            [TIME, { datetime: '2025-09-24' }, '10:09 PM - 24 Sep 2025']
-        ]
-    ]
-]
-```
-
-Viewed in isolation, it does not provide an obvious benefit (apart from looking better IMHO),
-but as a function of state, it can become very useful to express conditional UI this way.
-
-### app
-
-`app` is a function that takes an HTML node, a state object, and a render function (`Component<State>`).
-
-```typescript
-const containerNode = document.getElementById('ANY-ELEMENT');
-const state = {
-    counter: 0,
-    pointing: false,
-    loading: false,
-    title: '',
-    body: '',
-};
-
-const patch = app(
-    containerNode,
-    state,
-    (s) =>
-        [DIV,
-            [P, { style: { color: 'red' } }, `${s.counter}`],
-            [BUTTON, { onclick: () => ({ counter: s.counter + 1 }) }, 'Click me'],
-        ]
-    );
-```
-
-It will analyze the current structure of the given `ContainerNode` and adjust its structure in the first render.
-When render-patches are applied to the `patch` function or via yield/return of events,
-the `ContainerNode` is updated to match the vode structure 1:1.
-
-> `app()` infers the state type from the second argument, so you don't need explicit generics or parameter types in the `dom` function. If you prefer, you can still write them explicitly:
-> ```typescript
-> type State = typeof state;
-> app<State>(appNode, state, (s: State) => ...);
-> ```
-
+                        src: 'placeholders/96x96.png',import {
+                          app, context, createState,
+                          type SubContext, type Vode,
+                          DIV, INPUT, LABEL, RECT, SVG, TEXT, PRE, CODE,
+                        } from '@ryupold/vode';
+                        
+                        const state = createState({
+                            shape: { radius: 28, border: 8, hue: 265 },
+                            text: 'Hello, Vode!',
+                        });
+                        
+                        type State = typeof state;
+                        
+                        const ctx = context(state);
+                        
+                        const appNode = document.getElementById('app')!;
+                        
+                        const Slider = (valueCtx: SubContext<number>, label: string, max: number, hue: number) => [LABEL,
+                            { style: { display: 'grid', gap: '5px' } },
+                            `${label}: ${valueCtx.get()}`,
+                            [INPUT, {
+                                type: 'range', min: 0, max, value: valueCtx.get(),
+                                style: { width: '100%', accentColor: `hsl(${hue} 80% 50%)` },
+                                oninput: (_: unknown, event: Event) => valueCtx.patch(Number((event.target as HTMLInputElement).value)),
+                            }],
+                        ];
+                        
+                        const TextInput = (valueCtx: SubContext<string>) => [INPUT, {
+                            value: valueCtx.get(), maxlength: 18, placeholder: 'Type something',
+                            style: { padding: '9px 11px', border: '1px solid #cbd5e1', borderRadius: '8px' },
+                            oninput: (_: unknown, event: Event) => valueCtx.patch((event.target as HTMLInputElement).value),
+                        }];
+                        
+                        const Preview = (s: State) => [SVG,
+                            { xmlns: 'http://www.w3.org/2000/svg', viewBox: '0 0 320 220', style: { width: '100%' } },
+                            [RECT, {
+                                x: 25, y: 25, width: 270, height: 170, rx: s.shape.radius,
+                                fill: `hsl(${s.shape.hue} 75% 55%)`,
+                                stroke: `hsl(${s.shape.hue} 80% 25%)`,
+                                'stroke-width': s.shape.border,
+                            }],
+                            [TEXT, {
+                                x: 160, y: 110, fill: 'white', 'text-anchor': 'middle',
+                                'dominant-baseline': 'middle', 'font-size': 24, 'font-family': 'system-ui',
+                            }, s.text],
+                        ];
+                        
+                        app(appNode, state,
+                            (s) => <Vode>[DIV, 
+                                  { 
+                                    style: {
+                                      maxWidth: '720px', margin: '40px auto', padding: '24px',
+                                      font: '15px system-ui', borderRadius: '20px', background: '#f8fafc',
+                                      boxShadow: '0 16px 50px #0f172a22',
+                                    } 
+                                  },
+                                  [DIV, { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '28px', alignItems: 'center' } },
+                                    [DIV, { style: { display: 'grid', gap: '14px' } },
+                                        Slider(ctx.shape.radius, 'Corner radius', 80, s.shape.hue),
+                                        Slider(ctx.shape.border, 'Border width', 20, s.shape.hue),
+                                        Slider(ctx.shape.hue, 'Color hue', 360, s.shape.hue),
+                                        TextInput(ctx.text),
+                                    ],
+                                    Preview(s),
+                                ],
+                                [PRE, [CODE, JSON.stringify(s, null, 2)]]
+                            ]
+                        );
 #### defuse
 
 To release resources associated with the vode app instance, you can call the `defuse` function on the `ContainerNode` that was passed to `app`.
