@@ -78,17 +78,24 @@ export default {
 
     //=== styleObject ===
 
-    "styleObject(): returns object styles unchanged if already an object": async () => {
-        const style = { color: "red", fontSize: "14px" };
-        const result = styleObject(style);
-
-        await expect(result === style).toEqual(true, "the original style object is preserved");
-    },
-
     "styleObject(): returns null for empty style values": async () => {
         await expect(styleObject(false)).toEqual(null);
         await expect(styleObject(null)).toEqual(null);
         await expect(styleObject(undefined)).toEqual(null);
+    },
+    
+    "styleObject(): returns object styles normalized if already an object": async () => {
+        if ((document as any)._fake) return;
+        // skipped: Node test DOM does not implement CSS parsing
+
+        const style = { color: "red", fontSize: "14px" };
+        const result = styleObject(style);
+
+        await expect(result !== style).toEqual(true, "new object is created");
+        await expect(result).toEqual({
+            color: "red",
+            "font-size": "14px"
+        });
     },
 
     "styleObject(): evaluates CSS strings into style properties": async () => {
@@ -99,13 +106,16 @@ export default {
 
         expect(result).toBeA("object");
 
-
-        await expect(result?.color).toEqual("red");
-        await expect(result?.fontSize).toEqual("14px");
-
+        await expect(result).toEqual({
+            color: "red",
+            "font-size": "14px"
+        });
     },
 
     "styleObject(): does not leak styles into a later mergeStyle call": async () => {
+        if ((document as any)._fake) return;
+        // skipped: Node test DOM does not implement CSS parsing
+
         styleObject("color: red");
         styleObject("background-color: blue");
 

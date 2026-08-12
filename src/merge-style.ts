@@ -40,6 +40,7 @@ export type StyleObject = Record<number, never> & { [K in keyof CSSStyleDeclarat
 
 /**
  * get the evaluated style object from any StyleProp.
+ * Note: the style property keys get normalized during this process (e.g. fontSize becomes font-size)
  * @param style style prop (string, object, or null/undefined)
  * @returns the evaluated style object or null if the style is not defined
  */
@@ -61,7 +62,17 @@ export function styleObject(style: StyleProp): StyleObject | null {
         }
     }
     if (typeof style === "object" && style !== null) {
-        return style as StyleObject;
+        const styling = stylingElement ??= document.createElement("div");
+        let result: string;
+        try {
+            for (const key of Object.keys(style)) {
+                styling.style[key as any] = style[key as any];
+            }
+            result = styling.style.cssText;
+        } finally {
+            styling.style.cssText = "";
+        }
+        return styleObject(result);
     }
     return null;
 }
