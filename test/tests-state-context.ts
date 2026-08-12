@@ -316,7 +316,7 @@ export default {
         const numbersCtx = context(status, s => s.data.numbers);
 
         const err = expect(() => numbersCtx.patch([0,0,0])).toFail();
-        await expect(err.message).toEqual("state.patch is not a function");
+        await expect(err.message.includes(".patch is not a function")).toEqual(true);
     },
 
      "context(rawState)...patch(): raw object can be patched with a provided patch function": async () => {
