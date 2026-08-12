@@ -36,7 +36,8 @@ export function mergeStyle(...props: StyleProp[]): StyleProp {
     return mergeStyleFallback(props);
 }
 
-export type StyleObject = Record<number, never> & { [K in keyof CSSStyleDeclaration]?: CSSStyleDeclaration[K] | null };
+/** normalized (kebab-case) style declaration object */
+export type StyleObject = Record<string, CSSStyleDeclaration[keyof CSSStyleDeclaration]>;
 
 /**
  * get the evaluated style object from any StyleProp.
@@ -44,9 +45,9 @@ export type StyleObject = Record<number, never> & { [K in keyof CSSStyleDeclarat
  * @param style style prop (string, object, or null/undefined)
  * @returns the evaluated style object or null if the style is not defined
  */
-export function styleObject(style: StyleProp): StyleObject | null {
+export function normalizeStyle(style: StyleProp): StyleObject | null {
     if (typeof style === "string") {
-        const obj: { [K in keyof CSSStyleDeclaration]?: CSSStyleDeclaration[K] | null } = {};
+        const obj: StyleObject = {};
         const styling = stylingElement ??= document.createElement("div");
         try {
             styling.style.cssText = style;
@@ -72,7 +73,7 @@ export function styleObject(style: StyleProp): StyleObject | null {
         } finally {
             styling.style.cssText = "";
         }
-        return styleObject(result);
+        return normalizeStyle(result);
     }
     return null;
 }

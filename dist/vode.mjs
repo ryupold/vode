@@ -979,7 +979,7 @@ function mergeStyle(...props2) {
   }
   return mergeStyleFallback(props2);
 }
-function styleObject(style) {
+function normalizeStyle(style) {
   if (typeof style === "string") {
     const obj = {};
     const styling = stylingElement ??= document.createElement("div");
@@ -1007,7 +1007,7 @@ function styleObject(style) {
     } finally {
       styling.style.cssText = "";
     }
-    return styleObject(result);
+    return normalizeStyle(result);
   }
   return null;
 }
@@ -1614,8 +1614,8 @@ export {
   mergeProps,
   mergeState,
   mergeStyle,
+  normalizeStyle,
   props,
-  styleObject,
   tag,
   vode
 };

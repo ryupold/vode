@@ -1,13 +1,13 @@
-import { styleObject, mergeStyle } from "../index";
+import { normalizeStyle, mergeStyle } from "../index";
 import { expect } from "./helper";
 
 // Helper to normalize style strings for comparison (browser normalizes CSS differently)
-function normalizeStyle(s: string): string {
+function fixStyle(s: string): string {
     return s.replace(/;\s*/g, ';').replace(/:\s*/g, ':').replace(/^;/, '').replace(/;$/, '').toLowerCase();
 }
 
 function hasStyle(result: string, prop: string, value: string): boolean {
-    const normalized = normalizeStyle(result);
+    const normalized = fixStyle(result);
 
     return normalized.includes(`${prop}:${value}`) || normalized.includes(`${prop}: ${value}`);
 }
@@ -76,20 +76,20 @@ export default {
         await expect(hasStyle(result, "font-size", "14px")).toEqual(true);
     },
 
-    //=== styleObject ===
+    //=== normalizeStyle ===
 
-    "styleObject(): returns null for empty style values": async () => {
-        await expect(styleObject(false)).toEqual(null);
-        await expect(styleObject(null)).toEqual(null);
-        await expect(styleObject(undefined)).toEqual(null);
+    "normalizeStyle(): returns null for empty style values": async () => {
+        await expect(normalizeStyle(false)).toEqual(null);
+        await expect(normalizeStyle(null)).toEqual(null);
+        await expect(normalizeStyle(undefined)).toEqual(null);
     },
     
-    "styleObject(): returns object styles normalized if already an object": async () => {
+    "normalizeStyle(): returns object styles normalized if already an object": async () => {
         if ((document as any)._fake) return;
         // skipped: Node test DOM does not implement CSS parsing
 
         const style = { color: "red", fontSize: "14px" };
-        const result = styleObject(style);
+        const result = normalizeStyle(style);
 
         await expect(result !== style).toEqual(true, "new object is created");
         await expect(result).toEqual({
@@ -98,11 +98,11 @@ export default {
         });
     },
 
-    "styleObject(): evaluates CSS strings into style properties": async () => {
+    "normalizeStyle(): evaluates CSS strings into style properties": async () => {
         if ((document as any)._fake) return;
         // skipped: Node test DOM does not implement CSS parsing
 
-        const result = styleObject("color: red; font-size: 14px");
+        const result = normalizeStyle("color: red; font-size: 14px");
 
         expect(result).toBeA("object");
 
@@ -112,22 +112,22 @@ export default {
         });
     },
 
-    "styleObject(): does not leak styles into a later mergeStyle call": async () => {
+    "normalizeStyle(): does not leak styles into a later mergeStyle call": async () => {
         if ((document as any)._fake) return;
         // skipped: Node test DOM does not implement CSS parsing
 
-        styleObject("color: red");
-        styleObject("background-color: blue");
+        normalizeStyle("color: red");
+        normalizeStyle("background-color: blue");
 
         const result = mergeStyle("font-size: 14px", "") as string;
         await expect(hasStyle(result, "font-size", "14px")).toEqual(true);
         await expect(hasStyle(result, "color", "red")).toEqual(
             false,
-            "styleObject must not leave styles in mergeStyle's shared element",
+            "normalizeStyle must not leave styles in mergeStyle's shared element",
         );
         await expect(hasStyle(result, "background-color", "blue")).toEqual(
             false,
-            "styleObject must not leave styles in mergeStyle's shared element",
+            "normalizeStyle must not leave styles in mergeStyle's shared element",
         );
     },
 

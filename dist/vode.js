@@ -255,8 +255,8 @@ var V = (() => {
     mergeProps: () => mergeProps,
     mergeState: () => mergeState,
     mergeStyle: () => mergeStyle,
+    normalizeStyle: () => normalizeStyle,
     props: () => props,
-    styleObject: () => styleObject,
     tag: () => tag,
     vode: () => vode
   });
@@ -1242,7 +1242,7 @@ var V = (() => {
     }
     return mergeStyleFallback(props2);
   }
-  function styleObject(style) {
+  function normalizeStyle(style) {
     if (typeof style === "string") {
       const obj = {};
       const styling = stylingElement ??= document.createElement("div");
@@ -1270,7 +1270,7 @@ var V = (() => {
       } finally {
         styling.style.cssText = "";
       }
-      return styleObject(result);
+      return normalizeStyle(result);
     }
     return null;
   }

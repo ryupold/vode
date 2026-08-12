@@ -532,6 +532,14 @@ export declare const NONE: Tag;
 
 export declare type NoPropsVode<S = PatchableState> = [tag: Tag, ...children: ChildVode<S>[]] | TextVode[];
 
+/**
+ * get the evaluated style object from any StyleProp.
+ * Note: the style property keys get normalized during this process (e.g. fontSize becomes font-size)
+ * @param style style prop (string, object, or null/undefined)
+ * @returns the evaluated style object or null if the style is not defined
+ */
+export declare function normalizeStyle(style: StyleProp): StyleObject | null;
+
 export declare const NOSCRIPT: Tag;
 
 export declare type NoVode = undefined | null | number | boolean | bigint | void;
@@ -679,17 +687,8 @@ export declare const STRONG: Tag;
 
 export declare const STYLE: Tag;
 
-export declare type StyleObject = Record<number, never> & {
-    [K in keyof CSSStyleDeclaration]?: CSSStyleDeclaration[K] | null;
-};
-
-/**
- * get the evaluated style object from any StyleProp.
- * Note: the style property keys get normalized during this process (e.g. fontSize becomes font-size)
- * @param style style prop (string, object, or null/undefined)
- * @returns the evaluated style object or null if the style is not defined
- */
-export declare function styleObject(style: StyleProp): StyleObject | null;
+/** normalized (kebab-case) style declaration object */
+export declare type StyleObject = Record<string, CSSStyleDeclaration[keyof CSSStyleDeclaration]>;
 
 export declare type StyleProp = string | (Record<number, never> & {
     [K in keyof CSSStyleDeclaration]?: CSSStyleDeclaration[K] | null;
