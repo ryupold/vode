@@ -334,10 +334,34 @@ export default {
         await expect(status.data.numbers).toEqual([0, 0, 0]);
     },
 
-     "context(state, c => c.a.b.c): change keys by setting $KEYS on the context": async () => {
-        const state = createState({ 
+    "context(invalidPath): to a non-existing sub-state": async () => {
+        const state: any = {
+            data: { number: 123 },
+        };
+
+        const foobarCtx = context(state, s => s.data.number.foo.bar);
+
+        await expect(foobarCtx.get()).toEqual(undefined);
+
+        foobarCtx.put({ test: 123 });
+        
+        await expect(state).toEqual({ data: { number: { foo: { bar: { test: 123 } } } } });
+        await expect(foobarCtx.test.get()).toEqual(123);
+    },
+
+    "context(...)[$KEYS]: get key path (array) by reading $KEYS of the context": async () => {
+        const state = { 
+            data: { form: { numbers: [1, 2, 3] } },
+        };
+
+        const numbersCtx = context(state, s => s.data.form.numbers);
+        await expect((numbersCtx as any)[$KEYS]).toEqual(["data", "form", "numbers"]);
+    },
+
+     "context(...)[$KEYS] = keys: change keys by assigning an array to $KEYS on the context": async () => {
+        const state = { 
             data: { numbers: [1, 2, 3], string: "this is a test" },
-        });
+        };
 
         const numbersCtx = context(state, s => s.data.numbers);
         await expect(numbersCtx.get()).toEqual([1,2,3]);

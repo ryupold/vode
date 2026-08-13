@@ -156,7 +156,6 @@ class ProxyStateContextImpl<S extends PatchableState, SubState> {
 
         return new Proxy(this, {
             get: (target, prop, receiver) => {
-
                 if (prop === 'get')
                     return get;
 
@@ -166,6 +165,9 @@ class ProxyStateContextImpl<S extends PatchableState, SubState> {
                 if (prop === 'patch')
                     return patch;
 
+                if(prop === $KEYS)
+                    return target.keys;
+                    
                 // otherwise return a new ProxyStateContext for nested access
                 const newKeys = [...keys, String(prop)];
                 return new ProxyStateContextImpl<S, any>(target.state, newKeys);
