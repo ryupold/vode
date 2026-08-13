@@ -146,12 +146,7 @@ class ProxyStateContextImpl<S extends PatchableState, SubState> {
         }
 
         function patch(value: SubState | DeepPartial<SubState> | Array<DeepPartial<SubState>> | undefined | null, animated?: boolean) {
-            if (animated) {
-                state.patch([createPatch(value as DeepPartial<SubState>)]);
-            }
-            else {
-                state.patch(createPatch(value as DeepPartial<SubState>));
-            }
+            state.patch(createPatch(value as DeepPartial<SubState>), animated);
         }
 
         return new Proxy(this, {

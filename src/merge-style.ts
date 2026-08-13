@@ -23,7 +23,9 @@ export function mergeStyle(...props: StyleProp[]): StyleProp {
                     }
                 } else if (typeof style === "string") {
                     const old = merged.cssText;
-                    merged.cssText = (old?.length > 0 && old[old.length - 1] !== ";") ? (old + ";" + style) : (old + style);
+                    merged.cssText = (old?.length > 0 && old[old.length - 1] !== ";") 
+                        ? (old + ";" + style) 
+                        : (old + style);
                 }
             }
             return merged.cssText;
