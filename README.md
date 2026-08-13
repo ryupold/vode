@@ -117,11 +117,15 @@ Copy into a HTML file and open it in a browser to see the example in action.
 
         // bind the root component, state and render function
         app(appNode, state,
-            (s) => [DIV, { style: {
-                maxWidth: '720px', margin: '40px auto', padding: '24px',
-                font: '15px system-ui', borderRadius: '20px', background: '#f8fafc',
-                boxShadow: '0 16px 50px #0f172a22',
-            } },
+            (s) => [DIV, 
+                { 
+                    id: 'app',
+                    style: {
+                        maxWidth: '720px', margin: '40px auto', padding: '24px',
+                        font: '15px system-ui', borderRadius: '20px', background: '#f8fafc',
+                        boxShadow: '0 16px 50px #0f172a22',
+                    } 
+                },
                 [DIV, { style: {
                     display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
                     gap: '28px', alignItems: 'center'
@@ -206,7 +210,7 @@ Binds the library to the global `V` variable.
 
         V.app(appNode, state,
             function (s) {
-                return ["div", { style: {
+                return ["div", { id: 'app', style: {
                     maxWidth: '720px', margin: '40px auto', padding: '24px',
                     font: '15px system-ui', borderRadius: '20px', background: '#f8fafc',
                     boxShadow: '0 16px 50px #0f172a22'
@@ -321,6 +325,7 @@ const Preview = (s: State) => [SVG,
 app(appNode, state,
     (s) => <Vode>[DIV, 
           { 
+            id: 'app',
             style: {
               maxWidth: '720px', margin: '40px auto', padding: '24px',
               font: '15px system-ui', borderRadius: '20px', background: '#f8fafc',
@@ -660,6 +665,11 @@ s.patch([]);
 // skip current view transition and start this view transition instead
 s.patch([[], { loading: true }]);
 ```
+
+> **Symbols are ignored**
+> 
+> The state can contain `symbol` keys and you can get/set them any time, but they will be ignored when contained in a render patch.
+> So a render patch like `{ [Symbol('foo')]: 'some value' }` is equivalent to patching `{}`.
 
 ### memoization
 To optimize performance, you can use `memo(depsArray, Component)` to cache the result of a component function.

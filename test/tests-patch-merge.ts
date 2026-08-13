@@ -99,4 +99,20 @@ export default {
             delete (Object.prototype as any).nestedPolluted;
         }
     },
+
+    "patch-merge: patching symbols is ignored": async () => {
+        const fooSymbol = Symbol('foo');
+        const state = createState({ data: { [fooSymbol]: "this is a test" } });
+
+        const container = setup();
+        app(container, state, () => [DIV]);
+
+        // this patch becomes just `{ data: {} }` during state merge
+        state.patch({ data: { [fooSymbol]: "bar" } });
+        
+        await expect(state).toEqual(
+            { data: { [fooSymbol]: "this is a test" } },
+            "unchanged because Symbols keys are ignored when patching"
+        );
+    },
 };
