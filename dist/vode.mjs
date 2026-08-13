@@ -1119,11 +1119,7 @@ var ProxyStateContextImpl = class _ProxyStateContextImpl {
       putDeep(value, state);
     }
     function patch(value, animated) {
-      if (animated) {
-        state.patch([createPatch2(value)]);
-      } else {
-        state.patch(createPatch2(value));
-      }
+      state.patch(createPatch2(value), animated);
     }
     return new Proxy(this, {
       get: (target, prop, receiver) => {
@@ -1133,6 +1129,8 @@ var ProxyStateContextImpl = class _ProxyStateContextImpl {
           return put;
         if (prop === "patch")
           return patch;
+        if (prop === $KEYS)
+          return target.keys;
         const newKeys = [...keys, String(prop)];
         return new _ProxyStateContextImpl(target.state, newKeys);
       },
